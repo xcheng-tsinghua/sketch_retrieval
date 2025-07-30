@@ -282,6 +282,7 @@ def create_png_sketch_image_model(embed_dim=512,
         freeze_sketch_backbone: 是否冻结草图编码器主干网络
         dropout_rate: Dropout率
         temperature: 初始温度参数
+        sketch_format: 初始温度参数
         
     Returns:
         model: PNG草图-图像对齐模型
