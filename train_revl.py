@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
-    parser.add_argument('--batch_size', type=int, default=400, help='批次大小')
+    parser.add_argument('--bs', type=int, default=400, help='批次大小')
     parser.add_argument('--learning_rate', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--max_epochs', type=int, default=50, help='最大训练轮数')
@@ -326,7 +326,7 @@ def main(args):
     # 创建数据加载器
     logger.info("创建数据加载器...")
     train_loader, test_loader, dataset_info = create_png_sketch_dataloaders(
-        batch_size=args.batch_size,
+        batch_size=args.bs,
         num_workers=args.num_workers,
         fixed_split_path=split_file,
         root=args.root_local if eval(args.local) else args.root_sever,
