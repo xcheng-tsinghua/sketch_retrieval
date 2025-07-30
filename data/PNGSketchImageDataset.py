@@ -96,25 +96,20 @@ class PNGSketchImageDataset(Dataset):
             category_idx: 类别索引
             category_name: 类别名称
         """
-        sketch_path, image_path, category = self.data_pairs[idx]
-        # sketch_path: 'E:\\Master\\Experiment\\data\\sketch\\teddy_bear\\n04399382_22297-5.png'
-        # image_path: 'E:\\Master\\Experiment\\data\\photo\\teddy_bear\\n04399382_22297.jpg'
-        # category: 'teddy_bear'
 
-        sketch_path = sketch_path.replace('E:\\Master\\Experiment\\data\\sketch', self.root + '\\sketch_s3_352')
-        sketch_path = os.path.splitext(sketch_path)[0]
-        sketch_path = sketch_path + '.txt'
-        image_path = image_path.replace('E:\\Master\\Experiment\\data', self.root)
+        max_iter = 100
+        c_iter = 0
+        while True:
+            if c_iter > max_iter:
+                raise ValueError('having searched too much files, no valid file is available')
 
-        if os.name == 'nt':
-            sketch_path = sketch_path.replace('/', '\\')
-            image_path = image_path.replace('/', '\\')
-        else:
-            sketch_path = sketch_path.replace('\\', '/')
-            image_path = image_path.replace('\\', '/')
+            sketch_path, image_path, category = self.get_path(idx)
 
-        # sketch_path: 'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\sketchy\\sketch_s3_352\\strawberry\\n07745940_1188-4.png'
-        # image_path: 'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\sketchy\\photo\\strawberry\\n07745940_1188.jpg'
+            if os.path.exists(sketch_path) and os.path.exists(image_path):
+                break
+            else:
+                idx = self.next(idx)
+                c_iter += 1
 
         try:
             # 加载PNG草图
@@ -138,7 +133,30 @@ class PNGSketchImageDataset(Dataset):
             print(f"Sketch path: {sketch_path}")
             print(f"Image path: {image_path}")
             raise e
-    
+
+    def get_path(self, idx):
+        sketch_path, image_path, category = self.data_pairs[idx]
+        # sketch_path: 'E:\\Master\\Experiment\\data\\sketch\\teddy_bear\\n04399382_22297-5.png'
+        # image_path: 'E:\\Master\\Experiment\\data\\photo\\teddy_bear\\n04399382_22297.jpg'
+        # category: 'teddy_bear'
+
+        sketch_path = sketch_path.replace('E:\\Master\\Experiment\\data\\sketch', self.root + '\\sketch_s3_352')
+        sketch_path = os.path.splitext(sketch_path)[0]
+        sketch_path = sketch_path + '.txt'
+        image_path = image_path.replace('E:\\Master\\Experiment\\data', self.root)
+
+        if os.name == 'nt':
+            sketch_path = sketch_path.replace('/', '\\')
+            image_path = image_path.replace('/', '\\')
+        else:
+            sketch_path = sketch_path.replace('\\', '/')
+            image_path = image_path.replace('\\', '/')
+
+        # sketch_path: 'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\sketchy\\sketch_s3_352\\strawberry\\n07745940_1188-4.png'
+        # image_path: 'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\sketchy\\photo\\strawberry\\n07745940_1188.jpg'
+
+        return sketch_path, image_path, category
+
     def get_category_info(self):
         """获取类别信息"""
         return {
@@ -146,6 +164,13 @@ class PNGSketchImageDataset(Dataset):
             'category_to_idx': self.category_to_idx,
             'num_categories': len(self.categories)
         }
+
+    def next(self, idx):
+        if idx == len(self.data_pairs) - 1:
+            idx = 0
+        else:
+            idx += 1
+        return idx
     
     def get_data_info(self):
         """获取数据集信息"""
