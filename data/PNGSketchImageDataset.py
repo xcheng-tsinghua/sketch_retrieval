@@ -63,7 +63,7 @@ class RetrievalDataset(Dataset):
                  mode='train',
                  max_seq_length=11*32,
                  test_ratio=0.2,
-                 sketch_image_subdirs=('sketch_s3_352', 'photo'),
+                 sketch_image_subdirs=('sketch_s3_352', 'sketch_png', 'photo'),  # [0]: vector_sketch, [1]: image_sketch, [2]: photo
                  sketch_format='vector',  # ['vector', 'image']
                  sketch_transform=None,
                  image_transform=None
@@ -91,11 +91,14 @@ class RetrievalDataset(Dataset):
 
         if self.sketch_format == 'vector':
             suffix = 'txt'
+            sketch_subdir = sketch_image_subdirs[0]
         else:
             suffix = 'png'
+            sketch_subdir = sketch_image_subdirs[1]
+        photo_subdir = sketch_image_subdirs[2]
 
         # 草图根目录
-        sketch_root = os.path.join(root, sketch_image_subdirs[0])
+        sketch_root = os.path.join(root, sketch_subdir)
 
         # 草图类别
         classes = get_subdirs(sketch_root)
@@ -116,7 +119,7 @@ class RetrievalDataset(Dataset):
             for idx, c_sketch in enumerate(c_sketch_all):
                 # 获取图片文件名
                 img_name = os.path.basename(c_sketch).split('-')[0] + '.jpg'
-                img_path = os.path.join(root, sketch_image_subdirs[1], c_class, img_name)
+                img_path = os.path.join(root, photo_subdir, c_class, img_name)
 
                 # 训练时需要将 idx >= test_idx 的数据
                 if is_train and idx >= test_idx:
