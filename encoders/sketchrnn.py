@@ -5,6 +5,7 @@ import torch.nn as nn
 class BiLSTMEncoder(nn.Module):
     def __init__(self, input_dim=5, hidden_dim=256, num_layers=2, bidirectional=True, dropout=0.4):
         super().__init__()
+        print('Create BiLSTMEncoder')
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.bidirectional = bidirectional
