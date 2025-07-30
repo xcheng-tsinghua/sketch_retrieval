@@ -4,7 +4,6 @@ PNG草图-图像对齐模型训练脚本
 """
 
 import os
-import sys
 import torch
 import torch.optim as optim
 import argparse
@@ -12,9 +11,6 @@ from datetime import datetime
 import json
 import logging
 from tqdm import tqdm
-
-# 添加项目根目录到路径
-# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # 导入数据集和模型
 from data.PNGSketchImageDataset import create_png_sketch_dataloaders
@@ -130,9 +126,7 @@ class PNGSketchImageTrainer:
         self.model.train()
         total_loss = 0.0
         num_batches = len(self.train_loader)
-        
-        progress_bar = tqdm(self.train_loader, 
-                          desc=f"Epoch {self.current_epoch + 1}/{self.max_epochs}")
+        progress_bar = tqdm(self.train_loader, desc=f"Epoch {self.current_epoch + 1}/{self.max_epochs}")
         
         for batch_idx, (sketches, images, category_indices, category_names) in enumerate(progress_bar):
             # 移动数据到设备
@@ -385,3 +379,5 @@ def main(args):
 
 if __name__ == '__main__':
     main(parse_args())
+
+
