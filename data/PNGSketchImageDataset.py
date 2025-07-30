@@ -106,10 +106,13 @@ class PNGSketchImageDataset(Dataset):
         sketch_path = sketch_path + '.txt'
         image_path = image_path.replace('E:\\Master\\Experiment\\data', self.root)
 
-        image_path = image_path.replace('\\', '/')
+        if os.name == 'nt':
+            sketch_path = sketch_path.replace('/', '\\')
+            image_path = image_path.replace('/', '\\')
+        else:
+            sketch_path = sketch_path.replace('\\', '/')
+            image_path = image_path.replace('\\', '/')
 
-        sketch_path = os.path.normpath(sketch_path)
-        image_path = os.path.normpath(image_path)
         # sketch_path: 'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\sketchy\\sketch_s3_352\\strawberry\\n07745940_1188-4.png'
         # image_path: 'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\sketchy\\photo\\strawberry\\n07745940_1188.jpg'
 
