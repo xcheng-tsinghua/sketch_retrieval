@@ -260,12 +260,12 @@ class PNGSketchImageAlignmentModel(nn.Module):
 
 
 def create_png_sketch_image_model(embed_dim=512,
-                                 sketch_model_name='vit_base_patch16_224',
-                                 image_model_name='vit_base_patch16_224',
-                                 freeze_image_encoder=True,
-                                 freeze_sketch_backbone=False,
-                                 dropout_rate=0.1,
-                                 temperature=0.07):
+                                  sketch_model_name='vit_base_patch16_224',
+                                  image_model_name='vit_base_patch16_224',
+                                  freeze_image_encoder=True,
+                                  freeze_sketch_backbone=False,
+                                  dropout_rate=0.1,
+                                  temperature=0.07):
     """
     创建PNG草图-图像对齐模型
     
