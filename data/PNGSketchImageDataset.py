@@ -206,8 +206,10 @@ def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=Fal
 
 
 def create_png_sketch_dataloaders(batch_size=32, 
-                                num_workers=4,
-                                fixed_split_path='./data/fixed_splits/png_sketch_image_dataset_splits.pkl'):
+                                  num_workers=4,
+                                  fixed_split_path='./data/fixed_splits/png_sketch_image_dataset_splits.pkl',
+                                  root=None
+                                  ):
     """
     创建训练和测试数据加载器
     
@@ -253,14 +255,16 @@ def create_png_sketch_dataloaders(batch_size=32,
         mode='train',
         fixed_split_path=fixed_split_path,
         sketch_transform=train_sketch_transform,
-        image_transform=train_image_transform
+        image_transform=train_image_transform,
+        root=root
     )
     
     test_dataset = PNGSketchImageDataset(
         mode='test', 
         fixed_split_path=fixed_split_path,
         sketch_transform=test_transform,
-        image_transform=test_transform
+        image_transform=test_transform,
+        root=root
     )
     
     # 创建数据加载器

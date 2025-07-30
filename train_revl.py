@@ -6,10 +6,7 @@ PNG草图-图像对齐模型训练脚本
 import os
 import sys
 import torch
-import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-import numpy as np
 import argparse
 from datetime import datetime
 import json
@@ -17,16 +14,43 @@ import logging
 from tqdm import tqdm
 
 # 添加项目根目录到路径
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # 导入数据集和模型
 from data.PNGSketchImageDataset import create_png_sketch_dataloaders
 from encoders.png_sketch_image_model import create_png_sketch_image_model
 from encoders.loss_func import ContrastiveLoss
 
+
 # 设置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
+    parser.add_argument('--batch_size', type=int, default=32, help='批次大小')
+    parser.add_argument('--learning_rate', type=float, default=1e-4, help='学习率')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
+    parser.add_argument('--max_epochs', type=int, default=50, help='最大训练轮数')
+    parser.add_argument('--warmup_epochs', type=int, default=5, help='预热轮数')
+    parser.add_argument('--patience', type=int, default=10, help='早停耐心')
+    parser.add_argument('--save_every', type=int, default=5, help='保存间隔')
+    parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
+    parser.add_argument('--freeze_image_encoder', action='store_true', default=True,
+                        help='冻结图像编码器')
+    parser.add_argument('--freeze_sketch_backbone', action='store_true', default=False,
+                        help='冻结草图编码器主干网络')
+    parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
+    parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
+    parser.add_argument('--output_dir', type=str, default=None, help='输出目录')
+
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy')
+
+    args = parser.parse_args()
+    return args
 
 
 class PNGSketchImageTrainer:
@@ -288,25 +312,7 @@ class PNGSketchImageTrainer:
         logger.info(f"训练历史已保存: {history_path}")
 
 
-def main():
-    parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
-    parser.add_argument('--batch_size', type=int, default=32, help='批次大小')
-    parser.add_argument('--learning_rate', type=float, default=1e-4, help='学习率')
-    parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
-    parser.add_argument('--max_epochs', type=int, default=50, help='最大训练轮数')
-    parser.add_argument('--warmup_epochs', type=int, default=5, help='预热轮数')
-    parser.add_argument('--patience', type=int, default=10, help='早停耐心')
-    parser.add_argument('--save_every', type=int, default=5, help='保存间隔')
-    parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
-    parser.add_argument('--freeze_image_encoder', action='store_true', default=True, 
-                       help='冻结图像编码器')
-    parser.add_argument('--freeze_sketch_backbone', action='store_true', default=False,
-                       help='冻结草图编码器主干网络')
-    parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
-    parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
-    parser.add_argument('--output_dir', type=str, default=None, help='输出目录')
-    
-    args = parser.parse_args()
+def main(args):
     
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -329,7 +335,8 @@ def main():
     train_loader, test_loader, dataset_info = create_png_sketch_dataloaders(
         batch_size=args.batch_size,
         num_workers=args.num_workers,
-        fixed_split_path=split_file
+        fixed_split_path=split_file,
+        root=args.root_local if eval(args.local) else args.root_sever
     )
     
     logger.info(f"数据集信息:")
@@ -377,4 +384,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(parse_args())
