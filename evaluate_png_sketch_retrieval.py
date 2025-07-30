@@ -206,6 +206,8 @@ def main():
     parser.add_argument('--output_dir', type=str, default=None, help='结果输出目录')
     parser.add_argument('--visualize', action='store_true', help='生成可视化结果')
     parser.add_argument('--num_viz_examples', type=int, default=10, help='可视化示例数量')
+    parser.add_argument('--freeze_image_encoder', action='store_true', default=True, help='冻结图像编码器')
+    parser.add_argument('--freeze_sketch_backbone', action='store_true', default=False, help='冻结草图编码器主干网络')
     
     args = parser.parse_args()
     
@@ -237,7 +239,11 @@ def main():
     
     # 创建模型
     print(f"从 {args.checkpoint_path} 加载模型...")
-    model = create_png_sketch_image_model(embed_dim=512)
+    model = create_png_sketch_image_model(
+        embed_dim=512,
+        freeze_image_encoder=args.freeze_image_encoder,
+        freeze_sketch_backbone=args.freeze_sketch_backbone,
+    )
     
     # 加载检查点
     if os.path.exists(args.checkpoint_path):

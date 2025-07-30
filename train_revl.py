@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
-    parser.add_argument('--bs', type=int, default=400, help='批次大小')
+    parser.add_argument('--bs', type=int, default=100, help='批次大小')
     parser.add_argument('--learning_rate', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--max_epochs', type=int, default=50, help='最大训练轮数')
@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument('--patience', type=int, default=10, help='早停耐心')
     parser.add_argument('--save_every', type=int, default=5, help='保存间隔')
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
-    parser.add_argument('--freeze_image_encoder', action='store_true', default=False, help='冻结图像编码器')
+    parser.add_argument('--freeze_image_encoder', action='store_true', default=True, help='冻结图像编码器')
     parser.add_argument('--freeze_sketch_backbone', action='store_true', default=False, help='冻结草图编码器主干网络')
     parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
     parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
