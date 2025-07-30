@@ -166,7 +166,7 @@ class PNGSketchImageDataset(Dataset):
         }
 
     def next(self, idx):
-        if idx == len(self.data_pairs) - 1:
+        if idx == len(self) - 1:
             idx = 0
         else:
             idx += 1
