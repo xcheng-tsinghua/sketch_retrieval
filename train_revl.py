@@ -33,13 +33,12 @@ def parse_args():
     parser.add_argument('--patience', type=int, default=10, help='早停耐心')
     parser.add_argument('--save_every', type=int, default=5, help='保存间隔')
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
-    parser.add_argument('--freeze_image_encoder', action='store_true', default=True,
-                        help='冻结图像编码器')
-    parser.add_argument('--freeze_sketch_backbone', action='store_true', default=False,
-                        help='冻结草图编码器主干网络')
+    parser.add_argument('--freeze_image_encoder', action='store_true', default=False, help='冻结图像编码器')
+    parser.add_argument('--freeze_sketch_backbone', action='store_true', default=False, help='冻结草图编码器主干网络')
     parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
     parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
     parser.add_argument('--output_dir', type=str, default=None, help='输出目录')
+    parser.add_argument('--sketch_format', type=str, default='vector', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
@@ -330,7 +329,8 @@ def main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         fixed_split_path=split_file,
-        root=args.root_local if eval(args.local) else args.root_sever
+        root=args.root_local if eval(args.local) else args.root_sever,
+        sketch_format=args.sketch_format
     )
     
     logger.info(f"数据集信息:")
@@ -343,7 +343,8 @@ def main(args):
     model = create_png_sketch_image_model(
         embed_dim=args.embed_dim,
         freeze_image_encoder=args.freeze_image_encoder,
-        freeze_sketch_backbone=args.freeze_sketch_backbone
+        freeze_sketch_backbone=args.freeze_sketch_backbone,
+        sketch_format=args.sketch_format
     )
     model.to(device)
     

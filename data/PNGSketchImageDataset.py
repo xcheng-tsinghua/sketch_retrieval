@@ -64,6 +64,7 @@ class RetrievalDataset(Dataset):
                  max_seq_length=11*32,
                  test_ratio=0.2,
                  sketch_image_subdirs=('sketch_s3_352', 'photo'),
+                 sketch_format='vector',  # ['vector', 'image']
                  sketch_transform=None,
                  image_transform=None
                  ):
@@ -86,6 +87,12 @@ class RetrievalDataset(Dataset):
 
         self.mode = mode
         is_train = True if mode == 'train' else False
+        self.sketch_format = sketch_format
+
+        if self.sketch_format == 'vector':
+            suffix = 'txt'
+        else:
+            suffix = 'png'
 
         # 草图根目录
         sketch_root = os.path.join(root, sketch_image_subdirs[0])
@@ -101,7 +108,7 @@ class RetrievalDataset(Dataset):
             c_class_root = os.path.join(sketch_root, c_class)
 
             # 获取全部草图 txt 文件
-            c_sketch_all = get_allfiles(c_class_root, 'txt')
+            c_sketch_all = get_allfiles(c_class_root, suffix)
 
             n_c_sketch = len(c_sketch_all)
             test_idx = math.ceil(n_c_sketch * test_ratio)
@@ -127,7 +134,12 @@ class RetrievalDataset(Dataset):
 
     def __getitem__(self, index):
         sketch_path, image_path, category = self.sketch_image[index]
-        sketch, mask = s3_file_to_s5(sketch_path, self.max_seq_length)
+
+        if self.sketch_format == 'vector':
+            sketch, mask = s3_file_to_s5(sketch_path, self.max_seq_length)
+        else:
+            sketch_pil = Image.open(sketch_path).convert('RGB')
+            sketch = self.sketch_transform(sketch_pil)
 
         # 加载JPG图像
         image_pil = Image.open(image_path).convert('RGB')
@@ -390,7 +402,8 @@ def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=Fal
 def create_png_sketch_dataloaders(batch_size=32, 
                                   num_workers=4,
                                   fixed_split_path='./data/fixed_splits/png_sketch_image_dataset_splits.pkl',
-                                  root=None
+                                  root=None,
+                                  sketch_format=None
                                   ):
     """
     创建训练和测试数据加载器
@@ -453,14 +466,16 @@ def create_png_sketch_dataloaders(batch_size=32,
         mode='train',
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
-        root=root
+        root=root,
+        sketch_format=sketch_format
     )
 
     test_dataset = RetrievalDataset(
         mode='test',
         sketch_transform=test_transform,
         image_transform=test_transform,
-        root=root
+        root=root,
+        sketch_format=sketch_format
     )
     
     # 创建数据加载器

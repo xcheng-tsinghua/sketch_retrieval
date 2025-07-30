@@ -36,12 +36,14 @@ class PNGSketchImageAlignmentModel(nn.Module):
                  freeze_sketch_backbone=False,
                  dropout_rate=0.1,
                  temperature=0.07,
+                 sketch_format='vector',  # ['vector', 'image']
                  **kwargs):
         super().__init__()
         
         self.embed_dim = embed_dim
         self.freeze_image_encoder = freeze_image_encoder
         self.freeze_sketch_backbone = freeze_sketch_backbone
+        self.sketch_format = sketch_format
         
         # 可学习的温度参数
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / temperature))
@@ -67,17 +69,18 @@ class PNGSketchImageAlignmentModel(nn.Module):
     
     def _init_encoders(self, sketch_model_name, image_model_name, dropout_rate):
         """初始化编码器"""
-        
-        # PNG草图编码器（可训练）
-        # self.sketch_encoder = create_png_sketch_encoder(
-        #     model_name=sketch_model_name,
-        #     pretrained=True,
-        #     freeze_backbone=self.freeze_sketch_backbone,
-        #     output_dim=self.embed_dim,
-        #     dropout_rate=dropout_rate
-        # )
+        if self.sketch_format == 'vector':
+            self.sketch_encoder = BiLSTMEncoder()
 
-        self.sketch_encoder = BiLSTMEncoder()
+        else:
+            # PNG草图编码器（可训练）
+            self.sketch_encoder = create_png_sketch_encoder(
+                model_name=sketch_model_name,
+                pretrained=True,
+                freeze_backbone=self.freeze_sketch_backbone,
+                output_dim=self.embed_dim,
+                dropout_rate=dropout_rate
+            )
         
         # 图像编码器（通常冻结）
         if self.freeze_image_encoder:
@@ -265,7 +268,9 @@ def create_png_sketch_image_model(embed_dim=512,
                                   freeze_image_encoder=False,
                                   freeze_sketch_backbone=False,
                                   dropout_rate=0.1,
-                                  temperature=0.07):
+                                  temperature=0.07,
+                                  sketch_format=None
+                                  ):
     """
     创建PNG草图-图像对齐模型
     
@@ -288,7 +293,8 @@ def create_png_sketch_image_model(embed_dim=512,
         freeze_image_encoder=freeze_image_encoder,
         freeze_sketch_backbone=freeze_sketch_backbone,
         dropout_rate=dropout_rate,
-        temperature=temperature
+        temperature=temperature,
+        sketch_format=sketch_format
     )
     
     return model
