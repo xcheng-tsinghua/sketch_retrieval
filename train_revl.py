@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_s3_352', 'sketch', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/sketchy_copied')
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy')
 
     # parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
