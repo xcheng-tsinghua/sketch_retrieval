@@ -37,8 +37,6 @@ def parse_args():
     parser.add_argument('--save_str', type=str, default='lstm_vit', help='保存名')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
-    # parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/sketchy_copied')
-    # parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy')
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy')
 
@@ -58,14 +56,16 @@ def main(args):
     
     # 首先创建数据集划分（如果不存在）
     root = args.root_local if eval(args.local) else args.root_sever
-    split_file = './data/fixed_splits/png_sketch_image_dataset_splits.pkl'
+
+    if args.sketch_format == 'vector':
+        sketch_subdir = args.sketch_image_subdirs[0]
+        split_file = './data/fixed_splits/vec_sketch_image_dataset_splits.pkl'
+    else:
+        sketch_subdir = args.sketch_image_subdirs[1]
+        split_file = './data/fixed_splits/png_sketch_image_dataset_splits.pkl'
+
     if eval(args.is_create_fix_data_file) or not os.path.exists(split_file):
         logger.info("PNG草图数据集划分文件不存在，正在创建...")
-        if args.sketch_format == 'vector':
-            sketch_subdir = args.sketch_image_subdirs[0]
-        else:
-            sketch_subdir = args.sketch_image_subdirs[1]
-
         image_subdir = args.sketch_image_subdirs[2]
         create_dataset_splits_file(os.path.join(root, sketch_subdir), os.path.join(root, image_subdir))
     
@@ -76,8 +76,7 @@ def main(args):
         num_workers=args.num_workers,
         fixed_split_path=split_file,
         root=root,
-        sketch_format=args.sketch_format,
-        sketch_image_subdirs=args.sketch_image_subdirs
+        sketch_format=args.sketch_format
     )
     
     logger.info(f"数据集信息:")

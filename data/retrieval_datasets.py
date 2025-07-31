@@ -429,12 +429,11 @@ def image_loader(image_path, image_transform):
     return image
 
 
-def create_png_sketch_dataloaders(batch_size=32, 
-                                  num_workers=4,
-                                  fixed_split_path='./data/fixed_splits/png_sketch_image_dataset_splits.pkl',
-                                  root=None,
-                                  sketch_format=None,
-                                  sketch_image_subdirs=None
+def create_png_sketch_dataloaders(batch_size,
+                                  num_workers,
+                                  fixed_split_path,
+                                  root,
+                                  sketch_format
                                   ):
     """
     创建训练和测试数据加载器
@@ -443,6 +442,8 @@ def create_png_sketch_dataloaders(batch_size=32,
         batch_size: 批次大小
         num_workers: 数据加载进程数
         fixed_split_path: 固定数据集划分文件路径
+        root:
+        sketch_format:
         
     Returns:
         train_loader, test_loader, dataset_info
