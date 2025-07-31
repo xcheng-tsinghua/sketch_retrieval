@@ -6,13 +6,14 @@ import os
 import pickle
 import numpy as np
 import random
-from data.SLMDataset import get_subdirs, get_allfiles
+from data.retrieval_datasets import get_subdirs, get_allfiles
 
 
-def create_png_sketch_dataset_splits(
+def create_dataset_splits_file(
     sketch_root=r'E:\Master\Experiment\data\sketch',
     image_root=r'E:\Master\Experiment\data\photo',
     output_dir='data/fixed_splits',
+    sketch_image_suffix=('png', 'jpg'),
     train_split=0.8,
     random_seed=42
 ):
@@ -23,6 +24,7 @@ def create_png_sketch_dataset_splits(
         sketch_root: PNG草图数据根目录
         image_root: 图片数据根目录  
         output_dir: 输出目录
+        sketch_image_suffix: 草图和图片的文件后缀
         train_split: 训练集比例
         random_seed: 随机种子
     """
@@ -58,10 +60,10 @@ def create_png_sketch_dataset_splits(
         image_category_path = os.path.join(image_root, category)
         
         # 获取该类别下的所有PNG草图文件和JPG图片文件
-        sketch_files = get_allfiles(sketch_category_path, 'png', filename_only=True)
-        image_files = get_allfiles(image_category_path, 'jpg', filename_only=True)
+        sketch_files = get_allfiles(sketch_category_path, sketch_image_suffix[0], filename_only=True)
+        image_files = get_allfiles(image_category_path, sketch_image_suffix[1], filename_only=True)
         
-        print(f"  {category}: 找到 {len(sketch_files)} 个PNG草图, {len(image_files)} 个JPG图片")
+        print(f"{category}: 找到 {len(sketch_files)} 个{sketch_image_suffix[0].upper()}草图, {len(image_files)} 个{sketch_image_suffix[1].upper()}图片")
         
         # 构建图片实例字典和对应的草图列表
         instance_sketches = {}  # {实例id: [草图文件列表]}
@@ -69,7 +71,9 @@ def create_png_sketch_dataset_splits(
         
         # 构建图片实例字典
         for image_file in image_files:
-            instance_id = image_file.replace('.jpg', '')
+            # instance_id = image_file.replace('.jpg', '')
+            instance_id = os.path.splitext(image_file)[0]
+
             image_path = os.path.join(image_category_path, image_file)
             image_dict[instance_id] = image_path
             instance_sketches[instance_id] = []
@@ -77,7 +81,8 @@ def create_png_sketch_dataset_splits(
         # 收集每个实例对应的所有草图
         for sketch_file in sketch_files:
             # 去掉.png扩展名获取基础名称
-            base_name = sketch_file.replace('.png', '')
+            # base_name = sketch_file.replace('.png', '')
+            base_name = os.path.splitext(sketch_file)[0]
             
             # 尝试匹配实例ID（处理可能的草图变体）
             # 首先尝试直接匹配
@@ -104,6 +109,10 @@ def create_png_sketch_dataset_splits(
                 selected_sketch = sketch_list[sketch_idx]
                 sketch_path = os.path.join(sketch_category_path, selected_sketch)
                 image_path = image_dict[instance_id]
+
+                sketch_path = os.path.basename(sketch_path)
+                image_path = os.path.basename(image_path)
+
                 category_pairs.append((sketch_path, image_path, category))
         
         all_data_pairs.extend(category_pairs)
@@ -199,6 +208,7 @@ def create_png_sketch_dataset_splits(
     print(f"统计信息已保存到: {stats_file}")
     
     return dataset_info
+
 
 if __name__ == '__main__':
     # 创建PNG草图的固定数据集划分

@@ -37,7 +37,7 @@ class PNGSketchImageAlignmentModel(nn.Module):
                  dropout_rate=0.1,
                  temperature=0.07,
                  sketch_format='vector',  # ['vector', 'image']
-                 **kwargs):
+                 ):
         super().__init__()
         
         self.embed_dim = embed_dim
@@ -70,11 +70,11 @@ class PNGSketchImageAlignmentModel(nn.Module):
     def _init_encoders(self, sketch_model_name, image_model_name, dropout_rate):
         """初始化编码器"""
         if self.sketch_format == 'vector':
-            print('---- create vector sketch encoder ----')
+            print('---- create VECTOR sketch encoder ----')
             self.sketch_encoder = BiLSTMEncoder()
 
         else:
-            print('---- create image sketch encoder ----')
+            print('---- create IMAGE sketch encoder ----')
             # PNG草图编码器（可训练）
             self.sketch_encoder = create_png_sketch_encoder(
                 model_name=sketch_model_name,

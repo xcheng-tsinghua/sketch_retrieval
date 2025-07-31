@@ -273,11 +273,10 @@ class PNGSketchImageTrainer2:
                  train_loader,
                  test_loader,
                  device,
-                 output_dir,
+                 check_point,
                  logger,
                  learning_rate=1e-4,
                  weight_decay=1e-4,
-                 warmup_epochs=5,
                  max_epochs=50,
                  save_every=5):
 
@@ -285,13 +284,15 @@ class PNGSketchImageTrainer2:
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.device = device
-        self.output_dir = output_dir
+        self.check_point = check_point
         self.max_epochs = max_epochs
         self.save_every = save_every
         self.logger = logger
 
+        self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
+
         # 创建输出目录
-        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(os.path.dirname(self.check_point), exist_ok=True)
 
         # 初始化优化器和学习率调度器
         self.optimizer = optim.AdamW(
@@ -313,23 +314,17 @@ class PNGSketchImageTrainer2:
         self.test_losses = []
 
         self.logger.info(f"训练器初始化完成:")
-        self.logger.info(f"  输出目录: {output_dir}")
+        self.logger.info(f"  检查点保存: {self.check_point}")
+        self.logger.info(f"  最佳检查点保存: {self.check_point_best}")
         self.logger.info(f"  学习率: {learning_rate}")
         self.logger.info(f"  权重衰减: {weight_decay}")
-        self.logger.info(f"  预热轮数: {warmup_epochs}")
         self.logger.info(f"  最大轮数: {max_epochs}")
 
-    def warmup_lr(self, epoch, warmup_epochs, base_lr):
-        """预热学习率"""
-        if epoch < warmup_epochs:
-            lr = base_lr * (epoch + 1) / warmup_epochs
-            for param_group in self.optimizer.param_groups:
-                param_group['lr'] = lr
-            return lr
-        return None
-
     def train_epoch(self):
-        """训练一个epoch"""
+        """
+        训练一个epoch
+        """
+
         self.model.train()
         total_loss = 0.0
         num_batches = len(self.train_loader)
@@ -398,10 +393,8 @@ class PNGSketchImageTrainer2:
         avg_loss = total_loss / num_batches
         return avg_loss
 
-    def save_checkpoint(self, is_best=False, filename=None):
+    def save_checkpoint(self, is_best=False):
         """保存模型检查点"""
-        if filename is None:
-            filename = f"checkpoint_epoch_{self.current_epoch + 1}.pth"
 
         checkpoint = {
             'epoch': self.current_epoch + 1,
@@ -413,15 +406,13 @@ class PNGSketchImageTrainer2:
             'test_losses': self.test_losses
         }
 
-        checkpoint_path = os.path.join(self.output_dir, filename)
-        torch.save(checkpoint, checkpoint_path)
+        torch.save(checkpoint, self.check_point)
 
         if is_best:
-            best_path = os.path.join(self.output_dir, 'best_checkpoint.pth')
-            torch.save(checkpoint, best_path)
-            self.logger.info(f"保存最佳模型: {best_path}")
+            torch.save(checkpoint, self.check_point_best)
+            self.logger.info(f"保存最佳模型: {self.check_point_best}")
 
-        self.logger.info(f"保存检查点: {checkpoint_path}")
+        self.logger.info(f"保存检查点: {self.check_point}")
 
     def load_checkpoint(self, checkpoint_path):
         """加载模型检查点"""
@@ -485,7 +476,7 @@ class PNGSketchImageTrainer2:
             'final_lr': self.optimizer.param_groups[0]['lr']
         }
 
-        history_path = os.path.join(self.output_dir, 'training_history.json')
+        history_path = os.path.join(os.path.dirname(self.check_point), 'training_history.json')
         with open(history_path, 'w') as f:
             json.dump(history, f, indent=2)
 

@@ -12,6 +12,7 @@ import numpy as np
 import random
 import math
 from pathlib import Path
+from functools import partial
 
 
 def get_subdirs(dir_path):
@@ -187,7 +188,11 @@ class PNGSketchImageDataset(Dataset):
                  mode='train',
                  fixed_split_path='./data/fixed_splits/png_sketch_image_dataset_splits.pkl',
                  sketch_transform=None,
-                 image_transform=None):
+                 image_transform=None,
+                 sketch_format='vector',  # ['vector', 'image']
+                 sketch_image_subdirs=('sketch_s3_352', 'sketch_png', 'photo'),  # [0]: vector_sketch, [1]: image_sketch, [2]: photo
+                 vec_seq_length=11*32
+                 ):
         """
         初始化数据集
         
@@ -205,21 +210,36 @@ class PNGSketchImageDataset(Dataset):
         self.mode = mode
         self.fixed_split_path = fixed_split_path
         self.root = root
-        
+        self.sketch_format = sketch_format
+
         # 默认变换
         self.sketch_transform = sketch_transform or transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                              std=[0.229, 0.224, 0.225])
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         
         self.image_transform = image_transform or transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                              std=[0.229, 0.224, 0.225])
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
+
+        self.image_subdir = sketch_image_subdirs[2]
+        if self.sketch_format == 'vector':
+            self.sketch_subdir = sketch_image_subdirs[0]
+            self.sketch_loader = partial(
+                s3_file_to_s5,
+                max_length=vec_seq_length,
+                coor_mode='REL',
+                is_shuffle_stroke=False
+            )
+        else:
+            self.sketch_subdir = sketch_image_subdirs[1]
+            self.sketch_loader = partial(
+                image_loader,
+                image_transform=self.sketch_transform
+            )
         
         # 加载固定的数据集划分
         self._load_fixed_split()
@@ -261,12 +281,14 @@ class PNGSketchImageDataset(Dataset):
             category_idx: 类别索引
             category_name: 类别名称
         """
-        sketch_path, image_path, category = self.data_pairs[idx]
+        sketch_file, image_file, category = self.data_pairs[idx]
+
+        sketch_path = os.path.join(self.root, self.sketch_subdir, category, sketch_file)
+        image_path = os.path.join(self.root, self.image_subdir, category, image_file)
 
         try:
-            # 加载PNG草图
-            sketch_pil = Image.open(sketch_path).convert('RGB')
-            sketch = self.sketch_transform(sketch_pil)
+            # 加载草图
+            sketch = self.sketch_loader(sketch_path)
 
             # 加载JPG图像
             image_pil = Image.open(image_path).convert('RGB')
@@ -296,51 +318,29 @@ class PNGSketchImageDataset(Dataset):
         #     else:
         #         idx = self.next(idx)
         #         c_iter += 1
-
-        try:
-            # 加载PNG草图
-            # sketch_pil = Image.open(sketch_path).convert('RGB')
-            # sketch = self.sketch_transform(sketch_pil)
-
-            # 加载 S3 草图
-            sketch, mask = s3_file_to_s5(sketch_path)
-            
-            # 加载JPG图像
-            image_pil = Image.open(image_path).convert('RGB')
-            image = self.image_transform(image_pil)
-            
-            # 获取类别索引
-            category_idx = self.category_to_idx[category]
-            
-            return sketch, image, category_idx, category
-            
-        except Exception as e:
-            print(f"Error loading data at index {idx}: {e}")
-            print(f"Sketch path: {sketch_path}")
-            print(f"Image path: {image_path}")
-            raise e
-
-    def get_path(self, idx):
-        sketch_path, image_path, category = self.data_pairs[idx]
-        # sketch_path: 'E:\\Master\\Experiment\\data\\sketch\\teddy_bear\\n04399382_22297-5.png'
-        # image_path: 'E:\\Master\\Experiment\\data\\photo\\teddy_bear\\n04399382_22297.jpg'
-        # category: 'teddy_bear'
-
-        sketch_path = sketch_path.replace('E:\\Master\\Experiment\\data\\sketch', self.root + '\\sketch_s3_352')
-        sketch_path = os.path.splitext(sketch_path)[0]
-        sketch_path = sketch_path + '.txt'
-        image_path = image_path.replace('E:\\Master\\Experiment\\data', self.root)
-
-        if os.name == 'nt':
-            sketch_path = sketch_path.replace('/', '\\')
-            image_path = image_path.replace('/', '\\')
-        else:
-            sketch_path = sketch_path.replace('\\', '/')
-            image_path = image_path.replace('\\', '/')
-
-        # sketch_path: 'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\sketchy\\sketch_s3_352\\strawberry\\n07745940_1188-4.png'
-        # image_path: 'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\sketchy\\photo\\strawberry\\n07745940_1188.jpg'
-        return sketch_path, image_path, category
+        #
+        # try:
+        #     # 加载PNG草图
+        #     # sketch_pil = Image.open(sketch_path).convert('RGB')
+        #     # sketch = self.sketch_transform(sketch_pil)
+        #
+        #     # 加载 S3 草图
+        #     sketch, mask = s3_file_to_s5(sketch_path)
+        #
+        #     # 加载JPG图像
+        #     image_pil = Image.open(image_path).convert('RGB')
+        #     image = self.image_transform(image_pil)
+        #
+        #     # 获取类别索引
+        #     category_idx = self.category_to_idx[category]
+        #
+        #     return sketch, image, category_idx, category
+        #
+        # except Exception as e:
+        #     print(f"Error loading data at index {idx}: {e}")
+        #     print(f"Sketch path: {sketch_path}")
+        #     print(f"Image path: {image_path}")
+        #     raise e
 
     def get_category_info(self):
         """获取类别信息"""
@@ -423,6 +423,12 @@ def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=Fal
     return data_cube, mask
 
 
+def image_loader(image_path, image_transform):
+    image_pil = Image.open(image_path).convert('RGB')
+    image = image_transform(image_pil)
+    return image
+
+
 def create_png_sketch_dataloaders(batch_size=32, 
                                   num_workers=4,
                                   fixed_split_path='./data/fixed_splits/png_sketch_image_dataset_splits.pkl',
@@ -449,8 +455,7 @@ def create_png_sketch_dataloaders(batch_size=32,
         transforms.RandomRotation(degrees=10),
         transforms.ColorJitter(brightness=0.2, contrast=0.2),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                           std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
     train_image_transform = transforms.Compose([
@@ -459,51 +464,51 @@ def create_png_sketch_dataloaders(batch_size=32,
         transforms.RandomRotation(degrees=10),
         transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                           std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
     test_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                           std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
     # 创建数据集
-    # train_dataset = PNGSketchImageDataset(
-    #     mode='train',
-    #     fixed_split_path=fixed_split_path,
-    #     sketch_transform=train_sketch_transform,
-    #     image_transform=train_image_transform,
-    #     root=root
-    # )
-    #
-    # test_dataset = PNGSketchImageDataset(
-    #     mode='test',
-    #     fixed_split_path=fixed_split_path,
-    #     sketch_transform=test_transform,
-    #     image_transform=test_transform,
-    #     root=root
-    # )
-
-    train_dataset = RetrievalDataset(
+    train_dataset = PNGSketchImageDataset(
         mode='train',
+        fixed_split_path=fixed_split_path,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
         root=root,
-        sketch_format=sketch_format,
-        sketch_image_subdirs=sketch_image_subdirs
+        sketch_format=sketch_format
     )
 
-    test_dataset = RetrievalDataset(
+    test_dataset = PNGSketchImageDataset(
         mode='test',
+        fixed_split_path=fixed_split_path,
         sketch_transform=test_transform,
         image_transform=test_transform,
         root=root,
-        sketch_format=sketch_format,
-        sketch_image_subdirs=sketch_image_subdirs
+        sketch_format=sketch_format
     )
+
+    # train_dataset = RetrievalDataset(
+    #     mode='train',
+    #     sketch_transform=train_sketch_transform,
+    #     image_transform=train_image_transform,
+    #     root=root,
+    #     sketch_format=sketch_format,
+    #     sketch_image_subdirs=sketch_image_subdirs
+    # )
+    #
+    # test_dataset = RetrievalDataset(
+    #     mode='test',
+    #     sketch_transform=test_transform,
+    #     image_transform=test_transform,
+    #     root=root,
+    #     sketch_format=sketch_format,
+    #     sketch_image_subdirs=sketch_image_subdirs
+    # )
     
     # 创建数据加载器
     train_loader = torch.utils.data.DataLoader(
@@ -555,4 +560,4 @@ if __name__ == '__main__':
             
     except Exception as e:
         print(f"数据集加载失败: {e}")
-        print("请先运行 create_png_sketch_dataset.py 创建数据集划分文件")
+        print("请先运行 dataset_split.py 创建数据集划分文件")
