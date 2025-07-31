@@ -309,7 +309,6 @@ class PNGSketchImageTrainer2:
         # 训练状态
         self.current_epoch = 0
         self.best_loss = float('inf')
-        self.patience_counter = 0
         self.train_losses = []
         self.test_losses = []
 
@@ -411,8 +410,7 @@ class PNGSketchImageTrainer2:
             'scheduler_state_dict': self.scheduler.state_dict(),
             'best_loss': self.best_loss,
             'train_losses': self.train_losses,
-            'test_losses': self.test_losses,
-            'patience_counter': self.patience_counter
+            'test_losses': self.test_losses
         }
 
         checkpoint_path = os.path.join(self.output_dir, filename)
@@ -437,7 +435,6 @@ class PNGSketchImageTrainer2:
             self.best_loss = checkpoint['best_loss']
             self.train_losses = checkpoint['train_losses']
             self.test_losses = checkpoint['test_losses']
-            self.patience_counter = checkpoint['patience_counter']
 
             self.logger.info(f"从检查点恢复训练: {checkpoint_path}")
             return True
@@ -468,11 +465,7 @@ class PNGSketchImageTrainer2:
             is_best = test_loss < self.best_loss
             if is_best:
                 self.best_loss = test_loss
-                self.patience_counter = 0
                 self.logger.info(f"新的最佳测试损失: {test_loss:.4f}")
-            else:
-                self.patience_counter += 1
-                self.logger.info(f"测试损失未改善，耐心计数: {self.patience_counter}/{self.patience}")
 
             # 保存检查点
             if (epoch + 1) % self.save_every == 0 or is_best:
