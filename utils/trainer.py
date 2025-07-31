@@ -411,15 +411,13 @@ class PNGSketchImageTrainer2:
         sketch_labels = torch.tensor(sketch_labels)
         image_labels = torch.tensor(image_labels)
 
-        print(f"提取特征完成: sketch {sketch_features.shape}, image {image_features.shape}")
-
         # 计算相似度矩阵
-        print("评估检索性能...")
+        # print("评估检索性能...")
         similarity_matrix = torch.matmul(sketch_features, image_features.t())
 
-        print(f"相似度矩阵形状: {similarity_matrix.shape}")
-        print(f"相似度矩阵统计: min={similarity_matrix.min():.4f}, "
-              f"max={similarity_matrix.max():.4f}, mean={similarity_matrix.mean():.4f}")
+        # print(f"相似度矩阵形状: {similarity_matrix.shape}")
+        # print(f"相似度矩阵统计: min={similarity_matrix.min():.4f}, "
+        #       f"max={similarity_matrix.max():.4f}, mean={similarity_matrix.mean():.4f}")
 
         # 计算检索指标
         metrics = compute_retrieval_metrics(similarity_matrix, image_labels)
@@ -475,11 +473,11 @@ class PNGSketchImageTrainer2:
         #     )
 
         # 最终总结
-        print(f"\\n=== 最终评估结果 ===")
-        print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
-        print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
-        print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
-        print(f"mAP: {metrics['mAP']:.4f}")
+        # print(f"\\n=== 最终评估结果 ===")
+        # print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
+        # print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
+        # print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
+        # print(f"mAP: {metrics['mAP']:.4f}")
 
         # 找到最佳和最差类别
         if category_metrics:
