@@ -277,8 +277,8 @@ class PNGSketchImageTrainer2:
                  logger,
                  learning_rate=1e-4,
                  weight_decay=1e-4,
-                 max_epochs=50,
-                 save_every=5):
+                 max_epochs=50
+                 ):
 
         self.model = model
         self.train_loader = train_loader
@@ -286,7 +286,6 @@ class PNGSketchImageTrainer2:
         self.device = device
         self.check_point = check_point
         self.max_epochs = max_epochs
-        self.save_every = save_every
         self.logger = logger
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
@@ -458,8 +457,7 @@ class PNGSketchImageTrainer2:
                 self.logger.info(f"新的最佳测试损失: {test_loss:.4f}")
 
             # 保存检查点
-            if (epoch + 1) % self.save_every == 0 or is_best:
-                self.save_checkpoint(is_best=is_best)
+            self.save_checkpoint(is_best=is_best)
 
         # 保存训练历史
         self.save_training_history()

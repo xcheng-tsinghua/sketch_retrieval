@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument('--epoch', type=int, default=100, help='最大训练轮数')
     parser.add_argument('--patience', type=int, default=10, help='早停耐心')
 
-    parser.add_argument('--learning_rate', type=float, default=1e-4, help='学习率')
+    parser.add_argument('--learning_rate', type=float, default=1e-3, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--save_every', type=int, default=5, help='保存间隔')
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
@@ -129,8 +129,7 @@ def main(args):
         logger=logger,
         learning_rate=args.learning_rate,
         weight_decay=args.weight_decay,
-        max_epochs=args.epoch,
-        save_every=args.save_every
+        max_epochs=args.epoch
     )
     
     # 恢复训练（如果指定）
