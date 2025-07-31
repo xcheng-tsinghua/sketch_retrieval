@@ -261,20 +261,41 @@ class PNGSketchImageDataset(Dataset):
             category_idx: 类别索引
             category_name: 类别名称
         """
+        sketch_path, image_path, category = self.data_pairs[idx]
 
-        max_iter = 100
-        c_iter = 0
-        while True:
-            if c_iter > max_iter:
-                raise ValueError('having searched too much files, no valid file is available')
+        try:
+            # 加载PNG草图
+            sketch_pil = Image.open(sketch_path).convert('RGB')
+            sketch = self.sketch_transform(sketch_pil)
 
-            sketch_path, image_path, category = self.get_path(idx)
+            # 加载JPG图像
+            image_pil = Image.open(image_path).convert('RGB')
+            image = self.image_transform(image_pil)
 
-            if os.path.exists(sketch_path) and os.path.exists(image_path):
-                break
-            else:
-                idx = self.next(idx)
-                c_iter += 1
+            # 获取类别索引
+            category_idx = self.category_to_idx[category]
+
+            return sketch, image, category_idx, category
+
+        except Exception as e:
+            print(f"Error loading data at index {idx}: {e}")
+            print(f"Sketch path: {sketch_path}")
+            print(f"Image path: {image_path}")
+            raise e
+
+        # max_iter = 100
+        # c_iter = 0
+        # while True:
+        #     if c_iter > max_iter:
+        #         raise ValueError('having searched too much files, no valid file is available')
+        #
+        #     sketch_path, image_path, category = self.get_path(idx)
+        #
+        #     if os.path.exists(sketch_path) and os.path.exists(image_path):
+        #         break
+        #     else:
+        #         idx = self.next(idx)
+        #         c_iter += 1
 
         try:
             # 加载PNG草图
@@ -449,37 +470,37 @@ def create_png_sketch_dataloaders(batch_size=32,
     ])
     
     # 创建数据集
-    # train_dataset = PNGSketchImageDataset(
-    #     mode='train',
-    #     fixed_split_path=fixed_split_path,
-    #     sketch_transform=train_sketch_transform,
-    #     image_transform=train_image_transform,
-    #     root=root
-    # )
-    #
-    # test_dataset = PNGSketchImageDataset(
-    #     mode='test',
-    #     fixed_split_path=fixed_split_path,
-    #     sketch_transform=test_transform,
-    #     image_transform=test_transform,
-    #     root=root
-    # )
-
-    train_dataset = RetrievalDataset(
+    train_dataset = PNGSketchImageDataset(
         mode='train',
+        fixed_split_path=fixed_split_path,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
-        root=root,
-        sketch_format=sketch_format
+        root=root
     )
 
-    test_dataset = RetrievalDataset(
+    test_dataset = PNGSketchImageDataset(
         mode='test',
+        fixed_split_path=fixed_split_path,
         sketch_transform=test_transform,
         image_transform=test_transform,
-        root=root,
-        sketch_format=sketch_format
+        root=root
     )
+
+    # train_dataset = RetrievalDataset(
+    #     mode='train',
+    #     sketch_transform=train_sketch_transform,
+    #     image_transform=train_image_transform,
+    #     root=root,
+    #     sketch_format=sketch_format
+    # )
+    #
+    # test_dataset = RetrievalDataset(
+    #     mode='test',
+    #     sketch_transform=test_transform,
+    #     image_transform=test_transform,
+    #     root=root,
+    #     sketch_format=sketch_format
+    # )
     
     # 创建数据加载器
     train_loader = torch.utils.data.DataLoader(
