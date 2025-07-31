@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
     parser.add_argument('--output_dir', type=str, default=None, help='输出目录')
     parser.add_argument('--sketch_format', type=str, default='image', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
-    parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='True', help='是否创建固定数据集划分文件')
+    parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='False', help='是否创建固定数据集划分文件')
     parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_s3_352', 'sketch', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
@@ -74,7 +74,8 @@ def main(args):
         num_workers=args.num_workers,
         fixed_split_path=split_file,
         root=args.root_local if eval(args.local) else args.root_sever,
-        sketch_format=args.sketch_format
+        sketch_format=args.sketch_format,
+        sketch_image_subdirs=args.sketch_image_subdirs
     )
     
     logger.info(f"数据集信息:")

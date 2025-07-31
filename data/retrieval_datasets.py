@@ -427,7 +427,8 @@ def create_png_sketch_dataloaders(batch_size=32,
                                   num_workers=4,
                                   fixed_split_path='./data/fixed_splits/png_sketch_image_dataset_splits.pkl',
                                   root=None,
-                                  sketch_format=None
+                                  sketch_format=None,
+                                  sketch_image_subdirs=None
                                   ):
     """
     创建训练和测试数据加载器
@@ -470,37 +471,39 @@ def create_png_sketch_dataloaders(batch_size=32,
     ])
     
     # 创建数据集
-    train_dataset = PNGSketchImageDataset(
-        mode='train',
-        fixed_split_path=fixed_split_path,
-        sketch_transform=train_sketch_transform,
-        image_transform=train_image_transform,
-        root=root
-    )
-
-    test_dataset = PNGSketchImageDataset(
-        mode='test',
-        fixed_split_path=fixed_split_path,
-        sketch_transform=test_transform,
-        image_transform=test_transform,
-        root=root
-    )
-
-    # train_dataset = RetrievalDataset(
+    # train_dataset = PNGSketchImageDataset(
     #     mode='train',
+    #     fixed_split_path=fixed_split_path,
     #     sketch_transform=train_sketch_transform,
     #     image_transform=train_image_transform,
-    #     root=root,
-    #     sketch_format=sketch_format
+    #     root=root
     # )
     #
-    # test_dataset = RetrievalDataset(
+    # test_dataset = PNGSketchImageDataset(
     #     mode='test',
+    #     fixed_split_path=fixed_split_path,
     #     sketch_transform=test_transform,
     #     image_transform=test_transform,
-    #     root=root,
-    #     sketch_format=sketch_format
+    #     root=root
     # )
+
+    train_dataset = RetrievalDataset(
+        mode='train',
+        sketch_transform=train_sketch_transform,
+        image_transform=train_image_transform,
+        root=root,
+        sketch_format=sketch_format,
+        sketch_image_subdirs=sketch_image_subdirs
+    )
+
+    test_dataset = RetrievalDataset(
+        mode='test',
+        sketch_transform=test_transform,
+        image_transform=test_transform,
+        root=root,
+        sketch_format=sketch_format,
+        sketch_image_subdirs=sketch_image_subdirs
+    )
     
     # 创建数据加载器
     train_loader = torch.utils.data.DataLoader(
