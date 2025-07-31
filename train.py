@@ -18,7 +18,7 @@ from dataset_split import create_dataset_splits_file
 def parse_args():
     parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
     parser.add_argument('--bs', type=int, default=100, help='批次大小')
-    parser.add_argument('--epoch', type=int, default=100, help='最大训练轮数')
+    parser.add_argument('--epoch', type=int, default=1000, help='最大训练轮数')
     parser.add_argument('--patience', type=int, default=10, help='早停耐心')
 
     parser.add_argument('--learning_rate', type=float, default=1e-3, help='学习率')
