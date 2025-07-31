@@ -184,9 +184,9 @@ class PNGSketchImageDataset(Dataset):
     """
     
     def __init__(self,
-                 root=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy',
-                 mode='train',
-                 fixed_split_path='./data/fixed_splits/png_sketch_image_dataset_splits.pkl',
+                 root,
+                 mode,
+                 fixed_split_path,
                  sketch_transform=None,
                  image_transform=None,
                  sketch_format='vector',  # ['vector', 'image']
@@ -232,7 +232,8 @@ class PNGSketchImageDataset(Dataset):
                 s3_file_to_s5,
                 max_length=vec_seq_length,
                 coor_mode='REL',
-                is_shuffle_stroke=False
+                is_shuffle_stroke=False,
+                is_back_mask=False
             )
         else:
             self.sketch_subdir = sketch_image_subdirs[1]
@@ -371,7 +372,7 @@ class PNGSketchImageDataset(Dataset):
         }
 
 
-def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=False):
+def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=False, is_back_mask=True):
     """
     将草S3图转换为 S5 格式，(x, y, s1, s2, s3)
     默认存储绝对坐标
@@ -379,6 +380,7 @@ def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=Fal
     :param max_length:
     :param coor_mode: ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
     :param is_shuffle_stroke: 是否打乱笔划
+    :param is_back_mask:
     :return:
     """
     data_raw = np.loadtxt(root, delimiter=',')
@@ -420,7 +422,10 @@ def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=Fal
 
     mask[:c_sketch_len] = 1
 
-    return data_cube, mask
+    if is_back_mask:
+        return data_cube, mask
+    else:
+        return data_cube
 
 
 def image_loader(image_path, image_transform):

@@ -60,14 +60,16 @@ def main(args):
     if args.sketch_format == 'vector':
         sketch_subdir = args.sketch_image_subdirs[0]
         split_file = './data/fixed_splits/vec_sketch_image_dataset_splits.pkl'
+        sketch_image_suffix = ('txt', 'jpg')
     else:
         sketch_subdir = args.sketch_image_subdirs[1]
         split_file = './data/fixed_splits/png_sketch_image_dataset_splits.pkl'
+        sketch_image_suffix = ('png', 'jpg')
 
     if eval(args.is_create_fix_data_file) or not os.path.exists(split_file):
         logger.info("PNG草图数据集划分文件不存在，正在创建...")
         image_subdir = args.sketch_image_subdirs[2]
-        create_dataset_splits_file(os.path.join(root, sketch_subdir), os.path.join(root, image_subdir))
+        create_dataset_splits_file(split_file, os.path.join(root, sketch_subdir), os.path.join(root, image_subdir), sketch_image_suffix)
     
     # 创建数据加载器
     logger.info("创建数据加载器...")

@@ -10,10 +10,10 @@ from data.retrieval_datasets import get_subdirs, get_allfiles
 
 
 def create_dataset_splits_file(
-    sketch_root=r'E:\Master\Experiment\data\sketch',
-    image_root=r'E:\Master\Experiment\data\photo',
-    output_dir='data/fixed_splits',
-    sketch_image_suffix=('png', 'jpg'),
+    save_root,
+    sketch_root,
+    image_root,
+    sketch_image_suffix,
     train_split=0.8,
     random_seed=42
 ):
@@ -21,9 +21,9 @@ def create_dataset_splits_file(
     创建PNG草图的固定数据集划分并保存到文件
     
     Args:
+        save_root: 划分文件存储路径及其文件名
         sketch_root: PNG草图数据根目录
-        image_root: 图片数据根目录  
-        output_dir: 输出目录
+        image_root: 图片数据根目录
         sketch_image_suffix: 草图和图片的文件后缀
         train_split: 训练集比例
         random_seed: 随机种子
@@ -34,9 +34,6 @@ def create_dataset_splits_file(
     print(f"图片路径: {image_root}")
     print(f"训练集比例: {train_split}")
     print(f"随机种子: {random_seed}")
-    
-    # 创建输出目录
-    os.makedirs(output_dir, exist_ok=True)
     
     # 设置随机种子
     random.seed(random_seed)
@@ -179,40 +176,16 @@ def create_dataset_splits_file(
     }
     
     # 保存为pickle文件
-    dataset_file = os.path.join(output_dir, 'png_sketch_image_dataset_splits.pkl')
-    with open(dataset_file, 'wb') as f:
+    with open(save_root, 'wb') as f:
         pickle.dump(dataset_info, f)
     
-    print(f"PNG草图数据集划分已保存到: {dataset_file}")
-    
-    # 保存统计信息为文本文件
-    stats_file = os.path.join(output_dir, 'png_sketch_dataset_statistics.txt')
-    with open(stats_file, 'w', encoding='utf-8') as f:
-        f.write("PNG草图数据集统计信息\n")
-        f.write("=" * 50 + "\n")
-        f.write(f"总类别数: {len(common_categories)}\n")
-        f.write(f"总数据对数: {len(all_data_pairs)}\n")
-        f.write(f"训练集: {len(train_pairs)} 对\n")
-        f.write(f"测试集: {len(test_pairs)} 对\n")
-        f.write(f"训练集比例: {train_split}\n")
-        f.write(f"随机种子: {random_seed}\n\n")
-        
-        f.write("各类别统计:\n")
-        f.write("-" * 30 + "\n")
-        for category in sorted(common_categories):
-            total = category_stats.get(category, 0)
-            train = train_stats.get(category, 0)
-            test = test_stats.get(category, 0)
-            f.write(f"{category:20s}: 总计={total:3d}, 训练={train:3d}, 测试={test:3d}\n")
-    
-    print(f"统计信息已保存到: {stats_file}")
-    
+    print(f"PNG草图数据集划分已保存到: {save_root}")
     return dataset_info
 
 
 if __name__ == '__main__':
     # 创建PNG草图的固定数据集划分
-    dataset_info = create_png_sketch_dataset_splits()
+    dataset_info = create_dataset_splits_file()
     
     print("\nPNG草图数据集划分创建完成！")
     print("现在可以创建相应的PNG草图数据集加载器了。")
