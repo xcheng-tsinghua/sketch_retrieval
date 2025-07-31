@@ -129,7 +129,9 @@ def main(args):
         logger=logger,
         learning_rate=args.learning_rate,
         weight_decay=args.weight_decay,
-        max_epochs=args.epoch
+        max_epochs=args.epoch,
+        dataset_info=dataset_info,
+        log_dir='log'
     )
     
     # 恢复训练（如果指定）

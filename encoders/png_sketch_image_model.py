@@ -6,7 +6,6 @@ PNG草图-图像统一跨模态对齐模型
 import torch
 import torch.nn as nn
 import numpy as np
-from collections import OrderedDict
 
 # 导入编码器
 from encoders.png_sketch_encoder import create_png_sketch_encoder
