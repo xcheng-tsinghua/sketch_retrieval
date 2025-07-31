@@ -1,5 +1,7 @@
 .idea/
 data/__pycache__/
 encoders/__pycache__/
+utils/__pycache__/
 output/
 stroke/
+
