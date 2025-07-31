@@ -18,7 +18,7 @@ from sklearn.metrics import average_precision_score
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # 导入数据集和模型
-from data.PNGSketchImageDataset import create_png_sketch_dataloaders
+from data.retrieval_datasets import create_png_sketch_dataloaders
 from encoders.png_sketch_image_model import create_png_sketch_image_model
 
 

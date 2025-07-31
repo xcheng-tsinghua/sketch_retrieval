@@ -5,9 +5,9 @@ PNG草图数据集预处理和固定化脚本
 import os
 import pickle
 import numpy as np
-from pathlib import Path
 import random
 from data.SLMDataset import get_subdirs, get_allfiles
+
 
 def create_png_sketch_dataset_splits(
     sketch_root=r'E:\Master\Experiment\data\sketch',

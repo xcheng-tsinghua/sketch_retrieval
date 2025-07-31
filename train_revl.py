@@ -10,9 +10,10 @@ from datetime import datetime
 import logging
 
 # 导入数据集和模型
-from data.PNGSketchImageDataset import create_png_sketch_dataloaders
+from data.retrieval_datasets import create_png_sketch_dataloaders
 from encoders.png_sketch_image_model import create_png_sketch_image_model
 from utils import trainer
+from create_png_sketch_dataset import create_png_sketch_dataset_splits
 
 
 def parse_args():
@@ -26,16 +27,21 @@ def parse_args():
     parser.add_argument('--warmup_epochs', type=int, default=5, help='预热轮数')
     parser.add_argument('--save_every', type=int, default=5, help='保存间隔')
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
-    parser.add_argument('--freeze_image_encoder', action='store_true', default=True, help='冻结图像编码器')
-    parser.add_argument('--freeze_sketch_backbone', action='store_true', default=False, help='冻结草图编码器主干网络')
+    parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
+    parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
     parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
     parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
     parser.add_argument('--output_dir', type=str, default=None, help='输出目录')
     parser.add_argument('--sketch_format', type=str, default='image', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
+    parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='True', help='是否创建固定数据集划分文件')
+    parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_s3_352', 'sketch', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy')
+
+    # parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
+    # parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy')
 
     args = parser.parse_args()
     return args
@@ -57,10 +63,9 @@ def main(args):
     
     # 首先创建数据集划分（如果不存在）
     split_file = './data/fixed_splits/png_sketch_image_dataset_splits.pkl'
-    if not os.path.exists(split_file):
+    if eval(args.is_create_fix_data_file) or not os.path.exists(split_file):
         logger.info("PNG草图数据集划分文件不存在，正在创建...")
-        from create_png_sketch_dataset import create_png_sketch_dataset_splits
-        create_png_sketch_dataset_splits()
+        create_png_sketch_dataset_splits(os.path.join(args.root_sever, 'sketch'), os.path.join(args.root_sever, 'photo'))
     
     # 创建数据加载器
     logger.info("创建数据加载器...")
@@ -81,8 +86,8 @@ def main(args):
     logger.info("创建PNG草图-图像对齐模型...")
     model = create_png_sketch_image_model(
         embed_dim=args.embed_dim,
-        freeze_image_encoder=args.freeze_image_encoder,
-        freeze_sketch_backbone=args.freeze_sketch_backbone,
+        freeze_image_encoder=eval(args.is_freeze_image_encoder),
+        freeze_sketch_backbone=eval(args.is_freeze_sketch_backbone),
         sketch_format=args.sketch_format
     )
     model.to(device)

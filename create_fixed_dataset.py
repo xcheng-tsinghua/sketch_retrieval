@@ -9,6 +9,7 @@ from pathlib import Path
 import random
 from data.SLMDataset import get_subdirs, get_allfiles
 
+
 def create_fixed_dataset_splits(
     sketch_root=r'E:\Master\Experiment\data\stroke-normal',
     image_root=r'E:\Master\Experiment\data\photo',
