@@ -447,22 +447,22 @@ class PNGSketchImageTrainer2:
             print(f"  {category}: {correct}/{num_samples} = {accuracy:.4f}")
 
         # 保存结果
-        results = {
-            'overall_metrics': metrics,
-            'category_metrics': category_metrics,
-            'similarity_stats': {
-                'min': similarity_matrix.min().item(),
-                'max': similarity_matrix.max().item(),
-                'mean': similarity_matrix.mean().item(),
-                'std': similarity_matrix.std().item()
-            }
-        }
+        # results = {
+        #     'overall_metrics': metrics,
+        #     'category_metrics': category_metrics,
+        #     'similarity_stats': {
+        #         'min': similarity_matrix.min().item(),
+        #         'max': similarity_matrix.max().item(),
+        #         'mean': similarity_matrix.mean().item(),
+        #         'std': similarity_matrix.std().item()
+        #     }
+        # }
 
-        results_file = os.path.join(self.log_dir, 'png_retrieval_results.json')
-        with open(results_file, 'w', encoding='utf-8') as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-
-        print(f"结果已保存到: {results_file}")
+        # results_file = os.path.join(self.log_dir, 'png_retrieval_results.json')
+        # with open(results_file, 'w', encoding='utf-8') as f:
+        #     json.dump(results, f, indent=2, ensure_ascii=False)
+        #
+        # print(f"结果已保存到: {results_file}")
 
         # 生成可视化
         # if args.visualize:
