@@ -375,8 +375,7 @@ class PNGSketchImageTrainer2:
         num_batches = len(self.test_loader)
 
         with torch.no_grad():
-            for sketches, images, category_indices, category_names in tqdm(self.test_loader,
-                                                                           desc="Validating"):
+            for sketches, images, category_indices, category_names in tqdm(self.test_loader, desc="Validating"):
                 # 移动数据到设备
                 sketches = sketches.to(self.device)
                 images = images.to(self.device)
