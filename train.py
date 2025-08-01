@@ -17,7 +17,7 @@ from dataset_split import create_dataset_splits_file
 
 def parse_args():
     parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
-    parser.add_argument('--bs', type=int, default=100, help='批次大小')
+    parser.add_argument('--bs', type=int, default=200, help='批次大小')
     parser.add_argument('--epoch', type=int, default=1000, help='最大训练轮数')
 
     parser.add_argument('--lr', type=float, default=1e-3, help='学习率')
@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='False', help='是否创建固定数据集划分文件')
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='False', help='是否加载检查点')
     parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_stk11_stkpnt32', 'sketch_png', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')  # sketch_stk11_stkpnt32, sketch_s3_352
-    parser.add_argument('--save_str', type=str, default='sdgraph_vit', help='保存名')
+    parser.add_argument('--save_str', type=str, default='sdgraph_dsamp_vit', help='保存名')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
