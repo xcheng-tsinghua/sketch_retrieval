@@ -385,6 +385,106 @@ class SDGraphEncoder(nn.Module):
         return union_sparse, union_dense, stk_coor_sampled
 
 
+class SDGraphEmbedding(nn.Module):
+    def __init__(self, embed_dim=512, channel_in=2, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4, is_re_stk=False):
+        """
+        :param embed_dim: 总类别数
+        """
+        super().__init__()
+        print('sdgraph embedding with stk sample')
+
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+        self.channel_in = channel_in
+
+        self.is_re_stk = is_re_stk
+
+        # 各层特征维度
+        sparse_l0 = 32 + 16
+        sparse_l1 = 128 + 64
+        sparse_l2 = 512 + 256
+
+        dense_l0 = 32
+        dense_l1 = 128
+        dense_l2 = 512
+
+        # 生成笔划坐标
+        self.point_to_stk_coor = su.PointToSparse(channel_in, sparse_l0)
+
+        # 生成初始 sdgraph
+        self.point_to_sparse = su.PointToSparse(channel_in, sparse_l0)
+        self.point_to_dense = su.PointToDense(channel_in, dense_l0)
+
+        # 利用 sdgraph 更新特征
+        d_down_stk = (self.n_stk - 3) // 2
+        self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
+                                  self.n_stk, self.n_stk_pnt,
+                                  self.n_stk - d_down_stk, self.n_stk_pnt // 2,
+                                  dropout=dropout
+                                  )
+
+        self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
+                                  self.n_stk - d_down_stk, self.n_stk_pnt // 2,
+                                  self.n_stk - d_down_stk * 2, self.n_stk_pnt // 4,
+                                  dropout=dropout
+                                  )
+
+        # 利用输出特征进行分类
+        sparse_glo = sparse_l0 + sparse_l1 + sparse_l2
+        dense_glo = dense_l0 + dense_l1 + dense_l2
+
+        out_l0 = sparse_glo + dense_glo
+        out_l1 = int((out_l0 * embed_dim) ** 0.5)
+        out_l2 = embed_dim
+
+        self.linear = eu.MLP(dimension=0,
+                             channels=(out_l0, out_l1, out_l2),
+                             final_proc=False,
+                             dropout=dropout)
+
+    def forward(self, xy, mask=None):
+        """
+        :param xy: [bs, n_stk, n_stk_pnt, 2]
+        :param mask: 占位用
+        :return: [bs, n_classes]
+        """
+        bs, n_stk, n_stk_pnt, channel = xy.size()
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel == self.channel_in
+
+        # 生成笔划坐标
+        # stk_coor0 = self.point_to_stk_coor(xy).permute(0, 2, 1)  # [bs, n_stk, emb]
+
+        # 生成初始 sparse graph
+        sparse_graph0 = self.point_to_sparse(xy)  # [bs, emb, n_stk]
+        assert sparse_graph0.size()[2] == self.n_stk
+
+        # 使用初始 sgraph 特征作为坐标
+        stk_coor0 = sparse_graph0.permute(0, 2, 1)
+
+        # 生成初始 dense graph
+        dense_graph0 = self.point_to_dense(xy)
+        assert dense_graph0.size()[2] == n_stk and dense_graph0.size()[3] == n_stk_pnt
+
+        # 交叉更新数据
+        sparse_graph1, dense_graph1, stk_coor1 = self.sd1(sparse_graph0, dense_graph0, stk_coor=stk_coor0)
+        sparse_graph2, dense_graph2, stk_coor2 = self.sd2(sparse_graph1, dense_graph1, stk_coor=stk_coor1)
+
+        # 提取全局特征
+        sparse_glo0 = sparse_graph0.max(2)[0]
+        sparse_glo1 = sparse_graph1.max(2)[0]
+        sparse_glo2 = sparse_graph2.max(2)[0]
+
+        dense_glo0 = dense_graph0.amax((2, 3))
+        dense_glo1 = dense_graph1.amax((2, 3))
+        dense_glo2 = dense_graph2.amax((2, 3))
+
+        all_fea = torch.cat([sparse_glo0, sparse_glo1, sparse_glo2, dense_glo0, dense_glo1, dense_glo2], dim=1)
+
+        # 利用全局特征分类
+        cls = self.linear(all_fea)
+        return cls
+
+
 class SDGraphCls(nn.Module):
     def __init__(self, n_class: int, channel_in=2, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4, is_re_stk=False):
         """

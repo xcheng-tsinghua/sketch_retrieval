@@ -11,7 +11,8 @@ import numpy as np
 from encoders import png_sketch_encoder as se
 from encoders.optimized_vision_model import create_optimized_vision_model
 from encoders.sketchrnn import BiLSTMEncoder
-from sdgraph.sdgraph_sel import SDGraphEmbedding
+# from sdgraph.sdgraph_sel import SDGraphEmbedding
+from sdgraph.sdgraph_stk_samp import SDGraphEmbedding
 
 
 class LayerNorm(nn.LayerNorm):
@@ -72,9 +73,9 @@ class SBIRModelWrapper(nn.Module):
         """初始化编码器"""
         if self.sketch_format == 'vector':
             print('---- create VECTOR sketch encoder ----')
-            # self.sketch_encoder = BiLSTMEncoder()
+            # self.sketch_encoder = BiLSTMEncoder(embed_dim=self.embed_dim)
 
-            self.sketch_encoder = SDGraphEmbedding()
+            self.sketch_encoder = SDGraphEmbedding(embed_dim=self.embed_dim)
 
         else:
             print('---- create IMAGE sketch encoder ----')
