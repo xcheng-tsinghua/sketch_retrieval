@@ -4,21 +4,17 @@
 """
 
 import os
-import cv2
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-from matplotlib.gridspec import GridSpec
 from tqdm import tqdm
-from PIL import Image
 import torchvision.transforms as transforms
 import json
 import argparse
 
 # 导入数据集和模型
 from data.retrieval_datasets import create_png_sketch_dataloaders
-from encoders.png_sketch_image_model import create_png_sketch_image_model
+from encoders import sbir_model_wrapper
 from utils import utils
 
 
@@ -26,11 +22,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
     parser.add_argument('--bs', type=int, default=100, help='批次大小')
     parser.add_argument('--epoch', type=int, default=1000, help='最大训练轮数')
-    parser.add_argument('--patience', type=int, default=10, help='早停耐心')
 
-    parser.add_argument('--learning_rate', type=float, default=1e-3, help='学习率')
-    parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
-    parser.add_argument('--save_every', type=int, default=5, help='保存间隔')
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
     parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
@@ -38,6 +30,7 @@ def parse_args():
     parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
     parser.add_argument('--sketch_format', type=str, default='vector', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
+    parser.add_argument('--vec_sketch_type', type=str, default='STK_11_32', choices=['STK_11_32', 'S5'],help='矢量草图格式')
     parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='False', help='是否创建固定数据集划分文件')
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='False', help='是否加载检查点')
     parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_s3_352', 'sketch_png', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')
@@ -316,7 +309,9 @@ def main(args):
         num_workers=4,
         fixed_split_path=split_file,
         root=root,
-        sketch_format=args.sketch_format
+        sketch_format=args.sketch_format,
+        vec_sketch_type=args.vec_sketch_type,
+        sketch_image_subdirs=args.sketch_image_subdirs
     )
     
     print(f"测试集大小: {dataset_info['test_info']['total_pairs']}")
@@ -324,7 +319,7 @@ def main(args):
     
     # 创建并加载模型
     print(f"从 {checkpoint_path} 加载模型...")
-    model = create_png_sketch_image_model(
+    model = sbir_model_wrapper.create_sbir_model_wrapper(
         embed_dim=args.embed_dim,
         freeze_image_encoder=eval(args.is_freeze_image_encoder),
         freeze_sketch_backbone=eval(args.is_freeze_sketch_backbone),

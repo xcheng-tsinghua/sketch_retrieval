@@ -151,6 +151,14 @@ def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=Fal
         return data_cube
 
 
+def load_stk_sketch(s3_file, stk_name, delimiter=','):
+    s3_data = np.loadtxt(s3_file, delimiter=delimiter, dtype=np.float32)
+    _, n_stk, n_stk_pnt = stk_name.split('_')
+    stk_data = s3_data.reshape(int(n_stk), int(n_stk_pnt), 2)
+
+    return stk_data
+
+
 def vis_s3(s3_file, delimiter=','):
     if isinstance(s3_file, str):
         data = np.loadtxt(s3_file, delimiter=delimiter)

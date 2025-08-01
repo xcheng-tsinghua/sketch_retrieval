@@ -8,9 +8,10 @@ import torch.nn as nn
 import numpy as np
 
 # 导入编码器
-from encoders.png_sketch_encoder import create_png_sketch_encoder
+from encoders import png_sketch_encoder as se
 from encoders.optimized_vision_model import create_optimized_vision_model
 from encoders.sketchrnn import BiLSTMEncoder
+from sdgraph.sdgraph_sel import SDGraphEmbedding
 
 
 class LayerNorm(nn.LayerNorm):
@@ -21,7 +22,7 @@ class LayerNorm(nn.LayerNorm):
         return ret.type(orig_type)
 
 
-class PNGSketchImageAlignmentModel(nn.Module):
+class SBIRModelWrapper(nn.Module):
     """
     PNG草图-图像对齐模型
     使用冻结的图像编码器和可训练的草图编码器
@@ -71,12 +72,14 @@ class PNGSketchImageAlignmentModel(nn.Module):
         """初始化编码器"""
         if self.sketch_format == 'vector':
             print('---- create VECTOR sketch encoder ----')
-            self.sketch_encoder = BiLSTMEncoder()
+            # self.sketch_encoder = BiLSTMEncoder()
+
+            self.sketch_encoder = SDGraphEmbedding()
 
         else:
             print('---- create IMAGE sketch encoder ----')
             # PNG草图编码器（可训练）
-            self.sketch_encoder = create_png_sketch_encoder(
+            self.sketch_encoder = se.create_sketch_encoder(
                 model_name=sketch_model_name,
                 pretrained=True,
                 freeze_backbone=self.freeze_sketch_backbone,
@@ -264,7 +267,7 @@ class PNGSketchImageAlignmentModel(nn.Module):
         }
 
 
-def create_png_sketch_image_model(sketch_format,
+def create_sbir_model_wrapper(sketch_format,
                                   embed_dim,
                                   sketch_model_name='vit_base_patch16_224',
                                   image_model_name='vit_base_patch16_224',
@@ -289,7 +292,7 @@ def create_png_sketch_image_model(sketch_format,
     Returns:
         model: PNG草图-图像对齐模型
     """
-    model = PNGSketchImageAlignmentModel(
+    model = SBIRModelWrapper(
         embed_dim=embed_dim,
         sketch_model_name=sketch_model_name,
         image_model_name=image_model_name,
@@ -309,7 +312,7 @@ if __name__ == '__main__':
     print(f"Using device: {device}")
     
     # 创建模型
-    model = create_png_sketch_image_model(
+    model = SBIRModelWrapper(
         embed_dim=512,
         freeze_image_encoder=True,
         freeze_sketch_backbone=False

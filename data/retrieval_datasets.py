@@ -189,11 +189,12 @@ class PNGSketchImageDataset(Dataset):
                  root,
                  mode,
                  fixed_split_path,
+                 vec_sketch_type,  # [S5, STK_11_32]
+                 sketch_image_subdirs,  # [0]: vector_sketch, [1]: image_sketch, [2]: photo
                  sketch_transform=None,
                  image_transform=None,
                  sketch_format='vector',  # ['vector', 'image']
-                 sketch_image_subdirs=('sketch_s3_352', 'sketch_png', 'photo'),  # [0]: vector_sketch, [1]: image_sketch, [2]: photo
-                 vec_seq_length=11*32
+                 vec_seq_length=11*32,
                  ):
         """
         初始化数据集
@@ -230,13 +231,23 @@ class PNGSketchImageDataset(Dataset):
         self.image_subdir = sketch_image_subdirs[2]
         if self.sketch_format == 'vector':
             self.sketch_subdir = sketch_image_subdirs[0]
-            self.sketch_loader = partial(
-                utils.s3_file_to_s5,
-                max_length=vec_seq_length,
-                coor_mode='REL',
-                is_shuffle_stroke=False,
-                is_back_mask=False
-            )
+
+            if vec_sketch_type == 'S5':
+                self.sketch_loader = partial(
+                    utils.s3_file_to_s5,
+                    max_length=vec_seq_length,
+                    coor_mode='REL',
+                    is_shuffle_stroke=False,
+                    is_back_mask=False
+                )
+            elif 'STK' in vec_sketch_type:
+                self.sketch_loader = partial(
+                    utils.load_stk_sketch,
+                    stk_name=vec_sketch_type
+                )
+            else:
+                raise TypeError('error vector sketch type')
+
         else:
             self.sketch_subdir = sketch_image_subdirs[1]
             self.sketch_loader = partial(
@@ -384,7 +395,9 @@ def create_png_sketch_dataloaders(batch_size,
                                   num_workers,
                                   fixed_split_path,
                                   root,
-                                  sketch_format
+                                  sketch_format,
+                                  vec_sketch_type,
+                                  sketch_image_subdirs
                                   ):
     """
     创建训练和测试数据加载器
@@ -395,6 +408,8 @@ def create_png_sketch_dataloaders(batch_size,
         fixed_split_path: 固定数据集划分文件路径
         root:
         sketch_format:
+        vec_sketch_type: 矢量草图格式 [S5, STK_11_32]
+        sketch_image_subdirs
         
     Returns:
         train_loader, test_loader, dataset_info
@@ -432,7 +447,9 @@ def create_png_sketch_dataloaders(batch_size,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
         root=root,
-        sketch_format=sketch_format
+        sketch_format=sketch_format,
+        vec_sketch_type=vec_sketch_type,
+        sketch_image_subdirs=sketch_image_subdirs
     )
 
     test_dataset = PNGSketchImageDataset(
@@ -441,7 +458,9 @@ def create_png_sketch_dataloaders(batch_size,
         sketch_transform=test_transform,
         image_transform=test_transform,
         root=root,
-        sketch_format=sketch_format
+        sketch_format=sketch_format,
+        vec_sketch_type=vec_sketch_type,
+        sketch_image_subdirs=sketch_image_subdirs
     )
 
     # train_dataset = RetrievalDataset(

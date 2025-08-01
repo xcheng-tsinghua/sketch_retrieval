@@ -241,7 +241,7 @@ class PNGSketchEncoderWithAttention(PNGSketchEncoder):
         return sketch_features
 
 
-def create_png_sketch_encoder(model_name='vit_base_patch16_224',
+def create_sketch_encoder(model_name='vit_base_patch16_224',
                             pretrained=True,
                             freeze_backbone=False,
                             output_dim=512,
@@ -261,6 +261,7 @@ def create_png_sketch_encoder(model_name='vit_base_patch16_224',
     Returns:
         encoder: PNG草图编码器
     """
+
     if use_attention:
         encoder = PNGSketchEncoderWithAttention(
             model_name=model_name,
@@ -288,7 +289,7 @@ if __name__ == '__main__':
     print(f"使用设备: {device}")
     
     # 创建编码器
-    encoder = create_png_sketch_encoder(
+    encoder = create_sketch_encoder(
         model_name='vit_base_patch16_224',
         pretrained=True,
         freeze_backbone=True,

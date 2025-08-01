@@ -267,7 +267,7 @@ class PNGSketchImageTrainer:
         self.logger.info(f"训练历史已保存: {history_path}")
 
 
-class PNGSketchImageTrainer2:
+class SBIRTrainer2:
     """PNG草图-图像对齐训练器"""
 
     def __init__(self,
