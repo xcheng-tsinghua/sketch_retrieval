@@ -43,6 +43,7 @@ def parse_args():
 
 
 def main(args):
+    print('-----> model save name: ' + args.save_str + ' <-----')
 
     # 设置日志
     logging.basicConfig(level=logging.INFO)
