@@ -4,24 +4,52 @@
 """
 
 import os
-import sys
+import cv2
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 from matplotlib.gridspec import GridSpec
-import seaborn as sns
 from tqdm import tqdm
 from PIL import Image
 import torchvision.transforms as transforms
 import json
-
-# 添加项目根目录到路径
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import argparse
 
 # 导入数据集和模型
-from data.PNGSketchImageDataset import create_png_sketch_dataloaders
+from data.retrieval_datasets import create_png_sketch_dataloaders
 from encoders.png_sketch_image_model import create_png_sketch_image_model
+from utils import utils
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
+    parser.add_argument('--bs', type=int, default=100, help='批次大小')
+    parser.add_argument('--epoch', type=int, default=1000, help='最大训练轮数')
+    parser.add_argument('--patience', type=int, default=10, help='早停耐心')
+
+    parser.add_argument('--learning_rate', type=float, default=1e-3, help='学习率')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
+    parser.add_argument('--save_every', type=int, default=5, help='保存间隔')
+    parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
+    parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
+    parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
+    parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
+    parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
+    parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
+    parser.add_argument('--sketch_format', type=str, default='vector', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
+    parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='False', help='是否创建固定数据集划分文件')
+    parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='False', help='是否加载检查点')
+    parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_s3_352', 'sketch_png', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')
+    parser.add_argument('--save_str', type=str, default='lstm_vit', help='保存名')
+    parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')
+
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy')
+
+    args = parser.parse_args()
+    return args
 
 
 def compute_category_metrics(similarity_matrix, sketch_labels, image_labels, sketch_categories):
@@ -116,7 +144,9 @@ def visualize_category_retrieval(similarity_matrix, sketch_features, image_featu
     sketch_count = 0
     for sketches, images, _, cat_names in sketch_loader:
         for i in range(len(sketches)):
-            sketch_img = denormalize(sketches[i]).clamp(0, 1)
+
+            sketch_img = denormalize(utils.s5_to_tensor_img(sketches[i])).clamp(0, 1)
+            # sketch_img = denormalize(sketches[i]).clamp(0, 1)
             all_sketch_data.append(sketch_img)
             sketch_count += 1
             
@@ -251,16 +281,19 @@ def create_category_summary_plot(category_metrics, output_dir):
     return top_categories
 
 
-def main():
+def main(args):
     print("开始可视化前5好类别的PNG草图-图像检索效果...")
     
     # 设置路径
-    checkpoint_path = './best_checkpoint.pth'
-    split_file = './data/fixed_splits/png_sketch_image_dataset_splits.pkl'
-    output_dir = './visualization_results'
+    checkpoint_path = os.path.join(args.weight_dir, args.save_str + '.pth')
+
+    if args.sketch_format == 'vector':
+        split_file = './data/fixed_splits/vec_sketch_image_dataset_splits.pkl'
+    else:
+        split_file = './data/fixed_splits/png_sketch_image_dataset_splits.pkl'
     
     # 创建输出目录
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
     
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -277,10 +310,13 @@ def main():
     
     # 创建数据加载器
     print("加载测试数据集...")
+    root = args.root_local if eval(args.local) else args.root_sever
     train_loader, test_loader, dataset_info = create_png_sketch_dataloaders(
         batch_size=32,
         num_workers=4,
-        fixed_split_path=split_file
+        fixed_split_path=split_file,
+        root=root,
+        sketch_format=args.sketch_format
     )
     
     print(f"测试集大小: {dataset_info['test_info']['total_pairs']}")
@@ -288,7 +324,12 @@ def main():
     
     # 创建并加载模型
     print(f"从 {checkpoint_path} 加载模型...")
-    model = create_png_sketch_image_model(embed_dim=512)
+    model = create_png_sketch_image_model(
+        embed_dim=args.embed_dim,
+        freeze_image_encoder=eval(args.is_freeze_image_encoder),
+        freeze_sketch_backbone=eval(args.is_freeze_sketch_backbone),
+        sketch_format=args.sketch_format
+    )
     
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -342,7 +383,7 @@ def main():
     
     # 创建类别性能总结图
     print("创建类别性能总结图...")
-    top_categories = create_category_summary_plot(category_metrics, output_dir)
+    top_categories = create_category_summary_plot(category_metrics, args.output_dir)
     
     # 显示前5好类别的统计信息
     print(f"\n=== 前5好类别统计 ===")
@@ -362,7 +403,7 @@ def main():
         visualize_category_retrieval(
             similarity_matrix, sketch_features, image_features,
             sketch_labels, image_labels, sketch_categories, image_categories,
-            test_loader, test_loader, category, output_dir, num_examples=6
+            test_loader, test_loader, category, args.output_dir, num_examples=6
         )
     
     # 保存详细结果
@@ -374,12 +415,12 @@ def main():
         'dataset_info': dataset_info
     }
     
-    results_file = os.path.join(output_dir, 'top5_categories_results.json')
+    results_file = os.path.join(args.output_dir, 'top5_categories_results.json')
     with open(results_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     
     print(f"\n详细结果已保存到: {results_file}")
-    print(f"所有可视化文件已保存到目录: {output_dir}")
+    print(f"所有可视化文件已保存到目录: {args.output_dir}")
     
     # 最终总结
     print(f"\n=== 可视化完成总结 ===")
@@ -395,4 +436,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(parse_args())
+

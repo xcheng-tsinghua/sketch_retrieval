@@ -7,4 +7,5 @@ output/
 stroke/
 data/fixed_splits/
 model_trained/
+vis_results/
 

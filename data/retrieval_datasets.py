@@ -14,6 +14,8 @@ import math
 from pathlib import Path
 from functools import partial
 
+from utils import utils
+
 
 def get_subdirs(dir_path):
     """
@@ -140,7 +142,7 @@ class RetrievalDataset(Dataset):
         sketch_path, image_path, category = self.sketch_image[index]
 
         if self.sketch_format == 'vector':
-            sketch, mask = s3_file_to_s5(sketch_path, self.max_seq_length)
+            sketch, mask = utils.s3_file_to_s5(sketch_path, self.max_seq_length)
         else:
             sketch_pil = Image.open(sketch_path).convert('RGB')
             sketch = self.sketch_transform(sketch_pil)
@@ -229,7 +231,7 @@ class PNGSketchImageDataset(Dataset):
         if self.sketch_format == 'vector':
             self.sketch_subdir = sketch_image_subdirs[0]
             self.sketch_loader = partial(
-                s3_file_to_s5,
+                utils.s3_file_to_s5,
                 max_length=vec_seq_length,
                 coor_mode='REL',
                 is_shuffle_stroke=False,
@@ -370,62 +372,6 @@ class PNGSketchImageDataset(Dataset):
             'num_categories': len(self.categories),
             'category_counts': category_counts
         }
-
-
-def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=False, is_back_mask=True):
-    """
-    将草S3图转换为 S5 格式，(x, y, s1, s2, s3)
-    默认存储绝对坐标
-    :param root:
-    :param max_length:
-    :param coor_mode: ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
-    :param is_shuffle_stroke: 是否打乱笔划
-    :param is_back_mask:
-    :return:
-    """
-    data_raw = np.loadtxt(root, delimiter=',')
-
-    # 打乱笔划
-    if is_shuffle_stroke:
-        stroke_list = np.split(data_raw, np.where(data_raw[:, 2] == 0)[0] + 1)[:-1]
-        random.shuffle(stroke_list)
-        data_raw = np.vstack(stroke_list)
-
-    # 多于指定点数则进行截断
-    n_point_raw = len(data_raw)
-    if n_point_raw > max_length:
-        data_raw = data_raw[:max_length, :]
-
-    # 相对坐标
-    if coor_mode == 'REL':
-        coordinate = data_raw[:, :2]
-        coordinate[1:] = coordinate[1:] - coordinate[:-1]
-        data_raw[:, :2] = coordinate
-
-    elif coor_mode == 'ABS':
-        # 无需处理
-        pass
-
-    else:
-        raise TypeError('error coor mode')
-
-    c_sketch_len = len(data_raw)
-    data_raw = torch.from_numpy(data_raw)
-
-    data_cube = torch.zeros(max_length, 5, dtype=torch.float)
-    mask = torch.zeros(max_length, dtype=torch.float)
-
-    data_cube[:c_sketch_len, :2] = data_raw[:, :2]
-    data_cube[:c_sketch_len, 2] = data_raw[:, 2]
-    data_cube[:c_sketch_len, 3] = 1 - data_raw[:, 2]
-    data_cube[-1, 4] = 1
-
-    mask[:c_sketch_len] = 1
-
-    if is_back_mask:
-        return data_cube, mask
-    else:
-        return data_cube
 
 
 def image_loader(image_path, image_transform):

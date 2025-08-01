@@ -38,6 +38,7 @@ class PNGSketchImageAlignmentModel(nn.Module):
                  sketch_format='vector',  # ['vector', 'image']
                  ):
         super().__init__()
+        assert sketch_format in ['vector', 'image'], TypeError('invalid sketch_format')
         
         self.embed_dim = embed_dim
         self.freeze_image_encoder = freeze_image_encoder
@@ -263,14 +264,14 @@ class PNGSketchImageAlignmentModel(nn.Module):
         }
 
 
-def create_png_sketch_image_model(embed_dim=512,
+def create_png_sketch_image_model(sketch_format,
+                                  embed_dim,
                                   sketch_model_name='vit_base_patch16_224',
                                   image_model_name='vit_base_patch16_224',
                                   freeze_image_encoder=True,
                                   freeze_sketch_backbone=False,
                                   dropout_rate=0.1,
                                   temperature=0.07,
-                                  sketch_format=None
                                   ):
     """
     创建PNG草图-图像对齐模型
