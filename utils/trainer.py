@@ -312,8 +312,8 @@ class SBIRTrainer:
 
         # 损失函数
         # self.criterion = loss_func.ContrastiveLoss(temperature=0.07)
-        # self.criterion = loss_func.contrastive_loss_cl_zs_sbir
-        self.criterion = loss_func.contrastive_loss_fg_zs_sbir
+        self.criterion = loss_func.contrastive_loss_cl_zs_sbir
+        # self.criterion = loss_func.contrastive_loss_fg_zs_sbir
 
         # 训练状态
         self.current_epoch = 0
