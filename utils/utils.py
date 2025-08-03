@@ -3,6 +3,7 @@ import torch
 import cv2
 import random
 import matplotlib.pyplot as plt
+from PIL import Image
 
 
 def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=0, coor_mode='ABS', save_path=None):
@@ -174,6 +175,12 @@ def vis_s3(s3_file, delimiter=','):
 
     plt.axis("equal")
     plt.show()
+
+
+def image_loader(image_path, image_transform):
+    image_pil = Image.open(image_path).convert('RGB')
+    image = image_transform(image_pil)
+    return image
 
 
 if __name__ == '__main__':

@@ -220,6 +220,47 @@ def constructive_loss(x, y, margin=1.0, lambda_=1.0):
     return loss
 
 
+def contrastive_loss_cl_zs_sbir(sketch_tensor, image_tensor, class_tensor, margin=1.0):
+    bs = sketch_tensor.size(0)
+
+    # 计算 pairwise 欧氏距离: [bs, bs]
+    dist_matrix = torch.cdist(sketch_tensor, image_tensor, p=2)  # [bs, bs]
+
+    # 构造 label matrix: [bs, bs]，同类为1，异类为0
+    label_matrix = (class_tensor.unsqueeze(1) == class_tensor.unsqueeze(0)).float()  # [bs, bs]
+
+    # 正样本: label = 1 → loss = distance^2
+    pos_loss = label_matrix * dist_matrix.pow(2)
+
+    # 负样本: label = 0 → loss = max(0, margin - distance)^2
+    neg_loss = (1 - label_matrix) * F.relu(margin - dist_matrix).pow(2)
+
+    # 总 loss 归一化
+    loss = (pos_loss.sum() + neg_loss.sum()) / (bs * bs)
+    return loss
+
+
+def contrastive_loss_fg_zs_sbir(sketch_tensor, image_tensor, margin=1.0):
+    bs = sketch_tensor.size(0)
+
+    # 计算配对距离（正样本）
+    pos_dist = F.pairwise_distance(sketch_tensor, image_tensor, p=2)  # [bs]
+
+    # 构造负样本距离矩阵
+    dist_matrix = torch.cdist(sketch_tensor, image_tensor, p=2)  # [bs, bs]
+    neg_mask = ~torch.eye(bs, dtype=torch.bool, device=sketch_tensor.device)
+
+    neg_dist = dist_matrix[neg_mask].view(bs, bs - 1)  # [bs, bs-1]
+
+    # 正样本 loss
+    pos_loss = pos_dist.pow(2).mean()
+
+    # 负样本 loss：max(0, margin - distance)^2
+    neg_loss = F.relu(margin - neg_dist).pow(2).mean()
+
+    return pos_loss + neg_loss
+
+
 class ContrastiveLoss(nn.Module):
     """
     对比学习损失函数，用于草图-图像对齐训练
