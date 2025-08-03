@@ -240,7 +240,7 @@ def contrastive_loss_cl_zs_sbir(sketch_tensor, image_tensor, class_tensor, logit
     return loss
 
 
-def contrastive_loss_fg_zs_sbir(sketch_tensor, image_tensor, margin=1.0):
+def contrastive_loss_fg_zs_sbir(sketch_tensor, image_tensor, class_tensor, logit_scale=0.0, margin=1.0):
     bs = sketch_tensor.size(0)
 
     # 计算配对距离（正样本）

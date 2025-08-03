@@ -497,8 +497,11 @@ class SBIRTrainer:
 
             print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
 
-        mean_precision, mean_ap = compute_map_and_precision_at_k(sketch_features, image_features, class_labels)
+        mean_precision, mean_ap = map_and_precision_at_k(sketch_features, image_features, class_labels)
         print(f'---mAP@200: {mean_precision}, Precision@200: {mean_ap}')
+
+        acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features, class_labels)
+        print(f'---Acc@1: {acc_1}, Acc@5: {acc_5}')
 
         avg_loss = total_loss / len(self.test_loader)
         return avg_loss
@@ -694,7 +697,7 @@ def evaluate_by_category(similarity_matrix, labels, category_names, categories):
     return category_metrics
 
 
-def compute_map_and_precision_at_k(sketch_fea, image_fea, class_id, k=200):
+def map_and_precision_at_k(sketch_fea, image_fea, class_id, k=200):
     """
     使用欧氏距离评估 mAP@K 和 Precision@K
 
@@ -754,4 +757,34 @@ def compute_map_and_precision_at_k(sketch_fea, image_fea, class_id, k=200):
     mean_ap = sum(ap_list) / bs
 
     return mean_precision, mean_ap
+
+
+def compute_topk_accuracy(sketch_fea, image_fea, class_id, topk=(1, 5)):
+    """
+    计算 Acc@1 和 Acc@5，不使用 class label，只匹配同索引位置的配对样本
+    sketch_fea: [bs, d]
+    image_fea: [bs, d]
+    """
+    # 计算欧氏距离（越小越相似），也可以换成余弦相似度（越大越相似）
+    dist_matrix = torch.cdist(sketch_fea, image_fea)  # [bs, bs]
+
+    # 目标是 diagonal 上的元素是配对图像对应的距离
+    batch_size = dist_matrix.size(0)
+
+    # 按距离从小到大排序（因为距离越小越相似）
+    sorted_indices = dist_matrix.argsort(dim=1)  # [bs, bs]
+
+    # 构造 ground truth index：每个 sketch 匹配 image 中相同索引位置的图像
+    target = torch.arange(batch_size).unsqueeze(1).to(sketch_fea.device)  # [bs, 1]
+
+    correct = (sorted_indices[:, :max(topk)] == target).int()  # [bs, topk]
+
+    accs = []
+    for k in topk:
+        acc = correct[:, :k].sum().item() / batch_size
+        accs.append(acc)
+
+    return accs
+
+
 
