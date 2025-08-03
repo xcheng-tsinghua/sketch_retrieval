@@ -398,7 +398,7 @@ class SBIRTrainer:
                 category_indices = category_indices.to(self.device)
 
                 sketch_feat, image_feat, logit_scale = self.model(sketches, images)
-                loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
+                loss = self.criterion(sketch_feat, image_feat, category_indices, logit_scale)
 
                 total_loss += loss.item()
 
