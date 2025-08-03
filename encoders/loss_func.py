@@ -220,7 +220,7 @@ def constructive_loss(x, y, margin=1.0, lambda_=1.0):
     return loss
 
 
-def contrastive_loss_cl_zs_sbir(sketch_tensor, image_tensor, class_tensor, margin=1.0):
+def contrastive_loss_cl_zs_sbir(sketch_tensor, image_tensor, class_tensor, logit_scale=0.0, margin=1.0):
     bs = sketch_tensor.size(0)
 
     # 计算 pairwise 欧氏距离: [bs, bs]
@@ -272,7 +272,7 @@ class ContrastiveLoss(nn.Module):
         self.labels = None
         self.last_local_batch_size = None
 
-    def forward(self, sketch_features, image_features, logit_scale=None):
+    def forward(self, sketch_features, image_features, class_tensor=None, logit_scale=None):
         """
         计算对比学习损失
         

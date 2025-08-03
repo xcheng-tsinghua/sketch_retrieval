@@ -349,8 +349,7 @@ class SBIRTrainer:
             sketch_features, image_features, logit_scale = self.model(sketches, images)
 
             # 计算损失
-            # loss = self.criterion(sketch_features, image_features, logit_scale)
-            loss = self.criterion(sketch_features, image_features, category_indices)
+            loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
 
             # 反向传播
             loss.backward()
@@ -396,9 +395,11 @@ class SBIRTrainer:
             for sketches, images, category_indices, category_names in tqdm(self.test_loader, desc="Validating"):
                 sketches = sketches.to(self.device)
                 images = images.to(self.device)
+                category_indices = category_indices.to(self.device)
 
                 sketch_feat, image_feat, logit_scale = self.model(sketches, images)
-                loss = self.criterion(sketch_feat, image_feat, logit_scale)
+                loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
+
                 total_loss += loss.item()
 
                 sketch_features.append(sketch_feat.cpu())
