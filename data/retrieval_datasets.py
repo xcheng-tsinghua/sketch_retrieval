@@ -718,7 +718,7 @@ def create_dataset_split_file(
     if split_mode == 'ZS-SBIR':
         for category, pairs in category_pairs_dict.items():
             if category in sketchy_evaluate:
-                test_pairs.extend(pairs)
+                train_pairs.extend(pairs)
                 train_stats[category] = len(pairs)
             else:
                 test_pairs.extend(pairs)

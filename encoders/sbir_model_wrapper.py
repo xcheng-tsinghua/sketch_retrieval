@@ -11,8 +11,8 @@ import numpy as np
 from encoders import png_sketch_encoder as se
 from encoders.optimized_vision_model import create_optimized_vision_model
 from encoders.sketchrnn import BiLSTMEncoder
-# from sdgraph.sdgraph_sel import SDGraphEmbedding
-from sdgraph.sdgraph_stk_samp import SDGraphEmbedding
+from sdgraph.sdgraph_sel import SDGraphEmbedding
+# from sdgraph.sdgraph_stk_samp import SDGraphEmbedding
 
 
 class LayerNorm(nn.LayerNorm):
