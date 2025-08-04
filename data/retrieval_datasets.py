@@ -67,7 +67,8 @@ class PNGSketchImageDataset(Dataset):
             sketch_transform: 草图变换
             image_transform: 图像变换
         """
-        
+        assert mode in ('train', 'test')
+
         print(f"PNGSketchImageDataset initialized with:")
         print(f"  Mode: {mode}")
         print(f"  Fixed split path: {fixed_split_path}")
@@ -119,6 +120,7 @@ class PNGSketchImageDataset(Dataset):
         
         # 加载固定的数据集划分
         self._load_fixed_split()
+        print(self.mode + f' pairs: {len(self)}')
         
     def _load_fixed_split(self):
         """加载固定的数据集划分"""
