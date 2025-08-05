@@ -493,8 +493,8 @@ class SBIRTrainer:
             checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
             self.model.load_state_dict(checkpoint['model_state_dict'])
-            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            # self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            # self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             self.current_epoch = checkpoint['epoch']
             self.best_loss = checkpoint['best_loss']
             self.train_losses = checkpoint['train_losses']
