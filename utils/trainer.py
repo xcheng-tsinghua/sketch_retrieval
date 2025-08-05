@@ -489,7 +489,7 @@ class SBIRTrainer:
 
     def load_checkpoint(self, checkpoint_path):
         """加载模型检查点"""
-        if os.path.exists(checkpoint_path):
+        try:
             checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
             self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -502,7 +502,10 @@ class SBIRTrainer:
 
             print(f"从检查点恢复训练: {checkpoint_path}")
             return True
-        return False
+
+        except:
+            print(f'从如下文件加载检查点失败：{checkpoint_path}')
+            return False
 
     def train(self):
         """开始训练"""
