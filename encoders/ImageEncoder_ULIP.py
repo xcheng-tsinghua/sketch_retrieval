@@ -11,7 +11,7 @@ class ImageEncoder_ULIP(nn.Module):
         self.vision_model = timm.create_model('vit_base_patch16_224', num_classes=0)
         self.image_projection = nn.Parameter(torch.empty(768, 512))
 
-    @torch.inference_mode()
+    # @torch.inference_mode()
     def forward(self, image):
         x = self.vision_model(image)
         x = x @ self.image_projection
