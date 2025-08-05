@@ -26,14 +26,14 @@ def parse_args():
     parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
     parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
-    parser.add_argument('--sketch_format', type=str, default='vector', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
     parser.add_argument('--vec_sketch_type', type=str, default='STK_11_32', choices=['STK_11_32', 'S5'], help='矢量草图格式')
     parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='False', help='是否创建固定数据集划分文件')
     parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
     parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_stk11_stkpnt32', 'sketch_png', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')  # sketch_stk11_stkpnt32, sketch_s3_352
     parser.add_argument('--task', type=str, default='zs_sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
-    parser.add_argument('--save_str', type=str, default='sdgraph_vit_fgzssbir_mulpair', help='保存名')
+    parser.add_argument('--sketch_format', type=str, default='image', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
+    parser.add_argument('--save_str', type=str, default='vit_vit_fgzssbir_mulpair', help='保存名')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
