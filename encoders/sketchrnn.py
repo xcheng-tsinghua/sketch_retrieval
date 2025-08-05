@@ -11,6 +11,8 @@ class BiLSTMEncoder(nn.Module):
         else:
             hidden_dim = embed_dim
 
+        self.bidirectional = bidirectional
+
         self.lstm = nn.LSTM(
             input_size=input_dim,
             hidden_size=hidden_dim,
