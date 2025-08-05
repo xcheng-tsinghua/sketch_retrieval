@@ -61,11 +61,11 @@ def main(args):
     root = args.root_local if eval(args.local) else args.root_sever
     if args.sketch_format == 'vector':
         sketch_subdir = args.sketch_image_subdirs[0]
-        split_file = f'./data/fixed_splits/dataset_split_{args.pair_mode}_{args.task}.pkl'
+        split_file = f'./data/fixed_splits/dataset_split_{args.pair_mode}_{args.task}_{args.sketch_format}_sketch.pkl'
         sketch_image_suffix = ('txt', 'jpg')
     else:
         sketch_subdir = args.sketch_image_subdirs[1]
-        split_file = f'./data/fixed_splits/dataset_split_{args.pair_mode}_{args.task}.pkl'
+        split_file = f'./data/fixed_splits/dataset_split_{args.pair_mode}_{args.task}_{args.sketch_format}_sketch.pkl'
         sketch_image_suffix = ('png', 'jpg')
 
     if eval(args.is_create_fix_data_file) or not os.path.exists(split_file):
