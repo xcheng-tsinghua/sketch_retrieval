@@ -504,7 +504,7 @@ class SBIRTrainer:
             return True
 
         except:
-            print(f'从如下文件加载检查点失败：{checkpoint_path}')
+            print(f'从如下文件加载检查点失败，从零开始训练：{checkpoint_path}')
             return False
 
     def train(self):

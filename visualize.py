@@ -11,30 +11,31 @@ from tqdm import tqdm
 import torchvision.transforms as transforms
 import json
 import argparse
+from datetime import datetime
 
 # 导入数据集和模型
-from data.retrieval_datasets import create_png_sketch_dataloaders
+from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import utils
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='训练PNG草图-图像对齐模型')
-    parser.add_argument('--bs', type=int, default=100, help='批次大小')
-    parser.add_argument('--epoch', type=int, default=1000, help='最大训练轮数')
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument('--bs', type=int, default=200, help='嵌入维度')
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
     parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
     parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
-    parser.add_argument('--resume', type=str, default=None, help='恢复训练的检查点路径')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
-    parser.add_argument('--sketch_format', type=str, default='vector', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
-    parser.add_argument('--vec_sketch_type', type=str, default='STK_11_32', choices=['STK_11_32', 'S5'],help='矢量草图格式')
-    parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='False', help='是否创建固定数据集划分文件')
-    parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='False', help='是否加载检查点')
-    parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_s3_352', 'sketch_png', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')
-    parser.add_argument('--save_str', type=str, default='lstm_vit', help='保存名')
+    parser.add_argument('--vec_sketch_type', type=str, default='STK_11_32', choices=['STK_11_32', 'S5'], help='矢量草图格式')
+
+    parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_stk11_stkpnt32', 'sketch_png', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')  # sketch_stk11_stkpnt32, sketch_s3_352
+    parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
+
+    parser.add_argument('--task', type=str, default='zs_sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
+    parser.add_argument('--sketch_format', type=str, default='image', choices=['vector', 'image'], help='使用矢量草图还是图片草图')
+    parser.add_argument('--save_str', type=str, default='vit_vit_fgzssbir_mulpair', help='保存名')
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
@@ -88,7 +89,7 @@ def compute_category_metrics(similarity_matrix, sketch_labels, image_labels, ske
 
 def visualize_category_retrieval(similarity_matrix, sketch_features, image_features, 
                                sketch_labels, image_labels, sketch_categories, image_categories,
-                               sketch_loader, image_loader, category, output_dir, num_examples=8):
+                               sketch_loader, image_loader, category, output_dir, sketch_format, num_examples=8):
     """
     可视化特定类别的检索结果
     
@@ -104,8 +105,10 @@ def visualize_category_retrieval(similarity_matrix, sketch_features, image_featu
         image_loader: 图像数据加载器
         category: 要可视化的类别
         output_dir: 输出目录
+        sketch_format: 草图格式 ['vector', 'image']
         num_examples: 可视化示例数量
     """
+    assert sketch_format in ('vector', 'image')
     
     # 设置中文字体
     plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
@@ -137,9 +140,11 @@ def visualize_category_retrieval(similarity_matrix, sketch_features, image_featu
     sketch_count = 0
     for sketches, images, _, cat_names in sketch_loader:
         for i in range(len(sketches)):
+            if sketch_format == 'vector':
+                sketch_img = denormalize(utils.s5_to_tensor_img(sketches[i])).clamp(0, 1)
+            else:
+                sketch_img = denormalize(sketches[i]).clamp(0, 1)
 
-            sketch_img = denormalize(utils.s5_to_tensor_img(sketches[i])).clamp(0, 1)
-            # sketch_img = denormalize(sketches[i]).clamp(0, 1)
             all_sketch_data.append(sketch_img)
             sketch_count += 1
             
@@ -274,19 +279,38 @@ def create_category_summary_plot(category_metrics, output_dir):
     return top_categories
 
 
-def main(args):
+def sketch_file_list_to_tensor(sketch_file_list, sketch_dataset: retrieval_datasets.SketchImageDataset):
+    """
+    将文件列表转化为 tensor
+    注意每个文件表达方式为 类别@文件名，例如 'pear@n12651611_7402-2'
+    """
+    sketch_format = sketch_dataset.sketch_format
+    sketch_suffix = '.txt' if sketch_format == 'vector' else '.png'
+
+    sketch_tensor_list = []
+    for c_sketch_file in sketch_file_list:
+        category, base_name = c_sketch_file.split('@')
+        base_name = base_name + sketch_suffix
+
+        c_path = sketch_dataset.get_sketch_path(category, base_name)
+        c_sketch_tensor = sketch_dataset.sketch_loader(c_path)
+
+        sketch_tensor_list.append(c_sketch_tensor)
+
+    sketch_tensor = torch.stack(sketch_tensor_list, dim=0)
+    return sketch_tensor
+
+
+def main(args, eval_sketches):
     print("开始可视化前5好类别的PNG草图-图像检索效果...")
     
     # 设置路径
-    checkpoint_path = os.path.join(args.weight_dir, args.save_str + '.pth')
+    checkpoint_path = utils.get_check_point(args.weight_dir, args.save_str)
+    split_file = retrieval_datasets.get_split_file_name(args.sketch_format, args.pair_mode, args.task)
 
-    if args.sketch_format == 'vector':
-        split_file = './data/fixed_splits/vec_sketch_image_dataset_splits.pkl'
-    else:
-        split_file = './data/fixed_splits/png_sketch_image_dataset_splits.pkl'
-    
     # 创建输出目录
-    os.makedirs(args.output_dir, exist_ok=True)
+    current_vis_dir = os.path.join(args.output_dir, datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
+    os.makedirs(current_vis_dir, exist_ok=True)
     
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -304,16 +328,16 @@ def main(args):
     # 创建数据加载器
     print("加载测试数据集...")
     root = args.root_local if eval(args.local) else args.root_sever
-    train_loader, test_loader, dataset_info = create_png_sketch_dataloaders(
-        batch_size=32,
-        num_workers=4,
+    _, test_set, _, test_loader, dataset_info = retrieval_datasets.create_sketch_image_dataloaders(
+        batch_size=args.bs,
+        num_workers=args.num_workers,
         fixed_split_path=split_file,
         root=root,
         sketch_format=args.sketch_format,
         vec_sketch_type=args.vec_sketch_type,
-        sketch_image_subdirs=args.sketch_image_subdirs
+        sketch_image_subdirs=args.sketch_image_subdirs,
+        is_back_dataset=True
     )
-    
     print(f"测试集大小: {dataset_info['test_info']['total_pairs']}")
     print(f"共有 {dataset_info['category_info']['num_categories']} 个类别")
     
@@ -335,101 +359,51 @@ def main(args):
     
     # 提取特征
     print("提取特征...")
-    sketch_features = []
+    sketch_file_tensor = sketch_file_list_to_tensor(eval_sketches, test_set).to(device)
+    sketch_features = model.encode_sketch(sketch_file_tensor).cpu()
+
+    image_file_tensor = []
     image_features = []
-    sketch_labels = []
-    image_labels = []
-    sketch_categories = []
-    image_categories = []
     
     with torch.no_grad():
-        for sketches, images, category_indices, category_names in tqdm(test_loader):
-            sketches = sketches.to(device)
+        for _, images, category_indices, category_names in tqdm(test_loader):
             images = images.to(device)
+            image_file_tensor.append(images.cpu())
             
             # 编码草图和图像
-            sketch_feat = model.encode_sketch(sketches)
             image_feat = model.encode_image(images)
-            
-            sketch_features.append(sketch_feat.cpu())
             image_features.append(image_feat.cpu())
-            sketch_labels.extend(category_indices.cpu().numpy())
-            image_labels.extend(category_indices.cpu().numpy())
-            sketch_categories.extend(category_names)
-            image_categories.extend(category_names)
-    
+
     # 合并特征
-    sketch_features = torch.cat(sketch_features, dim=0)
     image_features = torch.cat(image_features, dim=0)
-    sketch_labels = torch.tensor(sketch_labels)
-    image_labels = torch.tensor(image_labels)
-    
+    image_file_tensor = torch.cat(image_file_tensor, dim=0)
     print(f"提取特征完成: sketch {sketch_features.shape}, image {image_features.shape}")
     
     # 计算相似度矩阵
     print("计算相似度矩阵...")
     similarity_matrix = torch.matmul(sketch_features, image_features.t())
     
-    # 计算每个类别的性能指标
-    print("计算类别性能指标...")
-    category_metrics = compute_category_metrics(
-        similarity_matrix, sketch_labels, image_labels, sketch_categories
-    )
+    # TODO: 找到最近的图片索引
+
+
+    # TODO: 根据图片索引找到对应的图片 tensor
+
+
+    # TODO: 可视化图片 tensor
     
-    # 创建类别性能总结图
-    print("创建类别性能总结图...")
-    top_categories = create_category_summary_plot(category_metrics, args.output_dir)
-    
-    # 显示前5好类别的统计信息
-    print(f"\n=== 前5好类别统计 ===")
-    for i, (category, metrics) in enumerate(top_categories[:5]):
-        print(f"{i+1}. {category}:")
-        print(f"   Top-1准确率: {metrics['top1_accuracy']:.4f}")
-        print(f"   Top-5准确率: {metrics['top5_accuracy']:.4f}")
-        print(f"   样本数量: {metrics['num_samples']}")
-        print(f"   Top-1正确数: {metrics['top1_correct']}/{metrics['num_samples']}")
-        print(f"   Top-5正确数: {metrics['top5_correct']}/{metrics['num_samples']}")
-        print()
-    
-    # 为前5好类别创建详细的可视化
-    print("为前5好类别创建详细可视化...")
-    for i, (category, metrics) in enumerate(top_categories[:5]):
-        print(f"正在处理类别 {i+1}: {category}")
-        visualize_category_retrieval(
-            similarity_matrix, sketch_features, image_features,
-            sketch_labels, image_labels, sketch_categories, image_categories,
-            test_loader, test_loader, category, args.output_dir, num_examples=6
-        )
-    
-    # 保存详细结果
-    results = {
-        'top_5_categories': {
-            category: metrics for category, metrics in top_categories[:5]
-        },
-        'all_category_metrics': category_metrics,
-        'dataset_info': dataset_info
-    }
-    
-    results_file = os.path.join(args.output_dir, 'top5_categories_results.json')
-    with open(results_file, 'w', encoding='utf-8') as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
-    
-    print(f"\n详细结果已保存到: {results_file}")
-    print(f"所有可视化文件已保存到目录: {args.output_dir}")
-    
-    # 最终总结
-    print(f"\n=== 可视化完成总结 ===")
-    print(f"处理了 {len(category_metrics)} 个类别")
-    print(f"为前5好类别创建了详细的检索效果可视化")
-    print(f"平均Top-1准确率: {np.mean([m['top1_accuracy'] for m in category_metrics.values()]):.4f}")
-    print(f"平均Top-5准确率: {np.mean([m['top5_accuracy'] for m in category_metrics.values()]):.4f}")
-    
-    print(f"\n输出文件:")
-    print(f"  - 类别性能总结图: category_performance_summary.png")
-    print(f"  - 各类别详细可视化: category_*_retrieval.png")
-    print(f"  - 详细数据结果: top5_categories_results.json")
+
+
 
 
 if __name__ == '__main__':
-    main(parse_args())
+    # 用于设置需要进行可视化的草图
+    # 以类别 @ 文件名为格式
+    setting_sketches = [
+        'pear@n12651611_7402-2',
+        'helicopter@n03512147_6004-1',
+        'rhinoceros@n02391994_11273-1'
+        'wheelchair@n04576002_5349-2',
+        'dolphin@n02068974_2208-4'
+    ]
+    main(parse_args(), setting_sketches)
 

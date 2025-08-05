@@ -7,6 +7,98 @@ from PIL import Image
 import logging
 import torch.nn as nn
 from functools import partial
+import os
+
+
+class MLP(nn.Module):
+    def __init__(self, dimension: int, channels: tuple, bias: bool = True, dropout: float = 0.4, final_proc=False):
+        """
+        :param dimension: 输入维度数，[0, 1, 2, 3]
+            输入数据维度: [bs, c], dimension = 0
+            输入数据维度: [bs, c, d], dimension = 1
+            输入数据维度: [bs, c, d, e], dimension = 2
+            输入数据维度: [bs, c, d, e, f], dimension = 3
+        :param channels: 输入层到输出层的维度，[in, hid1, hid2, ..., out]
+        :param bias:
+        :param dropout: dropout 概率
+        :param final_proc:
+        """
+        super().__init__()
+
+        self.linear_layers = nn.ModuleList()
+        self.batch_normals = nn.ModuleList()
+        self.activates = nn.ModuleList()
+        self.drop_outs = nn.ModuleList()
+
+        self.n_layers = len(channels)
+        self.final_proc = final_proc
+        if dropout == 0:
+            self.is_drop = False
+        else:
+            self.is_drop = True
+
+        if dimension == 0:
+            fc = nn.Linear
+            bn = nn.BatchNorm1d
+            dp = nn.Dropout
+
+        elif dimension == 1:
+            fc = partial(nn.Conv1d, kernel_size=1)
+            bn = nn.BatchNorm1d
+            dp = nn.Dropout1d
+
+        elif dimension == 2:
+            fc = partial(nn.Conv2d, kernel_size=1)
+            bn = nn.BatchNorm2d
+            dp = nn.Dropout2d
+
+        elif dimension == 3:
+            fc = partial(nn.Conv3d, kernel_size=1)
+            bn = nn.BatchNorm3d
+            dp = nn.Dropout3d
+
+        else:
+            raise ValueError('error dimension value, [0, 1, 2, 3] is supported')
+
+        for i in range(self.n_layers - 2):
+            self.linear_layers.append(fc(channels[i], channels[i + 1], bias=bias))
+            self.batch_normals.append(bn(channels[i + 1]))
+            self.activates.append(nn.LeakyReLU(negative_slope=0.2))
+            self.drop_outs.append(dp(dropout))
+
+        self.outlayer = fc(channels[-2], channels[-1], bias=bias)
+
+        self.outbn = bn(channels[-1])
+        self.outat = nn.LeakyReLU(negative_slope=0.2)
+        self.outdp = dp(dropout)
+
+    def forward(self, fea):
+        """
+        :param fea:
+        :return:
+        """
+
+        for i in range(self.n_layers - 2):
+            fc = self.linear_layers[i]
+            bn = self.batch_normals[i]
+            at = self.activates[i]
+            dp = self.drop_outs[i]
+
+            if self.is_drop:
+                fea = dp(at(bn(fc(fea))))
+            else:
+                fea = at(bn(fc(fea)))
+
+        fea = self.outlayer(fea)
+
+        if self.final_proc:
+            fea = self.outbn(fea)
+            fea = self.outat(fea)
+
+            if self.is_drop:
+                fea = self.outdp(fea)
+
+        return fea
 
 
 def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=0, coor_mode='ABS', save_path=None):
@@ -159,6 +251,7 @@ def load_stk_sketch(s3_file, stk_name, delimiter=','):
     s3_data = np.loadtxt(s3_file, delimiter=delimiter, dtype=np.float32)
     _, n_stk, n_stk_pnt = stk_name.split('_')
     stk_data = s3_data.reshape(int(n_stk), int(n_stk_pnt), 2)
+    stk_data = torch.from_numpy(stk_data)
 
     return stk_data
 
@@ -202,95 +295,12 @@ def get_log(log_root: str):
     return logger
 
 
-class MLP(nn.Module):
-    def __init__(self, dimension: int, channels: tuple, bias: bool = True, dropout: float = 0.4, final_proc=False):
-        """
-        :param dimension: 输入维度数，[0, 1, 2, 3]
-            输入数据维度: [bs, c], dimension = 0
-            输入数据维度: [bs, c, d], dimension = 1
-            输入数据维度: [bs, c, d, e], dimension = 2
-            输入数据维度: [bs, c, d, e, f], dimension = 3
-        :param channels: 输入层到输出层的维度，[in, hid1, hid2, ..., out]
-        :param bias:
-        :param dropout: dropout 概率
-        :param final_proc:
-        """
-        super().__init__()
-
-        self.linear_layers = nn.ModuleList()
-        self.batch_normals = nn.ModuleList()
-        self.activates = nn.ModuleList()
-        self.drop_outs = nn.ModuleList()
-
-        self.n_layers = len(channels)
-        self.final_proc = final_proc
-        if dropout == 0:
-            self.is_drop = False
-        else:
-            self.is_drop = True
-
-        if dimension == 0:
-            fc = nn.Linear
-            bn = nn.BatchNorm1d
-            dp = nn.Dropout
-
-        elif dimension == 1:
-            fc = partial(nn.Conv1d, kernel_size=1)
-            bn = nn.BatchNorm1d
-            dp = nn.Dropout1d
-
-        elif dimension == 2:
-            fc = partial(nn.Conv2d, kernel_size=1)
-            bn = nn.BatchNorm2d
-            dp = nn.Dropout2d
-
-        elif dimension == 3:
-            fc = partial(nn.Conv3d, kernel_size=1)
-            bn = nn.BatchNorm3d
-            dp = nn.Dropout3d
-
-        else:
-            raise ValueError('error dimension value, [0, 1, 2, 3] is supported')
-
-        for i in range(self.n_layers - 2):
-            self.linear_layers.append(fc(channels[i], channels[i + 1], bias=bias))
-            self.batch_normals.append(bn(channels[i + 1]))
-            self.activates.append(nn.LeakyReLU(negative_slope=0.2))
-            self.drop_outs.append(dp(dropout))
-
-        self.outlayer = fc(channels[-2], channels[-1], bias=bias)
-
-        self.outbn = bn(channels[-1])
-        self.outat = nn.LeakyReLU(negative_slope=0.2)
-        self.outdp = dp(dropout)
-
-    def forward(self, fea):
-        """
-        :param fea:
-        :return:
-        """
-
-        for i in range(self.n_layers - 2):
-            fc = self.linear_layers[i]
-            bn = self.batch_normals[i]
-            at = self.activates[i]
-            dp = self.drop_outs[i]
-
-            if self.is_drop:
-                fea = dp(at(bn(fc(fea))))
-            else:
-                fea = at(bn(fc(fea)))
-
-        fea = self.outlayer(fea)
-
-        if self.final_proc:
-            fea = self.outbn(fea)
-            fea = self.outat(fea)
-
-            if self.is_drop:
-                fea = self.outdp(fea)
-
-        return fea
+def get_check_point(weight_dir, save_str):
+    """
+    统一的通过权重目录名以及保存字符串获取检查点文件路径的方法
+    """
+    check_point = os.path.join(weight_dir, save_str + '.pth')
+    return check_point
 
 
 if __name__ == '__main__':

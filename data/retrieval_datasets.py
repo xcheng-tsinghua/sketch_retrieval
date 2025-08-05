@@ -42,7 +42,7 @@ sketchy_evaluate = [
 ]
 
 
-class PNGSketchImageDataset(Dataset):
+class SketchImageDataset(Dataset):
     """
     PNG草图-图像配对数据集
     """
@@ -161,8 +161,11 @@ class PNGSketchImageDataset(Dataset):
         """
         sketch_file, image_file, category = self.data_pairs[idx]
 
-        sketch_path = os.path.join(self.root, self.sketch_subdir, category, sketch_file)
-        image_path = os.path.join(self.root, self.image_subdir, category, image_file)
+        sketch_path = self.get_sketch_path(category, sketch_file)
+        image_path = self.get_image_path(category, image_file)
+
+        # sketch_path = os.path.join(self.root, self.sketch_subdir, category, sketch_file)
+        # image_path = os.path.join(self.root, self.image_subdir, category, image_file)
 
         try:
             # 加载草图
@@ -219,6 +222,20 @@ class PNGSketchImageDataset(Dataset):
         #     print(f"Sketch path: {sketch_path}")
         #     print(f"Image path: {image_path}")
         #     raise e
+
+    def get_sketch_path(self, category, sketch_file):
+        """
+        sketch_file: 例如 aaa.png
+        """
+        sketch_path = os.path.join(self.root, self.sketch_subdir, category, sketch_file)
+        return sketch_path
+
+    def get_image_path(self, category, image_file):
+        """
+        image_file: 例如 aaa.jpg
+        """
+        image_path = os.path.join(self.root, self.image_subdir, category, image_file)
+        return image_path
 
     def get_category_info(self):
         """获取类别信息"""
@@ -292,14 +309,15 @@ def get_allfiles(dir_path, suffix='txt', filename_only=False):
     return filepath_all
 
 
-def create_png_sketch_dataloaders(batch_size,
-                                  num_workers,
-                                  fixed_split_path,
-                                  root,
-                                  sketch_format,
-                                  vec_sketch_type,
-                                  sketch_image_subdirs
-                                  ):
+def create_sketch_image_dataloaders(batch_size,
+                                    num_workers,
+                                    fixed_split_path,
+                                    root,
+                                    sketch_format,
+                                    vec_sketch_type,
+                                    sketch_image_subdirs,
+                                    is_back_dataset=False
+                                    ):
     """
     创建训练和测试数据加载器
     
@@ -310,7 +328,8 @@ def create_png_sketch_dataloaders(batch_size,
         root:
         sketch_format:
         vec_sketch_type: 矢量草图格式 [S5, STK_11_32]
-        sketch_image_subdirs
+        sketch_image_subdirs:
+        is_back_dataset: 是否返回数据集
         
     Returns:
         train_loader, test_loader, dataset_info
@@ -342,7 +361,7 @@ def create_png_sketch_dataloaders(batch_size,
     ])
     
     # 创建数据集
-    train_dataset = PNGSketchImageDataset(
+    train_dataset = SketchImageDataset(
         mode='train',
         fixed_split_path=fixed_split_path,
         sketch_transform=train_sketch_transform,
@@ -353,7 +372,7 @@ def create_png_sketch_dataloaders(batch_size,
         sketch_image_subdirs=sketch_image_subdirs
     )
 
-    test_dataset = PNGSketchImageDataset(
+    test_dataset = SketchImageDataset(
         mode='test',
         fixed_split_path=fixed_split_path,
         sketch_transform=test_transform,
@@ -406,8 +425,11 @@ def create_png_sketch_dataloaders(batch_size,
         'test_info': test_dataset.get_data_info(),
         'category_info': train_dataset.get_category_info()
     }
-    
-    return train_loader, test_loader, dataset_info
+
+    if is_back_dataset:
+        return train_dataset, test_dataset, train_loader, test_loader, dataset_info
+    else:
+        return train_loader, test_loader, dataset_info
 
 
 # def create_dataset_split_file(
@@ -776,6 +798,22 @@ def create_dataset_split_file(
 
     print(f"PNG草图数据集划分已保存到: {save_root}")
     return dataset_info
+
+
+def get_split_file_name(sketch_format: str, pair_mode: str, task: str):
+    """
+    统一的数据集分割文件名获取方式
+
+    sketch_format: ('vector', 'image')
+    pair_mode: ('multi_pair', 'single_pair')
+    task: ('sbir', 'zs_sbir')
+    """
+    assert sketch_format in ('vector', 'image')
+    assert pair_mode in ('multi_pair', 'single_pair')
+    assert task in ('sbir', 'zs_sbir')
+
+    split_file = f'./data/fixed_splits/dataset_split_{pair_mode}_{task}_{sketch_format}_sketch.pkl'
+    return split_file
 
 
 if __name__ == '__main__':
