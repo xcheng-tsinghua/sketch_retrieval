@@ -6,8 +6,7 @@ PNG草图-图像对齐模型训练脚本
 import os
 import torch
 import argparse
-import logging
-import datetime
+from datetime import datetime
 
 # 导入数据集和模型
 from data import retrieval_datasets
