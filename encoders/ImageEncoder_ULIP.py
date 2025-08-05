@@ -10,6 +10,7 @@ class ImageEncoder_ULIP(nn.Module):
         super().__init__()
         self.vision_model = timm.create_model('vit_base_patch16_224', num_classes=0)
         self.image_projection = nn.Parameter(torch.empty(768, 512))
+        self.embed_dim = 512
 
     # @torch.inference_mode()
     def forward(self, image):
@@ -32,7 +33,7 @@ def save_weights_from_all():
     torch.save(image_encoder.state_dict(), 'weight_image_encoder.pth')
 
 
-def create_pretrained_imageencoder(root_ckpt: str = './weights/weight_image_encoder.pth'):
+def create_pretrained_image_encoder(root_ckpt: str = './model_trained/weight_image_encoder.pth'):
     print('create pretrained image encoder, load weight from ' + root_ckpt)
 
     image_encoder_pretrained = ImageEncoder_ULIP()

@@ -13,7 +13,7 @@ from encoders.optimized_vision_model import create_optimized_vision_model
 from encoders.sketchrnn import BiLSTMEncoder
 from sdgraph.sdgraph_sel import SDGraphEmbedding
 # from sdgraph.sdgraph_stk_samp import SDGraphEmbedding
-from encoders.ImageEncoder_ULIP import VITFinetune
+from encoders.ImageEncoder_ULIP import create_pretrained_image_encoder
 
 
 class LayerNorm(nn.LayerNorm):
@@ -90,7 +90,7 @@ class SBIRModelWrapper(nn.Module):
             )
         
         # 图像编码器（通常冻结）
-        self.image_encoder = VITFinetune(self.embed_dim)
+        self.image_encoder = create_pretrained_image_encoder()
 
         # if self.freeze_image_encoder:
         #     # 使用优化的确定性图像模型（冻结权重）
