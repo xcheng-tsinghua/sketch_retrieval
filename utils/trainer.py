@@ -422,7 +422,7 @@ class SBIRTrainer:
         print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
         print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
         print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
-        print(f"mAP_all: {metrics['mAP']:.4f}")
+        print(f"mAP_all: {metrics['mAP_all']:.4f}")
 
         # 按类别评估
         categories = self.dataset_info['category_info']['categories']
