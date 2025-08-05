@@ -90,27 +90,26 @@ class SBIRModelWrapper(nn.Module):
             )
         
         # 图像编码器（通常冻结）
-        self.image_encoder = create_pretrained_image_encoder()
-
-        # if self.freeze_image_encoder:
-        #     # 使用优化的确定性图像模型（冻结权重）
-        #     self.image_encoder = create_optimized_vision_model(
-        #         model_name=image_model_name
-        #     )
-        #     # 冻结图像编码器参数
-        #     for param in self.image_encoder.parameters():
-        #         param.requires_grad = False
-        #     print("Image encoder weights frozen")
-        # else:
-        #     # 可训练的图像编码器
-        #     import timm
-        #     self.image_encoder = timm.create_model(
-        #         image_model_name,
-        #         pretrained=True,
-        #         num_classes=0,
-        #         global_pool=''
-        #     )
-        #     print("Image encoder weights trainable")
+        # self.image_encoder = create_pretrained_image_encoder()
+        if self.freeze_image_encoder:
+            # 使用优化的确定性图像模型（冻结权重）
+            self.image_encoder = create_optimized_vision_model(
+                model_name=image_model_name
+            )
+            # 冻结图像编码器参数
+            for param in self.image_encoder.parameters():
+                param.requires_grad = False
+            print("Image encoder weights frozen")
+        else:
+            # 可训练的图像编码器
+            import timm
+            self.image_encoder = timm.create_model(
+                image_model_name,
+                pretrained=True,
+                num_classes=0,
+                global_pool=''
+            )
+            print("Image encoder weights trainable")
     
     def _get_encoder_dims(self):
         """获取编码器输出维度"""
@@ -158,18 +157,18 @@ class SBIRModelWrapper(nn.Module):
                         if layer.bias is not None:
                             nn.init.constant_(layer.bias, 0)
     
-    def encode_sketch(self, sketch_images):
+    def encode_sketch(self, sketches):
         """
         编码PNG草图
         
         Args:
-            sketch_images: 草图张量 [batch_size, 3, 224, 224]
+            sketches: 草图张量 [batch_size, 3, 224, 224]
             
         Returns:
             sketch_features: 归一化后的草图特征 [batch_size, embed_dim]
         """
         # PNG草图编码器已经包含投影和归一化
-        sketch_features = self.sketch_encoder(sketch_images)
+        sketch_features = self.sketch_encoder(sketches)
         
         # 如果需要额外投影
         sketch_features = self.sketch_projection(sketch_features)
@@ -207,12 +206,12 @@ class SBIRModelWrapper(nn.Module):
         
         return image_features
     
-    def forward(self, sketch_masks, images):
+    def forward(self, sketches, images):
         """
         前向传播
         
         Args:
-            sketch_images: 草图张量 [batch_size, 3, 224, 224]
+            sketches: 草图张量 [batch_size, 3, 224, 224]
             images: 图像张量 [batch_size, 3, 224, 224]
             
         Returns:
@@ -220,7 +219,7 @@ class SBIRModelWrapper(nn.Module):
             image_features: 图像特征 [batch_size, embed_dim]
             logit_scale: 温度参数
         """
-        sketch_features = self.encode_sketch(sketch_masks)
+        sketch_features = self.encode_sketch(sketches)
         image_features = self.encode_image(images)
         
         return sketch_features, image_features, self.logit_scale.exp()
