@@ -120,7 +120,7 @@ class PNGSketchImageDataset(Dataset):
         
         # 加载固定的数据集划分
         self._load_fixed_split()
-        print(self.mode + f' pairs: {len(self)}')
+        # print(self.mode + f' pairs: {len(self)}')
         
     def _load_fixed_split(self):
         """加载固定的数据集划分"""

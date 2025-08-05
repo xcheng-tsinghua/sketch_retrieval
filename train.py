@@ -7,11 +7,12 @@ import os
 import torch
 import argparse
 import logging
+import datetime
 
 # 导入数据集和模型
 from data import retrieval_datasets
 from encoders import sbir_model_wrapper
-from utils import trainer
+from utils import trainer, utils
 
 
 def parse_args():
@@ -33,7 +34,7 @@ def parse_args():
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='False', help='是否加载检查点')
     parser.add_argument('--sketch_image_subdirs', type=tuple, default=('sketch_stk11_stkpnt32', 'sketch_png', 'photo'), help='[0]: vector_sketch, [1]: image_sketch, [2]: photo')  # sketch_stk11_stkpnt32, sketch_s3_352
     parser.add_argument('--task', type=str, default='zs_sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
-    parser.add_argument('--save_str', type=str, default='sdgraph_vit_fgzssbir_mulpair', help='保存名')
+    parser.add_argument('--save_str', type=str, default='sdgraph_ulip_fgzssbir_mulpair', help='保存名')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
@@ -47,16 +48,18 @@ def main(args):
     print('-----> model save name: ' + args.save_str + ' <-----')
 
     # 设置日志
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    os.makedirs('log', exist_ok=True)
+    logger = utils.get_log('./log/' + args.save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
+
+    # logging.basicConfig(level=logging.INFO)
+    # logger = logging.getLogger(__name__)
     
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logger.info(f"使用设备: {device}")
+    # logger.info(f"使用设备: {device}")
     
     # 首先创建数据集划分（如果不存在）
     root = args.root_local if eval(args.local) else args.root_sever
-
     if args.sketch_format == 'vector':
         sketch_subdir = args.sketch_image_subdirs[0]
         split_file = f'./data/fixed_splits/dataset_split_{args.pair_mode}_{args.task}.pkl'
@@ -79,7 +82,7 @@ def main(args):
         )
     
     # 创建数据加载器
-    logger.info("创建数据加载器...")
+    # logger.info("创建数据加载器...")
     train_loader, test_loader, dataset_info = retrieval_datasets.create_png_sketch_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
@@ -90,13 +93,13 @@ def main(args):
         sketch_image_subdirs=args.sketch_image_subdirs
     )
     
-    logger.info(f"数据集信息:")
-    logger.info(f"  训练集: {dataset_info['train_info']['total_pairs']} 对")
-    logger.info(f"  测试集: {dataset_info['test_info']['total_pairs']} 对")
-    logger.info(f"  类别数: {dataset_info['category_info']['num_categories']}")
+    print(f"        数据集信息:")
+    print(f"  训练集: {dataset_info['train_info']['total_pairs']} 对")
+    print(f"  测试集: {dataset_info['test_info']['total_pairs']} 对")
+    print(f"  类别数: {dataset_info['category_info']['num_categories']}")
     
     # 创建模型
-    logger.info("创建PNG草图-图像对齐模型...")
+    print("         创建PNG草图-图像对齐模型...")
     model = sbir_model_wrapper.create_sbir_model_wrapper(
         embed_dim=args.embed_dim,
         freeze_image_encoder=eval(args.is_freeze_image_encoder),
@@ -107,10 +110,10 @@ def main(args):
     
     # 参数统计
     param_counts = model.get_parameter_count()
-    logger.info(f"模型参数统计:")
-    logger.info(f"  总参数: {param_counts['total']:,}")
-    logger.info(f"  可训练参数: {param_counts['trainable']:,}")
-    logger.info(f"  冻结参数: {param_counts['frozen']:,}")
+    print(f"        模型参数统计:")
+    print(f"  总参数: {param_counts['total']:,}")
+    print(f"  可训练参数: {param_counts['trainable']:,}")
+    print(f"  冻结参数: {param_counts['frozen']:,}")
     
     # 创建训练器
     check_point = os.path.join(args.weight_dir, args.save_str + '.pth')

@@ -321,12 +321,10 @@ class SBIRTrainer:
         self.train_losses = []
         self.test_losses = []
 
-        self.logger.info(f"训练器初始化完成:")
-        self.logger.info(f"  检查点保存: {self.check_point}")
-        self.logger.info(f"  最佳检查点保存: {self.check_point_best}")
-        self.logger.info(f"  学习率: {learning_rate}")
-        self.logger.info(f"  权重衰减: {weight_decay}")
-        self.logger.info(f"  最大轮数: {max_epochs}")
+        print(f"        训练器初始化完成:")
+        print(f"  检查点保存: {self.check_point}")
+        print(f"  学习率: {learning_rate}")
+        print(f"  最大轮数: {max_epochs}")
 
     def train_epoch(self):
         """
@@ -383,12 +381,10 @@ class SBIRTrainer:
         self.model.eval()
 
         # 提取特征
-        print("提取特征...")
         sketch_features = []
         image_features = []
         class_labels = []
         sketch_categories = []
-        image_categories = []
 
         total_loss = 0.0
         with torch.no_grad():
@@ -400,36 +396,33 @@ class SBIRTrainer:
 
                 sketch_feat, image_feat, logit_scale = self.model(sketches, images)
                 loss = self.criterion(sketch_feat, image_feat, category_indices, logit_scale)
-
                 total_loss += loss.item()
 
                 sketch_features.append(sketch_feat.cpu())
                 image_features.append(image_feat.cpu())
                 class_labels.extend(category_indices.cpu().numpy())
                 sketch_categories.extend(category_names)
-                image_categories.extend(category_names)
 
         # 合并特征
         sketch_features = torch.cat(sketch_features, dim=0)
         image_features = torch.cat(image_features, dim=0)
         class_labels = torch.tensor(class_labels)
 
-        # 计算相似度矩阵
-        # print("评估检索性能...")
-        similarity_matrix = torch.matmul(sketch_features, image_features.t())
-
-        # print(f"相似度矩阵形状: {similarity_matrix.shape}")
-        # print(f"相似度矩阵统计: min={similarity_matrix.min():.4f}, "
-        #       f"max={similarity_matrix.max():.4f}, mean={similarity_matrix.mean():.4f}")
+        # 计算相似度矩阵, 数值越大表示越相似
+        # 因为 (a1, b1), (a2, b2), cosθ = a1 * b1 + a2 * b2，余弦值越大表示夹角越小，也就是越相似
+        # 注意计算余弦距离需要单位向量
+        skh_fea_norm = F.normalize(sketch_features, dim=1)
+        img_fea_norm = F.normalize(image_features, dim=1)
+        similarity_matrix = torch.matmul(skh_fea_norm, img_fea_norm.t())
 
         # 计算检索指标
         metrics = compute_retrieval_metrics(similarity_matrix, class_labels)
 
-        print(f"\\n=== 检索性能评估结果 ===")
+        print(f"=== 检索性能评估结果 ===")
         print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
         print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
         print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
-        print(f"mAP: {metrics['mAP']:.4f}")
+        print(f"mAP_all: {metrics['mAP']:.4f}")
 
         # 按类别评估
         categories = self.dataset_info['category_info']['categories']
@@ -437,7 +430,7 @@ class SBIRTrainer:
             similarity_matrix, class_labels, sketch_categories, categories
         )
 
-        print(f"\\n评估 {len(categories)} 个类别的性能...")
+        print(f"评估 {len(categories)} 个类别的性能...")
 
         # 显示部分类别结果
         sorted_categories = sorted(category_metrics.items(),
@@ -448,39 +441,6 @@ class SBIRTrainer:
             num_samples = cat_metrics['num_samples']
             correct = cat_metrics['correct']
             print(f"  {category}: {correct}/{num_samples} = {accuracy:.4f}")
-
-        # 保存结果
-        # results = {
-        #     'overall_metrics': metrics,
-        #     'category_metrics': category_metrics,
-        #     'similarity_stats': {
-        #         'min': similarity_matrix.min().item(),
-        #         'max': similarity_matrix.max().item(),
-        #         'mean': similarity_matrix.mean().item(),
-        #         'std': similarity_matrix.std().item()
-        #     }
-        # }
-
-        # results_file = os.path.join(self.log_dir, 'png_retrieval_results.json')
-        # with open(results_file, 'w', encoding='utf-8') as f:
-        #     json.dump(results, f, indent=2, ensure_ascii=False)
-        #
-        # print(f"结果已保存到: {results_file}")
-
-        # 生成可视化
-        # if args.visualize:
-        #     print("生成可视化结果...")
-        #     visualize_retrieval_results(
-        #         similarity_matrix, test_loader, test_loader,
-        #         args.output_dir, args.num_viz_examples
-        #     )
-
-        # 最终总结
-        # print(f"\\n=== 最终评估结果 ===")
-        # print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
-        # print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
-        # print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
-        # print(f"mAP: {metrics['mAP']:.4f}")
 
         # 找到最佳和最差类别
         if category_metrics:
@@ -498,14 +458,13 @@ class SBIRTrainer:
 
             print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
 
-        mean_precision, mean_ap = map_and_precision_at_k(sketch_features, image_features, class_labels)
-        print(f'---mAP@200: {mean_precision}, Precision@200: {mean_ap}')
-
+        map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
         acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features, class_labels)
-        print(f'---Acc@1: {acc_1}, Acc@5: {acc_5}')
 
-        avg_loss = total_loss / len(self.test_loader)
-        return avg_loss
+        print(f'---mAP@200: {map_200:.4f}, Precision@200: {prec_200:.4f}, {acc_1:.4f}, Acc@5: {acc_5:.4f}')
+
+        test_loss = total_loss / len(self.test_loader)
+        return test_loss, map_200, prec_200, acc_1, acc_5
 
     def save_checkpoint(self, is_best=False):
         """保存模型检查点"""
@@ -524,9 +483,9 @@ class SBIRTrainer:
 
         if is_best:
             torch.save(checkpoint, self.check_point_best)
-            self.logger.info(f"保存最佳模型: {self.check_point_best}")
+            print(f"保存最佳模型: {self.check_point_best}")
 
-        self.logger.info(f"保存检查点: {self.check_point}")
+        print(f"保存检查点: {self.check_point}")
 
     def load_checkpoint(self, checkpoint_path):
         """加载模型检查点"""
@@ -541,13 +500,13 @@ class SBIRTrainer:
             self.train_losses = checkpoint['train_losses']
             self.test_losses = checkpoint['test_losses']
 
-            self.logger.info(f"从检查点恢复训练: {checkpoint_path}")
+            print(f"从检查点恢复训练: {checkpoint_path}")
             return True
         return False
 
     def train(self):
         """开始训练"""
-        self.logger.info("开始训练PNG草图-图像对齐模型...")
+        print("开始训练PNG草图-图像对齐模型...")
 
         for epoch in range(self.current_epoch, self.max_epochs):
             self.current_epoch = epoch
@@ -557,27 +516,28 @@ class SBIRTrainer:
             self.train_losses.append(train_loss)
 
             # 验证一个epoch
-            test_loss = self.validate_epoch()
+            test_loss, map_200, prec_200, acc_1, acc_5 = self.validate_epoch()
             self.test_losses.append(test_loss)
 
             current_lr = self.optimizer.param_groups[0]['lr']
-            self.logger.info(f"Epoch {epoch + 1}/{self.max_epochs}:")
-            self.logger.info(f"  Train Loss: {train_loss:.4f}")
-            self.logger.info(f"  Test Loss: {test_loss:.4f}")
-            self.logger.info(f"  Learning Rate: {current_lr:.6f}")
+            print(f'epoch {epoch + 1}/{self.max_epochs}: train_loss: {train_loss:.4f}, test_loss: {test_loss:.4f}, lr: {current_lr:.6f}')
 
             # 检查是否是最佳模型
             is_best = test_loss < self.best_loss
             if is_best:
                 self.best_loss = test_loss
-                self.logger.info(f"新的最佳测试损失: {test_loss:.4f}")
+                print(f"新的最佳测试损失: {test_loss:.4f}")
 
             # 保存检查点
             self.save_checkpoint(is_best=is_best)
 
+            log_str = f'epoch {epoch + 1}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
+            log_str = log_str.replace(' ', '\t')
+            self.logger.info(log_str)
+
         # 保存训练历史
         self.save_training_history()
-        self.logger.info("训练完成!")
+        print("训练完成!")
 
     def save_training_history(self):
         """保存训练历史"""
@@ -593,7 +553,7 @@ class SBIRTrainer:
         with open(history_path, 'w') as f:
             json.dump(history, f, indent=2)
 
-        self.logger.info(f"训练历史已保存: {history_path}")
+        print(f"训练历史已保存: {history_path}")
 
 
 def compute_retrieval_metrics(similarity_matrix, labels):
@@ -651,7 +611,7 @@ def compute_retrieval_metrics(similarity_matrix, labels):
         'top1_accuracy': top1_correct / N_sketch,
         'top5_accuracy': top5_correct / N_sketch,
         'top10_accuracy': top10_correct / N_sketch,
-        'mAP': np.mean(all_aps) if all_aps else 0.0
+        'mAP_all': np.mean(all_aps) if all_aps else 0.0
     }
 
     return metrics
