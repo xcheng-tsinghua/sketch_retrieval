@@ -49,13 +49,9 @@ def main(args):
     # 设置日志
     os.makedirs('log', exist_ok=True)
     logger = utils.get_log('./log/' + args.save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
-
-    # logging.basicConfig(level=logging.INFO)
-    # logger = logging.getLogger(__name__)
     
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # logger.info(f"使用设备: {device}")
     
     # 首先创建数据集划分（如果不存在）
     root = args.root_local if eval(args.local) else args.root_sever
