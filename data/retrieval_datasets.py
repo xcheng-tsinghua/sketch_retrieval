@@ -6,7 +6,6 @@ import os
 import pickle
 import torch
 from torch.utils.data import Dataset
-from PIL import Image
 import torchvision.transforms as transforms
 from pathlib import Path
 from functools import partial
@@ -51,12 +50,13 @@ class SketchImageDataset(Dataset):
                  root,
                  mode,
                  fixed_split_path,
-                 vec_sketch_type,  # [S5, STK_11_32]
+                 vec_sketch_rep,  # [S5, STK_11_32]
                  sketch_image_subdirs,  # [0]: vector_sketch, [1]: image_sketch, [2]: photo
                  sketch_transform=None,
                  image_transform=None,
                  sketch_format='vector',  # ['vector', 'image']
                  vec_seq_length=11*32,
+                 is_back_image_only=False
                  ):
         """
         初始化数据集
@@ -66,6 +66,8 @@ class SketchImageDataset(Dataset):
             fixed_split_path: 固定数据集划分文件路径
             sketch_transform: 草图变换
             image_transform: 图像变换
+            is_back_image_only: 是否仅返回图像，用于一张图片对应多个草图时，进行测试时不返回重复的图片
+
         """
         assert mode in ('train', 'test')
 
@@ -77,6 +79,7 @@ class SketchImageDataset(Dataset):
         self.fixed_split_path = fixed_split_path
         self.root = root
         self.sketch_format = sketch_format
+        self.is_back_image_only = is_back_image_only
 
         # 默认变换
         self.sketch_transform = sketch_transform or transforms.Compose([
@@ -95,7 +98,7 @@ class SketchImageDataset(Dataset):
         if self.sketch_format == 'vector':
             self.sketch_subdir = sketch_image_subdirs[0]
 
-            if vec_sketch_type == 'S5':
+            if vec_sketch_rep == 'S5':
                 self.sketch_loader = partial(
                     utils.s3_file_to_s5,
                     max_length=vec_seq_length,
@@ -103,10 +106,10 @@ class SketchImageDataset(Dataset):
                     is_shuffle_stroke=False,
                     is_back_mask=False
                 )
-            elif 'STK' in vec_sketch_type:
+            elif 'STK' in vec_sketch_rep:
                 self.sketch_loader = partial(
                     utils.load_stk_sketch,
-                    stk_name=vec_sketch_type
+                    stk_name=vec_sketch_rep
                 )
             else:
                 raise TypeError('error vector sketch type')
@@ -141,13 +144,17 @@ class SketchImageDataset(Dataset):
             raise ValueError(f"不支持的模式: {self.mode}")
         
         self.categories = dataset_info['common_categories']
+        self.images_set = dataset_info['images_set']
         self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
         
         print(f"Loaded fixed split: {len(self.data_pairs)} pairs")
         print(f"Total categories: {len(self.categories)}")
         
     def __len__(self):
-        return len(self.data_pairs)
+        if self.is_back_image_only:
+            return len(self.images_set)
+        else:
+            return len(self.data_pairs)
     
     def __getitem__(self, idx):
         """
@@ -159,32 +166,42 @@ class SketchImageDataset(Dataset):
             category_idx: 类别索引
             category_name: 类别名称
         """
-        sketch_file, image_file, category = self.data_pairs[idx]
 
-        sketch_path = self.get_sketch_path(category, sketch_file)
-        image_path = self.get_image_path(category, image_file)
-
-        # sketch_path = os.path.join(self.root, self.sketch_subdir, category, sketch_file)
-        # image_path = os.path.join(self.root, self.image_subdir, category, image_file)
-
-        try:
-            # 加载草图
-            sketch = self.sketch_loader(sketch_path)
+        if self.is_back_image_only:
+            image_file, category = self.images_set[idx]
+            image_path = self.get_image_path(category, image_file)
 
             # 加载JPG图像
-            image_pil = Image.open(image_path).convert('RGB')
-            image = self.image_transform(image_pil)
+            image = utils.image_loader(image_path, self.image_transform)
 
             # 获取类别索引
             category_idx = self.category_to_idx[category]
 
-            return sketch, image, category_idx, category
+            return idx, image, category_idx, category
 
-        except Exception as e:
-            print(f"Error loading data at index {idx}: {e}")
-            print(f"Sketch path: {sketch_path}")
-            print(f"Image path: {image_path}")
-            raise e
+        else:
+            sketch_file, image_file, category = self.data_pairs[idx]
+
+            sketch_path = self.get_sketch_path(category, sketch_file)
+            image_path = self.get_image_path(category, image_file)
+
+            try:
+                # 加载草图
+                sketch = self.sketch_loader(sketch_path)
+
+                # 加载JPG图像
+                image = utils.image_loader(image_path, self.image_transform)
+
+                # 获取类别索引
+                category_idx = self.category_to_idx[category]
+
+                return sketch, image, category_idx, category
+
+            except Exception as e:
+                print(f"Error loading data at index {idx}: {e}")
+                print(f"Sketch path: {sketch_path}")
+                print(f"Image path: {image_path}")
+                raise e
 
         # max_iter = 100
         # c_iter = 0
@@ -265,6 +282,19 @@ class SketchImageDataset(Dataset):
             'category_counts': category_counts
         }
 
+    def find_image_idx(self, category, filename):
+        filename = filename.split('-')[0] + '.jpg'
+        image_path = self.get_image_path(category, filename)
+        img_index = self.images_set.index((image_path, category))
+
+        return img_index
+
+    def eval(self):
+        self.is_back_image_only = True
+
+    def train(self):
+        self.is_back_image_only = False
+
 
 def get_subdirs(dir_path):
     """
@@ -314,7 +344,7 @@ def create_sketch_image_dataloaders(batch_size,
                                     fixed_split_path,
                                     root,
                                     sketch_format,
-                                    vec_sketch_type,
+                                    vec_sketch_rep,
                                     sketch_image_subdirs,
                                     is_back_dataset=False
                                     ):
@@ -327,7 +357,7 @@ def create_sketch_image_dataloaders(batch_size,
         fixed_split_path: 固定数据集划分文件路径
         root:
         sketch_format:
-        vec_sketch_type: 矢量草图格式 [S5, STK_11_32]
+        vec_sketch_rep: 矢量草图格式 [S5, STK_11_32]
         sketch_image_subdirs:
         is_back_dataset: 是否返回数据集
         
@@ -368,7 +398,7 @@ def create_sketch_image_dataloaders(batch_size,
         image_transform=train_image_transform,
         root=root,
         sketch_format=sketch_format,
-        vec_sketch_type=vec_sketch_type,
+        vec_sketch_rep=vec_sketch_rep,
         sketch_image_subdirs=sketch_image_subdirs
     )
 
@@ -379,7 +409,7 @@ def create_sketch_image_dataloaders(batch_size,
         image_transform=test_transform,
         root=root,
         sketch_format=sketch_format,
-        vec_sketch_type=vec_sketch_type,
+        vec_sketch_rep=vec_sketch_rep,
         sketch_image_subdirs=sketch_image_subdirs
     )
 
@@ -616,7 +646,8 @@ def create_dataset_split_file(
         train_split=0.8,
         random_seed=42,
         is_multi_pair=False,
-        split_mode='ZS-SBIR'  # ['SBIR', 'ZS-SBIR'],
+        split_mode='ZS-SBIR',  # ['SBIR', 'ZS-SBIR'],
+        full_train=False
         # 'SBIR': 使用所有类别，每个类别内取出一定数量用作测试。
         # 'ZS-SBIR': 一部分类别全部用于训练，另一部分类别全部用于测试，即训练类别和测试类别不重合
 ):
@@ -655,6 +686,7 @@ def create_dataset_split_file(
     print(f'找到 {len(common_categories)} 个共同类别')
 
     all_data_pairs = []
+    images_set = []
     category_stats = {}
 
     for category in common_categories:
@@ -704,6 +736,7 @@ def create_dataset_split_file(
         for instance_id, sketch_list in skhid_name.items():
             if len(sketch_list) > 0 and instance_id in imgid_name:
                 image_name = imgid_name[instance_id]
+                images_set.append((image_name, category))
 
                 # 一张图片对应多张草图
                 if is_multi_pair:
@@ -724,7 +757,7 @@ def create_dataset_split_file(
     print(f"总共创建了 {len(all_data_pairs)} 个数据对")
 
     # 按类别进行分层采样划分训练集和测试集
-    category_pairs_dict = {}
+    category_pairs_dict = {}  # {category: (sketch_name, image_name, category)}
     for pair in all_data_pairs:
         category = pair[2]
         if category not in category_pairs_dict:
@@ -754,16 +787,21 @@ def create_dataset_split_file(
             # 使用固定种子打乱该类别的样本
             random.Random(random_seed + hash(category)).shuffle(pairs)
 
-            split_idx = int(len(pairs) * train_split)
+            if full_train:
+                category_train = pairs
+                category_test = pairs if category in sketchy_evaluate else []
 
-            # 确保每个类别在训练集和测试集中都有至少1个样本
-            if split_idx == 0:
-                split_idx = 1
-            if split_idx == len(pairs):
-                split_idx = len(pairs) - 1
+            else:
+                split_idx = int(len(pairs) * train_split)
 
-            category_train = pairs[:split_idx]
-            category_test = pairs[split_idx:]
+                # 确保每个类别在训练集和测试集中都有至少1个样本
+                if split_idx == 0:
+                    split_idx = 1
+                if split_idx == len(pairs):
+                    split_idx = len(pairs) - 1
+
+                category_train = pairs[:split_idx]
+                category_test = pairs[split_idx:]
 
             train_pairs.extend(category_train)
             test_pairs.extend(category_test)
@@ -782,6 +820,7 @@ def create_dataset_split_file(
     dataset_info = {
         'train_pairs': train_pairs,
         'test_pairs': test_pairs,
+        'images_set': images_set,
         'category_stats': category_stats,
         'train_stats': train_stats,
         'test_stats': test_stats,

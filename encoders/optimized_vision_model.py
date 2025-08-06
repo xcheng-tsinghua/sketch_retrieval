@@ -57,11 +57,12 @@ def create_optimized_vision_model(model_name='vit_base_patch16_224', checkpoint_
     Returns:
         确定性的视觉模型
     """
+    real_model_name = 'vit_base_patch16_224' if model_name == 'vit' else None
     
     # 优先从检查点加载
     if checkpoint_path and os.path.exists(checkpoint_path):
         print(f"从检查点加载视觉模型：{checkpoint_path}")
-        model = timm.create_model(model_name, pretrained=False, num_classes=0)
+        model = timm.create_model(real_model_name, pretrained=False, num_classes=0)
         
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         
@@ -80,7 +81,7 @@ def create_optimized_vision_model(model_name='vit_base_patch16_224', checkpoint_
             print("检查点中未找到视觉模型权重，使用缓存预训练权重")
     
     # 使用缓存的预训练权重
-    return CachedVisionModel(model_name).model
+    return CachedVisionModel(real_model_name).model
 
 
 def test_optimized_model():

@@ -4,8 +4,27 @@ PNG草图编码器
 """
 import torch
 import torch.nn as nn
-import torchvision.models as models
 import timm
+
+from encoders import lstm
+from sdgraph import sdgraph_sel
+
+
+# model_name: [sketch_format, sketch_rep, subdirs]
+supported_encoders = {
+    'vit': {'format': 'image',
+            'rep': None,
+            'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')},
+
+    'sdgraph': {'format': 'vector',
+                'rep': 'STK_11_32',
+                'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')},
+
+    'lstm': {'format': 'vector',
+             'rep': 'S5',
+             'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')}
+}
+
 
 class PNGSketchEncoder(nn.Module):
     """
@@ -241,10 +260,10 @@ class PNGSketchEncoderWithAttention(PNGSketchEncoder):
         return sketch_features
 
 
-def create_sketch_encoder(model_name='vit_base_patch16_224',
+def create_sketch_encoder(model_name,
+                            output_dim=512,
                             pretrained=True,
                             freeze_backbone=False,
-                            output_dim=512,
                             dropout_rate=0.1,
                             use_attention=False):
     """
@@ -262,25 +281,48 @@ def create_sketch_encoder(model_name='vit_base_patch16_224',
         encoder: PNG草图编码器
     """
 
-    if use_attention:
-        encoder = PNGSketchEncoderWithAttention(
-            model_name=model_name,
-            pretrained=pretrained,
-            freeze_backbone=freeze_backbone,
-            output_dim=output_dim,
-            dropout_rate=dropout_rate,
-            use_cross_attention=True
-        )
+    if model_name == 'vit':
+        print('---- create IMAGE sketch encoder ----')
+        real_name = 'vit_base_patch16_224'
+
+        if use_attention:
+            encoder = PNGSketchEncoderWithAttention(
+                model_name=real_name,
+                pretrained=pretrained,
+                freeze_backbone=freeze_backbone,
+                output_dim=output_dim,
+                dropout_rate=dropout_rate,
+                use_cross_attention=True
+            )
+        else:
+            encoder = PNGSketchEncoder(
+                model_name=real_name,
+                pretrained=pretrained,
+                freeze_backbone=freeze_backbone,
+                output_dim=output_dim,
+                dropout_rate=dropout_rate
+            )
+
+    elif model_name == 'lstm':
+        print('---- create VECTOR sketch encoder ----')
+        encoder = lstm.BiLSTMEncoder(embed_dim=output_dim)
+
+    elif model_name == 'sdgraph':
+        print('---- create VECTOR sketch encoder ----')
+        encoder = sdgraph_sel.SDGraphEmbedding(embed_dim=output_dim)
+
     else:
-        encoder = PNGSketchEncoder(
-            model_name=model_name,
-            pretrained=pretrained,
-            freeze_backbone=freeze_backbone,
-            output_dim=output_dim,
-            dropout_rate=dropout_rate
-        )
-    
+        raise TypeError('unsupported encoder name')
+
     return encoder
+
+
+def get_sketch_info(sketch_model: str):
+    """
+    根据草图模型名获取其使用的草图类别及其他信息
+    """
+    sketch_format = supported_encoders[sketch_model]
+    return sketch_format
 
 
 if __name__ == '__main__':

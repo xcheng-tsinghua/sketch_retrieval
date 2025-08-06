@@ -1,0 +1,41 @@
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    # training & visualizing
+    parser.add_argument('--bs', type=int, default=200, help='批次大小')
+    parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
+    parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
+    parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
+    parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
+    parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
+
+    parser.add_argument('--retrieval_mode', type=str, default='cl', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
+    parser.add_argument('--sketch_model', type=str, default='sdgraph', choices=['vit', 'lstm', 'sdgraph'], help='使用矢量草图还是图片草图')
+    parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='使用矢量草图还是图片草图')
+
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy')
+
+    # training
+    parser.add_argument('--epoch', type=int, default=1000, help='最大训练轮数')
+    parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
+    parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
+    parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
+    parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='True', help='是否创建固定数据集划分文件')
+    parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
+
+    # visualizing
+    parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')
+    parser.add_argument('--n_vis_images', type=int, default=5, help='每张草图查询的图片数')
+
+    args = parser.parse_args()
+    return args
+
+
+
+

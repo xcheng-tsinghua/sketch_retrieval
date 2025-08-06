@@ -8,12 +8,8 @@ import torch.nn as nn
 import numpy as np
 
 # 导入编码器
-from encoders import png_sketch_encoder as se
+from encoders import create_sketch_encoder as se
 from encoders.optimized_vision_model import create_optimized_vision_model
-from encoders.sketchrnn import BiLSTMEncoder
-from sdgraph.sdgraph_sel import SDGraphEmbedding
-# from sdgraph.sdgraph_stk_samp import SDGraphEmbedding
-from encoders.ImageEncoder_ULIP import create_pretrained_image_encoder
 
 
 class LayerNorm(nn.LayerNorm):
@@ -31,22 +27,19 @@ class SBIRModelWrapper(nn.Module):
     """
     
     def __init__(self, 
-                 embed_dim=512,
-                 sketch_model_name='vit_base_patch16_224',
-                 image_model_name='vit_base_patch16_224',
+                 embed_dim,
+                 sketch_model_name,
+                 image_model_name,
                  freeze_image_encoder=True,
                  freeze_sketch_backbone=False,
                  dropout_rate=0.1,
-                 temperature=0.07,
-                 sketch_format='vector',  # ['vector', 'image']
+                 temperature=0.07
                  ):
         super().__init__()
-        assert sketch_format in ['vector', 'image'], TypeError('invalid sketch_format')
         
         self.embed_dim = embed_dim
         self.freeze_image_encoder = freeze_image_encoder
         self.freeze_sketch_backbone = freeze_sketch_backbone
-        self.sketch_format = sketch_format
         
         # 可学习的温度参数
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / temperature))
@@ -72,22 +65,31 @@ class SBIRModelWrapper(nn.Module):
     
     def _init_encoders(self, sketch_model_name, image_model_name, dropout_rate):
         """初始化编码器"""
-        if self.sketch_format == 'vector':
-            print('---- create VECTOR sketch encoder ----')
-            self.sketch_encoder = BiLSTMEncoder(embed_dim=self.embed_dim)
+        # if self.sketch_format == 'vector':
+        #     print('---- create VECTOR sketch encoder ----')
+        #     self.sketch_encoder = BiLSTMEncoder(embed_dim=self.embed_dim)
+        #
+        #     # self.sketch_encoder = SDGraphEmbedding(embed_dim=self.embed_dim)
+        #
+        # else:
+        #     print('---- create IMAGE sketch encoder ----')
+        #     # PNG草图编码器（可训练）
+        #     self.sketch_encoder = se.create_sketch_encoder(
+        #         model_name=sketch_model_name,
+        #         pretrained=True,
+        #         freeze_backbone=self.freeze_sketch_backbone,
+        #         output_dim=self.embed_dim,
+        #         dropout_rate=dropout_rate
+        #     )
 
-            # self.sketch_encoder = SDGraphEmbedding(embed_dim=self.embed_dim)
-
-        else:
-            print('---- create IMAGE sketch encoder ----')
-            # PNG草图编码器（可训练）
-            self.sketch_encoder = se.create_sketch_encoder(
-                model_name=sketch_model_name,
-                pretrained=True,
-                freeze_backbone=self.freeze_sketch_backbone,
-                output_dim=self.embed_dim,
-                dropout_rate=dropout_rate
-            )
+        # PNG草图编码器（可训练）
+        self.sketch_encoder = se.create_sketch_encoder(
+            model_name=sketch_model_name,
+            pretrained=True,
+            freeze_backbone=self.freeze_sketch_backbone,
+            output_dim=self.embed_dim,
+            dropout_rate=dropout_rate
+        )
         
         # 图像编码器（通常冻结）
         # self.image_encoder = create_pretrained_image_encoder()
@@ -270,10 +272,9 @@ class SBIRModelWrapper(nn.Module):
         }
 
 
-def create_sbir_model_wrapper(sketch_format,
-                                  embed_dim,
-                                  sketch_model_name='vit_base_patch16_224',
-                                  image_model_name='vit_base_patch16_224',
+def create_sbir_model_wrapper(embed_dim,
+                                  sketch_model_name,
+                                  image_model_name,
                                   freeze_image_encoder=True,
                                   freeze_sketch_backbone=False,
                                   dropout_rate=0.1,
@@ -290,7 +291,6 @@ def create_sbir_model_wrapper(sketch_format,
         freeze_sketch_backbone: 是否冻结草图编码器主干网络
         dropout_rate: Dropout率
         temperature: 初始温度参数
-        sketch_format: 初始温度参数
         
     Returns:
         model: PNG草图-图像对齐模型
@@ -302,8 +302,7 @@ def create_sbir_model_wrapper(sketch_format,
         freeze_image_encoder=freeze_image_encoder,
         freeze_sketch_backbone=freeze_sketch_backbone,
         dropout_rate=dropout_rate,
-        temperature=temperature,
-        sketch_format=sketch_format
+        temperature=temperature
     )
     
     return model
