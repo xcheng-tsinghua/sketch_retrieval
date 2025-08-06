@@ -25,7 +25,7 @@ class BiLSTMEncoder(nn.Module):
         self.out_dim = hidden_dim * (2 if bidirectional else 1)
 
     def forward(self, x):
-        # x: [bs, n_pnts, 3]
+        # x: [bs, n_pnts, 5]
         _, (h_n, _) = self.lstm(x)  # h_n: [num_layers * num_directions, bs, hidden_dim]
 
         if self.bidirectional:

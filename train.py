@@ -16,14 +16,9 @@ from encoders import create_sketch_encoder
 
 
 def main(args):
-
-    save_str = (args.sketch_model + '_' +
-                args.image_model + '_' +
-                args.retrieval_mode + '_' +
-                args.task + '_' +
-                args.pair_mode)
-
+    save_str = utils.get_save_str(args)
     print('-----> model save name: ' + save_str + ' <-----')
+
     sketch_info = create_sketch_encoder.get_sketch_info(args.sketch_model)
 
     # 设置日志
@@ -103,7 +98,8 @@ def main(args):
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
         dataset_info=dataset_info,
-        log_dir='log'
+        log_dir='log',
+        retrieval_mode=args.retrieval_mode
     )
     
     # 恢复训练（如果指定）

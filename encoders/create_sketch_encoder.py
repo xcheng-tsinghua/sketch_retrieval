@@ -13,7 +13,7 @@ from sdgraph import sdgraph_sel
 # model_name: [sketch_format, sketch_rep, subdirs]
 supported_encoders = {
     'vit': {'format': 'image',
-            'rep': None,
+            'rep': 'IMG',
             'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')},
 
     'sdgraph': {'format': 'vector',

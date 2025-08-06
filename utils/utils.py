@@ -179,6 +179,10 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=0, 
 
 
 def s5_to_tensor_img(s5_tensor, coor_mode='REL', save_path=None):
+    """
+    s5_tensor: [n_point, 5]
+    return: [3, h, w]
+    """
     s5_tensor = s5_tensor.cpu().numpy()
     recov_s3 = s5_tensor[:, [0, 1, 2]]
 
@@ -186,6 +190,25 @@ def s5_to_tensor_img(s5_tensor, coor_mode='REL', save_path=None):
         recov_s3[:, :2] = np.cumsum(recov_s3[:, :2], 0)
 
     tensor_img = s3_to_tensor_img(recov_s3, save_path=save_path)
+    tensor_img.unsqueeze_(0)
+    tensor_img = tensor_img.repeat(3, 1, 1)
+    return tensor_img
+
+
+def stk_to_tensor_image(stk_tensor, save_path=None):
+    """
+    将 stk_tensor 转化为可视化图片
+    stk_tensor: [n_stk, n_stk_pnt, 2]
+    """
+    # 先将stk_tensor转化为s3
+    n_stk, n_stk_pnt, _ = stk_tensor.size()
+    new_x = torch.cat([stk_tensor, torch.ones(n_stk, n_stk_pnt, 1)], dim=2)
+
+    for i in range(n_stk):
+        new_x[i, -1, -1] = 0
+
+    new_x = new_x.view(-1, 3)
+    tensor_img = s3_to_tensor_img(new_x, save_path=save_path)
     tensor_img.unsqueeze_(0)
     tensor_img = tensor_img.repeat(3, 1, 1)
     return tensor_img
@@ -303,25 +326,31 @@ def get_check_point(weight_dir, save_str):
     return check_point
 
 
+def get_save_str(args):
+    """
+    统一的获取保存名的方式
+    """
+    save_str = (args.sketch_model + '_' +
+                args.image_model + '_' +
+                args.retrieval_mode + '_' +
+                args.task + '_' +
+                args.pair_mode)
+    return save_str
+
+
 if __name__ == '__main__':
     as3_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt'
+    stk_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_stk11_stkpnt32\airplane\n02691156_58-1.txt'
     trans_save = r'C:\Users\ChengXi\Desktop\60mm20250708\rel_skh.png'
 
-    raw_s3 = np.loadtxt(as3_file, delimiter=',')
-    s5_tensor = s3_file_to_s5(as3_file, is_back_mask=False)
-
-    # recov_s3 = s5_tensor[:, [0, 1, 2]]
-    # recov_s3[:, :2] = np.cumsum(recov_s3[:, :2], 0)
-    #
-    # vis_s3(recov_s3)
-    #
+    # raw_s3 = np.loadtxt(as3_file, delimiter=',')
     # s5_tensor = s3_file_to_s5(as3_file, is_back_mask=False)
-    #
-    # s3_to_tensor_img(recov_s3, save_path=trans_save)
+    # s5_to_tensor_img(s5_tensor, save_path=trans_save)
 
-    s5_to_tensor_img(s5_tensor, save_path=trans_save)
+    raw_stk = np.loadtxt(stk_file, delimiter=',')
+    raw_stk = raw_stk.reshape(11, 32, 2)
 
-
+    stk_to_tensor_image(torch.from_numpy(raw_stk), trans_save)
 
 
 

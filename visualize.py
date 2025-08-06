@@ -8,7 +8,6 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import torchvision.transforms as transforms
 from datetime import datetime
 
 # 导入数据集和模型
@@ -16,239 +15,7 @@ from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import utils
 import options
-
-
-def compute_category_metrics(similarity_matrix, sketch_labels, image_labels, sketch_categories):
-    """计算每个类别的检索指标"""
-    category_metrics = {}
-    
-    # 获取唯一类别
-    unique_categories = list(set(sketch_categories))
-    
-    for category in unique_categories:
-        # 找到该类别的草图索引
-        cat_sketch_indices = [i for i, cat in enumerate(sketch_categories) if cat == category]
-        
-        if len(cat_sketch_indices) == 0:
-            continue
-        
-        # 计算该类别的Top-1, Top-5准确率
-        top1_correct = 0
-        top5_correct = 0
-        
-        for sketch_idx in cat_sketch_indices:
-            similarities = similarity_matrix[sketch_idx]
-            sorted_indices = torch.argsort(similarities, descending=True)
-            
-            # Top-1准确率
-            if image_labels[sorted_indices[0]] == sketch_labels[sketch_idx]:
-                top1_correct += 1
-            
-            # Top-5准确率
-            if any(image_labels[sorted_indices[:5]] == sketch_labels[sketch_idx]):
-                top5_correct += 1
-        
-        category_metrics[category] = {
-            'top1_accuracy': top1_correct / len(cat_sketch_indices),
-            'top5_accuracy': top5_correct / len(cat_sketch_indices),
-            'num_samples': len(cat_sketch_indices),
-            'top1_correct': top1_correct,
-            'top5_correct': top5_correct
-        }
-    
-    return category_metrics
-
-
-def visualize_category_retrieval(similarity_matrix, sketch_features, image_features, 
-                               sketch_labels, image_labels, sketch_categories, image_categories,
-                               sketch_loader, image_loader, category, output_dir, sketch_format, num_examples=8):
-    """
-    可视化特定类别的检索结果
-    
-    Args:
-        similarity_matrix: 相似度矩阵
-        sketch_features: 草图特征
-        image_features: 图像特征  
-        sketch_labels: 草图标签
-        image_labels: 图像标签
-        sketch_categories: 草图类别名
-        image_categories: 图像类别名
-        sketch_loader: 草图数据加载器
-        image_loader: 图像数据加载器
-        category: 要可视化的类别
-        output_dir: 输出目录
-        sketch_format: 草图格式 ['vector', 'image']
-        num_examples: 可视化示例数量
-    """
-    assert sketch_format in ('vector', 'image')
-    
-    # 设置中文字体
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
-    plt.rcParams['axes.unicode_minus'] = False
-    
-    # 找到该类别的草图索引
-    cat_sketch_indices = [i for i, cat in enumerate(sketch_categories) if cat == category]
-    
-    if len(cat_sketch_indices) == 0:
-        print(f"类别 {category} 没有找到草图样本")
-        return
-    
-    # 随机选择几个示例
-    selected_indices = np.random.choice(cat_sketch_indices, 
-                                      min(num_examples, len(cat_sketch_indices)), 
-                                      replace=False)
-    
-    # 收集所有图像数据用于显示
-    all_sketch_data = []
-    all_image_data = []
-    
-    # 从数据加载器中收集原始图像数据
-    denormalize = transforms.Normalize(
-        mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],
-        std=[1/0.229, 1/0.224, 1/0.225]
-    )
-    
-    # 收集草图数据
-    sketch_count = 0
-    for sketches, images, _, cat_names in sketch_loader:
-        for i in range(len(sketches)):
-            if sketch_format == 'vector':
-                sketch_img = denormalize(utils.s5_to_tensor_img(sketches[i])).clamp(0, 1)
-            else:
-                sketch_img = denormalize(sketches[i]).clamp(0, 1)
-
-            all_sketch_data.append(sketch_img)
-            sketch_count += 1
-            
-    # 收集图像数据
-    image_count = 0
-    for sketches, images, _, cat_names in image_loader:
-        for i in range(len(images)):
-            image_img = denormalize(images[i]).clamp(0, 1)
-            all_image_data.append(image_img)
-            image_count += 1
-    
-    print(f"收集到 {len(all_sketch_data)} 个草图, {len(all_image_data)} 个图像")
-    
-    # 创建大的可视化画布
-    fig = plt.figure(figsize=(20, 4 * len(selected_indices)))
-    
-    for row, sketch_idx in enumerate(selected_indices):
-        # 获取该草图的Top-6检索结果
-        similarities = similarity_matrix[sketch_idx]
-        top_indices = torch.argsort(similarities, descending=True)[:6]
-        
-        # 显示草图
-        ax_sketch = plt.subplot(len(selected_indices), 7, row * 7 + 1)
-        if sketch_idx < len(all_sketch_data):
-            ax_sketch.imshow(all_sketch_data[sketch_idx].permute(1, 2, 0))
-        ax_sketch.set_title(f'草图\\n{category}', fontsize=12, fontweight='bold')
-        ax_sketch.axis('off')
-        
-        # 显示检索结果
-        for col, img_idx in enumerate(top_indices):
-            ax_result = plt.subplot(len(selected_indices), 7, row * 7 + col + 2)
-            
-            if img_idx < len(all_image_data):
-                ax_result.imshow(all_image_data[img_idx].permute(1, 2, 0))
-                
-                # 获取检索结果信息
-                score = similarities[img_idx].item()
-                retrieved_category = image_categories[img_idx] if img_idx < len(image_categories) else "Unknown"
-                is_correct = retrieved_category == category
-                
-                # 设置标题颜色
-                title_color = 'green' if is_correct else 'red'
-                mark = "✓" if is_correct else "✗"
-                
-                ax_result.set_title(f'{mark} {retrieved_category}\\n{score:.3f}', 
-                                  fontsize=10, color=title_color)
-            
-            ax_result.axis('off')
-    
-    plt.suptitle(f'类别 "{category}" 的检索结果可视化', fontsize=16, fontweight='bold')
-    plt.tight_layout()
-    
-    # 保存结果
-    safe_category = category.replace('/', '_').replace('\\', '_')
-    viz_path = os.path.join(output_dir, f'category_{safe_category}_retrieval.png')
-    plt.savefig(viz_path, dpi=200, bbox_inches='tight')
-    plt.close()
-    
-    print(f"类别 {category} 的可视化结果已保存到: {viz_path}")
-
-
-def create_category_summary_plot(category_metrics, output_dir):
-    """创建类别性能总结图"""
-    
-    # 设置中文字体
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS'] 
-    plt.rcParams['axes.unicode_minus'] = False
-    
-    # 按Top-1准确率排序
-    sorted_categories = sorted(category_metrics.items(), 
-                             key=lambda x: x[1]['top1_accuracy'], reverse=True)
-    
-    # 取前15个类别用于显示
-    top_categories = sorted_categories[:15]
-    
-    categories = [item[0] for item in top_categories]
-    top1_accs = [item[1]['top1_accuracy'] for item in top_categories]
-    top5_accs = [item[1]['top5_accuracy'] for item in top_categories]
-    sample_counts = [item[1]['num_samples'] for item in top_categories]
-    
-    # 创建子图
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
-    
-    # 第一个子图：Top-1和Top-5准确率对比
-    x = np.arange(len(categories))
-    width = 0.35
-    
-    bars1 = ax1.bar(x - width/2, top1_accs, width, label='Top-1 准确率', alpha=0.8, color='skyblue')
-    bars2 = ax1.bar(x + width/2, top5_accs, width, label='Top-5 准确率', alpha=0.8, color='lightcoral')
-    
-    ax1.set_xlabel('类别')
-    ax1.set_ylabel('准确率')
-    ax1.set_title('各类别检索准确率对比 (前15名)')
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(categories, rotation=45, ha='right')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-    
-    # 在柱状图上显示数值
-    for bar in bars1:
-        height = bar.get_height()
-        ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                f'{height:.3f}', ha='center', va='bottom', fontsize=8)
-    
-    for bar in bars2:
-        height = bar.get_height()
-        ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                f'{height:.3f}', ha='center', va='bottom', fontsize=8)
-    
-    # 第二个子图：样本数量分布
-    bars3 = ax2.bar(categories, sample_counts, alpha=0.7, color='lightgreen')
-    ax2.set_xlabel('类别')
-    ax2.set_ylabel('样本数量')
-    ax2.set_title('各类别样本数量分布')
-    ax2.set_xticklabels(categories, rotation=45, ha='right')
-    ax2.grid(True, alpha=0.3)
-    
-    # 在柱状图上显示数值
-    for bar in bars3:
-        height = bar.get_height()
-        ax2.text(bar.get_x() + bar.get_width()/2., height + 0.5,
-                f'{int(height)}', ha='center', va='bottom', fontsize=8)
-    
-    plt.tight_layout()
-    
-    summary_path = os.path.join(output_dir, 'category_performance_summary.png')
-    plt.savefig(summary_path, dpi=200, bbox_inches='tight')
-    plt.close()
-    
-    print(f"类别性能总结图已保存到: {summary_path}")
-    
-    return top_categories
+from encoders import create_sketch_encoder
 
 
 def sketch_file_list_to_tensor(sketch_file_list, sketch_dataset: retrieval_datasets.SketchImageDataset):
@@ -306,59 +73,6 @@ def find_topk_matching_images(
     return matched_images, topk_indices
 
 
-# def visualize_sketch_retrieval_results(
-#     sketch_file_tensor: torch.Tensor,        # [m, c, h, w]
-#     topk_images: torch.Tensor,               # [m, k, c, h, w]
-#     save_dir
-# ):
-#     """
-#     将每个草图与其对应的 top-k 检索图像拼成一张图，并保存。
-#
-#     Args:
-#         sketch_file_tensor: 草图图像张量 [m, c, h, w]
-#         topk_images: 与草图对应的 top-k 图像 [m, k, c, h, w]
-#         save_dir: 保存目录
-#
-#     """
-#     m, k, c, h, w = topk_images.shape
-#     assert sketch_file_tensor.shape[0] == m
-#     assert sketch_file_tensor.shape[1:] == (c, h, w)
-#
-#     # 设置图像大小
-#     fig, axes = plt.subplots(m, k + 1, figsize=(1.5 * (k + 1), 1.5 * m))
-#
-#     if m == 1:
-#         axes = [axes]  # 统一为二维 list，方便处理
-#
-#     for i in range(m):
-#         # 处理草图（第 0 列）
-#         img = sketch_file_tensor[i]
-#         img_np = tensor_to_image(img)
-#         axes[i][0].imshow(img_np)
-#         axes[i][0].axis("off")
-#         # axes[i][0].set_title("Sketch")
-#
-#         c_sketch_path = os.path.join(save_dir, f'sketch_{i}.png')
-#         plt.imsave(c_sketch_path, img_np, cmap='gray' if img_np.ndim == 2 else None)
-#
-#         # 处理 top-k 检索图像（第 1 ~ k 列）
-#         for j in range(k):
-#             img = topk_images[i][j]
-#             img_np = tensor_to_image(img)
-#             axes[i][j + 1].imshow(img_np)
-#             axes[i][j + 1].axis("off")
-#             # axes[i][j + 1].set_title(f"Top {j+1}")
-#
-#             c_image_path = os.path.join(save_dir, f'image_{i}_{j}.png')
-#             plt.imsave(c_image_path, img_np, cmap='gray' if img_np.ndim == 2 else None)
-#
-#     summary_path = os.path.join(save_dir, 'overall.png')
-#     plt.tight_layout()
-#     plt.savefig(summary_path)
-#     plt.close()
-#     print(f"Saved visualization to: {summary_path}")
-
-
 def visualize_sketch_retrieval_results(
     sketch_file_tensor: torch.Tensor,        # [m, c, h, w]
     topk_images: torch.Tensor,               # [m, k, c, h, w]
@@ -380,9 +94,15 @@ def visualize_sketch_retrieval_results(
         axes[i][0].imshow(sketch_np, cmap='gray' if sketch_np.ndim == 2 else None)
         axes[i][0].axis("off")
 
+        c_sketch_path = os.path.join(save_dir, f'sketch_{i}.png')
+        plt.imsave(c_sketch_path, sketch_np, cmap='gray' if sketch_np.ndim == 2 else None)
+
         sketch_gt = gt_images[i]
         axes[i][1].imshow(sketch_gt, cmap='gray' if sketch_np.ndim == 2 else None)
         axes[i][1].axis("off")
+
+        c_sketch_path = os.path.join(save_dir, f'gt_{i}.png')
+        plt.imsave(c_sketch_path, sketch_gt, cmap='gray' if sketch_gt.ndim == 2 else None)
 
         pair_global_idx = pair_image_idx[i].item()
 
@@ -398,6 +118,9 @@ def visualize_sketch_retrieval_results(
 
             axes[i][j + 2].imshow(img_np, cmap='gray' if img_np.ndim == 2 else None)
             axes[i][j + 2].axis("off")
+
+            c_image_path = os.path.join(save_dir, f'image_{i}_{j}.png')
+            plt.imsave(c_image_path, img_np, cmap='gray' if img_np.ndim == 2 else None)
 
     summary_path = os.path.join(save_dir, 'overall.png')
     plt.tight_layout()
@@ -470,12 +193,40 @@ def get_ground_truth_images(image_file_tensor, pair_image_idx, image_idx):
     return gt_images
 
 
+def sketch_tensor_to_pixel_image(sketch_tensor, sketch_rep):
+    """
+    sketch_tensor: 直接输入到模型的 tensor
+    sketch_rep: 草图表达形式
+    """
+    if sketch_rep == 'S5':
+        trans_func = utils.s5_to_tensor_img
+
+    elif 'STK' in sketch_rep:
+        trans_func = utils.stk_to_tensor_image
+
+    elif sketch_rep == 'IMG':
+        return sketch_tensor
+
+    else:
+        raise TypeError('unsupported sketch_rep')
+
+    transed_tensor = []
+    for i in range(sketch_tensor.size(0)):
+        c_transed = trans_func(sketch_tensor[i])
+        transed_tensor.append(c_transed)
+
+    transed_tensor = torch.stack(transed_tensor, dim=0)
+    return transed_tensor
+
+
 def main(args, eval_sketches):
     print("开始可视化前5好类别的PNG草图-图像检索效果...")
     
     # 设置路径
-    checkpoint_path = utils.get_check_point(args.weight_dir, args.save_str)
-    split_file = retrieval_datasets.get_split_file_name(args.sketch_format, args.pair_mode, args.task)
+    save_str = utils.get_save_str(args)
+    checkpoint_path = utils.get_check_point(args.weight_dir, save_str)
+    sketch_info = create_sketch_encoder.get_sketch_info(args.sketch_model)
+    split_file = retrieval_datasets.get_split_file_name(sketch_info['format'], args.pair_mode, args.task)
 
     # 创建输出目录
     current_vis_dir = os.path.join(args.output_dir, datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
@@ -502,9 +253,9 @@ def main(args, eval_sketches):
         num_workers=args.num_workers,
         fixed_split_path=split_file,
         root=root,
-        sketch_format=args.sketch_format,
-        vec_sketch_type=args.vec_sketch_type,
-        sketch_image_subdirs=args.sketch_image_subdirs,
+        sketch_format=sketch_info['format'],
+        vec_sketch_rep=sketch_info['rep'],
+        sketch_image_subdirs=sketch_info['subdirs'],
         is_back_dataset=True
     )
     test_set.eval()
@@ -517,7 +268,8 @@ def main(args, eval_sketches):
         embed_dim=args.embed_dim,
         freeze_image_encoder=True,
         freeze_sketch_backbone=True,
-        sketch_format=args.sketch_format
+        sketch_model_name=args.sketch_model,
+        image_model_name=args.image_model
     )
     
     checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -558,7 +310,8 @@ def main(args, eval_sketches):
     gt_images = get_ground_truth_images(image_file_tensor, pair_image_idx, image_idx)
 
     # 可视化图片 tensor
-    visualize_sketch_retrieval_results(sketch_file_tensor, topk_images, topk_indices, pair_image_idx, image_idx, gt_images, current_vis_dir)
+    sketch_pixel_tensor = sketch_tensor_to_pixel_image(sketch_file_tensor, sketch_info['rep'])
+    visualize_sketch_retrieval_results(sketch_pixel_tensor, topk_images, topk_indices, pair_image_idx, image_idx, gt_images, current_vis_dir)
 
 
 if __name__ == '__main__':

@@ -280,10 +280,12 @@ class SBIRTrainer:
                  logger,
                  dataset_info,
                  log_dir,
+                 retrieval_mode,  # ['cl', 'fg']
                  learning_rate=1e-4,
                  weight_decay=1e-4,
-                 max_epochs=50
+                 max_epochs=50,
                  ):
+        assert retrieval_mode in ('cl', 'fg')
 
         self.model = model
         self.train_loader = train_loader
@@ -311,8 +313,10 @@ class SBIRTrainer:
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.9)
 
         # 损失函数
-        self.criterion = loss_func.ContrastiveLoss(temperature=0.07)
-        # self.criterion = loss_func.contrastive_loss_cl_zs_sbir
+        if retrieval_mode == 'cl':
+            self.criterion = loss_func.ContrastiveLoss(temperature=0.07)
+        else:
+            self.criterion = loss_func.contrastive_loss_cl_zs_sbir
         # self.criterion = loss_func.contrastive_loss_fg_zs_sbir
 
         # 训练状态
