@@ -48,7 +48,7 @@ def main(args):
             sketch_image_suffix=sketch_image_suffix,
             is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
             split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
-            # full_train=True
+            full_train=True
         )
     
     # 创建数据加载器
@@ -95,7 +95,19 @@ def main(args):
     print(f"  总参数: {param_counts['total']:,}")
     print(f"  可训练参数: {param_counts['trainable']:,}")
     print(f"  冻结参数: {param_counts['frozen']:,}")
-    
+
+    if args.sketch_model == 'sdgraph':
+        stop_val = 0.76
+
+    elif args.sketch_model == 'vit':
+        stop_val = 0.52
+
+    elif args.sketch_model == 'lstm':
+        stop_val = 0.47
+
+    else:
+        stop_val = 1.00
+
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)
     model_trainer = trainer.SBIRTrainer(
@@ -112,7 +124,8 @@ def main(args):
         max_epochs=args.epoch,
         dataset_info=dataset_info,
         log_dir='log',
-        retrieval_mode=args.retrieval_mode
+        retrieval_mode=args.retrieval_mode,
+        stop_val=stop_val
     )
     
     # 恢复训练（如果指定）

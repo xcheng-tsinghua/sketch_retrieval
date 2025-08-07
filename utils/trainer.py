@@ -29,6 +29,7 @@ class SBIRTrainer:
                  learning_rate=1e-4,
                  weight_decay=1e-4,
                  max_epochs=50,
+                 stop_val=100
                  ):
         assert retrieval_mode in ('cl', 'fg')
 
@@ -43,6 +44,7 @@ class SBIRTrainer:
         self.logger = logger
         self.dataset_info = dataset_info
         self.log_dir = log_dir
+        self.stop_val = stop_val
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
 
@@ -353,6 +355,9 @@ class SBIRTrainer:
             log_str = f'epoch {epoch + 1}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
             log_str = log_str.replace(' ', '\t')
             self.logger.info(log_str)
+
+            if map_200 > self.stop_val:
+                break
 
         # 保存训练历史
         self.save_training_history()
