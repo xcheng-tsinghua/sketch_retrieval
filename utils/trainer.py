@@ -5,7 +5,8 @@ import json
 from tqdm import tqdm
 from sklearn.metrics import average_precision_score
 import numpy as np
-import torch.nn.functional as F
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
 
 from utils import loss_func
 
@@ -15,6 +16,8 @@ class SBIRTrainer:
 
     def __init__(self,
                  model,
+                 train_set,
+                 test_set,
                  train_loader,
                  test_loader,
                  device,
@@ -30,6 +33,8 @@ class SBIRTrainer:
         assert retrieval_mode in ('cl', 'fg')
 
         self.model = model
+        self.train_set = train_set
+        self.test_set = test_set
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.device = device
@@ -157,9 +162,9 @@ class SBIRTrainer:
         # 计算相似度矩阵, 数值越大表示越相似
         # 因为 (a1, b1), (a2, b2), cosθ = a1 * b1 + a2 * b2，余弦值越大表示夹角越小，也就是越相似
         # 注意计算余弦距离需要单位向量
-        skh_fea_norm = F.normalize(sketch_features, dim=1)
-        img_fea_norm = F.normalize(image_features, dim=1)
-        similarity_matrix = torch.matmul(skh_fea_norm, img_fea_norm.t())
+        # skh_fea_norm = F.normalize(sketch_features, dim=1)
+        # img_fea_norm = F.normalize(image_features, dim=1)
+        similarity_matrix = torch.matmul(sketch_features, image_features.t())
 
         # 计算检索指标
         metrics = compute_retrieval_metrics(similarity_matrix, class_labels)
@@ -205,12 +210,76 @@ class SBIRTrainer:
             print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
 
         map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
-        acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features, class_labels)
+        acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features)
 
         print(f'---mAP@200: {map_200:.4f}, Precision@200: {prec_200:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
 
         test_loss = total_loss / len(self.test_loader)
         return test_loss, map_200, prec_200, acc_1, acc_5
+
+    def get_acc_files_epoch(self):
+        """
+        验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
+        """
+        self.model.eval()
+
+        # 提取特征
+        sketch_features = []
+        image_features = []
+        indexes = []
+
+        with torch.no_grad():
+            # 提取草图特征
+            for idx, sketches, images in tqdm(self.test_loader, desc="Validating"):
+                sketches = sketches.to(self.device)
+                images = images.to(self.device)
+                idx = idx.long().to(self.device)
+
+                sketch_feat, image_feat, logit_scale = self.model(sketches, images)
+
+                sketch_features.append(sketch_feat.cpu())
+                image_features.append(image_feat.cpu())
+                indexes.append(idx.cpu())
+
+        # 合并特征
+        sketch_features = torch.cat(sketch_features, dim=0)
+        image_features = torch.cat(image_features, dim=0)
+        indexes = torch.cat(indexes, dim=0)
+
+        accs, acc_1_idxes, acc_5_idxes = compute_topk_accuracy_with_file(sketch_features, image_features, indexes)
+        print(f'--- Acc@1: {accs[0]:.4f}, Acc@5: {accs[1]:.4f}')
+
+        return acc_1_idxes, acc_5_idxes
+
+    def vis_fea_cluster(self):
+        """
+        可视化学习出来的草图特征
+        """
+        self.model.eval()
+
+        # 提取特征
+        sketch_features = []
+        class_labels = []
+
+        with torch.no_grad():
+            # 提取草图特征
+            for sketches, images, category_indices, category_names in tqdm(self.test_loader, desc="Validating"):
+                sketches = sketches.to(self.device)
+                category_indices = category_indices.long()
+
+                sketch_feat = self.model.encode_sketch(sketches)
+
+                sketch_features.append(sketch_feat.cpu())
+                class_labels.extend(category_indices)
+
+        # 合并特征
+        sketch_features = torch.cat(sketch_features, dim=0)
+        class_labels = torch.tensor(class_labels)
+        class_name = self.test_set.categories
+
+        vis_class = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        visualize_embeddings(sketch_features, class_labels, vis_class, class_name)
+
 
     def save_checkpoint(self, is_best=False):
         """保存模型检查点"""
@@ -469,7 +538,7 @@ def map_and_precision_at_k(sketch_fea, image_fea, class_id, k=200):
     return mean_precision, mean_ap
 
 
-def compute_topk_accuracy(sketch_fea, image_fea, class_id, topk=(1, 5)):
+def compute_topk_accuracy(sketch_fea, image_fea, topk=(1, 5)):
     """
     计算 Acc@1 和 Acc@5，不使用 class label，只匹配同索引位置的配对样本
     sketch_fea: [bs, d]
@@ -496,5 +565,108 @@ def compute_topk_accuracy(sketch_fea, image_fea, class_id, topk=(1, 5)):
 
     return accs
 
+
+def compute_topk_accuracy_with_file(sketch_fea, image_fea, data_indices, topk=(1, 5)):
+    """
+    计算 Acc@1 和 Acc@5，同时返回匹配正确的 image 全局索引列表
+
+    参数:
+        sketch_fea:     [bs, fea] 查询 sketch 特征
+        image_fea:      [bs, fea] 数据库 image 特征（同一批次）
+        image_indices:  [bs]，表示 image_fea 中每个样本在全局数据库中的索引
+        topk:           Tuple of int，比如 (1, 5)
+
+    返回:
+        accs: List of float，对应每个 k 的 accuracy
+        acc1_matched_indices: List[int]，Acc@1 匹配正确的 image 索引
+        acc5_matched_indices: List[int]，Acc@5 匹配正确的 image 索引
+    """
+
+    # 欧氏距离（也可换成余弦）
+    dist_matrix = torch.cdist(sketch_fea, image_fea)  # [bs, bs]
+    batch_size = dist_matrix.size(0)
+    device = sketch_fea.device
+
+    # 距离升序排序，最近的排前面
+    sorted_indices = dist_matrix.argsort(dim=1, descending=False)  # [bs, bs]
+
+    # 正确的 image 匹配是与自身同位置的样本（即第 i 个 sketch 对应第 i 个 image）
+    ground_truth = torch.arange(batch_size, device=device).unsqueeze(1)  # [bs, 1]
+    correct_matrix = (sorted_indices[:, :max(topk)] == ground_truth)  # [bs, max_k]
+
+    accs = []
+    acc1_matched_indices = []
+    acc5_matched_indices = []
+
+    for k in topk:
+        correct_k = correct_matrix[:, :k].any(dim=1)  # [bs]，是否在 top-k 中命中
+        acc = correct_k.float().mean().item()
+        accs.append(acc)
+
+        # 提取命中的 sketch 索引
+        matched_sketch_indices = torch.nonzero(correct_k, as_tuple=False).squeeze(1)  # [num_matched]
+        # 转换为对应匹配到的 image 的“全局索引”
+        # matched_data_indices = data_indices[matched_sketch_indices].tolist()
+        matched_data_indices = [data_indices[i.item()] for i in matched_sketch_indices]
+
+        if k == 1:
+            acc1_matched_indices = matched_data_indices
+        elif k == 5:
+            acc5_matched_indices = list(set(matched_data_indices) - set(acc1_matched_indices))
+
+    return accs, acc1_matched_indices, acc5_matched_indices
+
+
+def visualize_embeddings(embeddings: torch.Tensor,
+                         labels: torch.Tensor,
+                         target_classes,
+                         class_names,
+                         perplexity=30,
+                         random_state=42):
+    """
+    可视化嵌入特征，支持仅展示指定类别
+    :param embeddings: [bs, emb] 的 tensor
+    :param labels: [bs] 的 int tensor，表示每个样本的类别
+    :param target_classes: 可选，int列表或tensor，指示哪些类别需要可视化
+    :param class_names: 可选，类别名称列表，长度等于最大类别id+1
+    :param perplexity: t-SNE 参数
+    :param random_state: 随机种子
+    """
+    embeddings_np = embeddings.cpu().numpy()
+    labels_np = labels.cpu().numpy()
+
+    # 筛选出目标类别
+    # if target_classes is not None:
+    #     target_classes = set(target_classes)
+    #     mask = np.isin(labels_np, list(target_classes))
+    #     embeddings_np = embeddings_np[mask]
+    #     labels_np = labels_np[mask]
+
+    # t-SNE降维
+    tsne = TSNE(n_components=2, perplexity=perplexity, random_state=random_state)
+    embeddings_2d = tsne.fit_transform(embeddings_np)
+
+    # 绘图
+    plt.figure(figsize=(8, 8))
+    plt.rcParams['font.family'] = 'Times New Roman'
+    unique_labels = np.unique(labels_np)
+    cmap = plt.get_cmap('tab10' if len(unique_labels) <= 10 else 'tab20')
+
+    print('-----------------', unique_labels)
+
+    for i, class_idx in enumerate(unique_labels):
+        idx = labels_np == class_idx
+        label_name = class_names[class_idx] if class_names and class_idx < len(class_names) else f'Class {class_idx}'
+        plt.scatter(embeddings_2d[idx, 0], embeddings_2d[idx, 1],
+                    label=label_name, alpha=0.7, s=10, color=cmap(i))  # cmap(i)
+
+        # label_name = class_names[class_idx] if class_names and class_idx < len(class_names) else f'Class {class_idx}'
+        # plt.scatter([], [], label=label_name, color=cmap(i))
+
+    plt.legend()
+    # plt.title("t-SNE Visualization of Embeddings")
+    plt.tight_layout()
+    plt.axis('off')
+    plt.show()
 
 

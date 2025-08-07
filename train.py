@@ -39,7 +39,7 @@ def main(args):
         sketch_image_suffix = ('png', 'jpg')
 
     if eval(args.is_create_fix_data_file) or not os.path.exists(split_file):
-        logger.info("PNG草图数据集划分文件不存在，正在创建...")
+        print("PNG草图数据集划分文件不存在，正在创建...")
         image_subdir = sketch_info['subdirs'][2]
         retrieval_datasets.create_dataset_split_file(
             save_root=split_file,
@@ -48,18 +48,29 @@ def main(args):
             sketch_image_suffix=sketch_image_suffix,
             is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
             split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
-            full_train=True
+            # full_train=True
         )
     
     # 创建数据加载器
-    train_loader, test_loader, dataset_info = retrieval_datasets.create_sketch_image_dataloaders(
+    # train_loader, test_loader, dataset_info = retrieval_datasets.create_sketch_image_dataloaders(
+    #     batch_size=args.bs,
+    #     num_workers=args.num_workers,
+    #     fixed_split_path=split_file,
+    #     root=root,
+    #     sketch_format=sketch_info['format'],
+    #     vec_sketch_rep=sketch_info['rep'],
+    #     sketch_image_subdirs=sketch_info['subdirs']
+    # )
+
+    train_set, test_set, train_loader, test_loader, dataset_info = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
         fixed_split_path=split_file,
         root=root,
         sketch_format=sketch_info['format'],
         vec_sketch_rep=sketch_info['rep'],
-        sketch_image_subdirs=sketch_info['subdirs']
+        sketch_image_subdirs=sketch_info['subdirs'],
+        is_back_dataset=True
     )
     
     print(f"        数据集信息:")
@@ -89,6 +100,8 @@ def main(args):
     check_point = utils.get_check_point(args.weight_dir, save_str)
     model_trainer = trainer.SBIRTrainer(
         model=model,
+        train_set=train_set,
+        test_set=test_set,
         train_loader=train_loader,
         test_loader=test_loader,
         device=device,
@@ -108,6 +121,20 @@ def main(args):
     
     # 开始训练
     model_trainer.train()
+    # model_trainer.vis_fea_cluster()
+
+    # acc_1_idxes, acc_5_idxes = model_trainer.get_acc_files_epoch()
+    # logger.info('acc_1_sketches:')
+    #
+    # for c_idx in acc_1_idxes:
+    #     c_sketch_file, _ = test_set.get_file_pair_by_index(c_idx)
+    #     logger.info(c_sketch_file)
+    #
+    # logger.info('acc_5_sketches:')
+    #
+    # for c_idx in acc_5_idxes:
+    #     c_sketch_file, _ = test_set.get_file_pair_by_index(c_idx)
+    #     logger.info(c_sketch_file)
 
 
 if __name__ == '__main__':

@@ -45,7 +45,6 @@ class SketchImageDataset(Dataset):
     """
     PNG草图-图像配对数据集
     """
-    
     def __init__(self,
                  root,
                  mode,
@@ -196,49 +195,13 @@ class SketchImageDataset(Dataset):
                 category_idx = self.category_to_idx[category]
 
                 return sketch, image, category_idx, category
+                # return idx, sketch, image
 
             except Exception as e:
                 print(f"Error loading data at index {idx}: {e}")
                 print(f"Sketch path: {sketch_path}")
                 print(f"Image path: {image_path}")
                 raise e
-
-        # max_iter = 100
-        # c_iter = 0
-        # while True:
-        #     if c_iter > max_iter:
-        #         raise ValueError('having searched too much files, no valid file is available')
-        #
-        #     sketch_path, image_path, category = self.get_path(idx)
-        #
-        #     if os.path.exists(sketch_path) and os.path.exists(image_path):
-        #         break
-        #     else:
-        #         idx = self.next(idx)
-        #         c_iter += 1
-        #
-        # try:
-        #     # 加载PNG草图
-        #     # sketch_pil = Image.open(sketch_path).convert('RGB')
-        #     # sketch = self.sketch_transform(sketch_pil)
-        #
-        #     # 加载 S3 草图
-        #     sketch, mask = s3_file_to_s5(sketch_path)
-        #
-        #     # 加载JPG图像
-        #     image_pil = Image.open(image_path).convert('RGB')
-        #     image = self.image_transform(image_pil)
-        #
-        #     # 获取类别索引
-        #     category_idx = self.category_to_idx[category]
-        #
-        #     return sketch, image, category_idx, category
-        #
-        # except Exception as e:
-        #     print(f"Error loading data at index {idx}: {e}")
-        #     print(f"Sketch path: {sketch_path}")
-        #     print(f"Image path: {image_path}")
-        #     raise e
 
     def get_sketch_path(self, category, sketch_file):
         """
@@ -288,6 +251,14 @@ class SketchImageDataset(Dataset):
         img_index = self.images_set.index((image_path, category))
 
         return img_index
+
+    def get_file_pair_by_index(self, idx):
+        sketch_file, image_file, category = self.data_pairs[idx]
+
+        sketch_path = self.get_sketch_path(category, sketch_file)
+        image_path = self.get_image_path(category, image_file)
+
+        return sketch_path, image_path
 
     def eval(self):
         self.is_back_image_only = True
@@ -412,24 +383,6 @@ def create_sketch_image_dataloaders(batch_size,
         vec_sketch_rep=vec_sketch_rep,
         sketch_image_subdirs=sketch_image_subdirs
     )
-
-    # train_dataset = RetrievalDataset(
-    #     mode='train',
-    #     sketch_transform=train_sketch_transform,
-    #     image_transform=train_image_transform,
-    #     root=root,
-    #     sketch_format=sketch_format,
-    #     sketch_image_subdirs=sketch_image_subdirs
-    # )
-    #
-    # test_dataset = RetrievalDataset(
-    #     mode='test',
-    #     sketch_transform=test_transform,
-    #     image_transform=test_transform,
-    #     root=root,
-    #     sketch_format=sketch_format,
-    #     sketch_image_subdirs=sketch_image_subdirs
-    # )
     
     # 创建数据加载器
     train_loader = torch.utils.data.DataLoader(
@@ -790,6 +743,8 @@ def create_dataset_split_file(
             if full_train:
                 category_train = pairs
                 category_test = pairs if category in sketchy_evaluate else []
+
+                # category_test = pairs[:10]
 
             else:
                 split_idx = int(len(pairs) * train_split)

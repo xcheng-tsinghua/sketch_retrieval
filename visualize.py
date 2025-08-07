@@ -113,8 +113,8 @@ def visualize_sketch_retrieval_results(
             img = topk_images[i][j]
             img_np = tensor_to_image(img)
 
-            if retrieved_global_idx != pair_global_idx:
-                img_np = add_red_border(img_np)
+            # if retrieved_global_idx != pair_global_idx:
+            #     img_np = add_red_border(img_np)
 
             axes[i][j + 2].imshow(img_np, cmap='gray' if img_np.ndim == 2 else None)
             axes[i][j + 2].axis("off")
@@ -229,7 +229,7 @@ def main(args, eval_sketches):
     split_file = retrieval_datasets.get_split_file_name(sketch_info['format'], args.pair_mode, args.task)
 
     # 创建输出目录
-    current_vis_dir = os.path.join(args.output_dir, datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
+    current_vis_dir = os.path.join(args.output_dir, save_str + '_' + datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
     os.makedirs(current_vis_dir, exist_ok=True)
     
     # 设置设备
@@ -317,13 +317,59 @@ def main(args, eval_sketches):
 if __name__ == '__main__':
     # 用于设置需要进行可视化的草图
     # 以类别 @ 文件名为格式
+    # setting_sketches = [
+    #     'pear@n12651611_7402-2',
+    #     'helicopter@n03512147_6004-1',
+    #     'rhinoceros@n02391994_11273-1',
+    #     'wheelchair@n04576002_5349-2',
+    #     'dolphin@n02068974_2208-4'
+    # ]
+
     setting_sketches = [
-        'pear@n12651611_7402-2',
-        'helicopter@n03512147_6004-1',
-        'rhinoceros@n02391994_11273-1',
-        'wheelchair@n04576002_5349-2',
-        'dolphin@n02068974_2208-4'
+        # 'tree@n11759853_24427-2',
+        # 'seagull@n02041246_20823-3',
+        'rhinoceros@n02391994_8585-6',
+        # 'helicopter@n03512147_1414-3',
+        'dolphin@n02068974_4779-3',
+        'windmill@n04587559_11917-5',
+        # 'songbird@n01532829_2619-1',
+        # 'sword@n04373894_59060-3',
+        # 'door@n03222318_7012-1',
+        # 'scissors@n04148054_3393-3',
+        # 'saw@n02770585_4664-1',
+        # 'songbird@n01527347_17110-3',
+        'bat@n02139199_11772-5',
+
+        # 'bat@n02139199_10978-1',
+        # 'bat@n02139199_11031-2',
+        # 'bat@n02139199_11187-1',
+
+        # 'cabin@n02932400_10327-2',
+        # 'cow@n01887787_10513-2',
+        # 'dolphin@n02068974_10564-1',
+        # 'dolphin@n02068974_1146-2',
+        # 'door@n03222176_6155-1',
+        # 'giraffe@n02439033_10491-3',
+        # 'helicopter@n03512147_1191-5',
+        # 'mouse@n02330245_1044-3',
+        'raccoon@n02508021_10708-3',
+        # 'raccoon@n02508021_15891-10',
+        # 'wheelchair@n04576002_10456-2',
+
+
+
+
+
+
+        # 'tree@n12523475_9706-4',
+        # 'pear@n07768230_1040-4',
+        # 'sword@n04373894_31746-2',
+        # 'songbird@n01530575_10073-3',
+        # 'skyscraper@n04233124_14086-4',
+        # 'helicopter@n03512147_1318-6'
+
     ]
+
     main(options.parse_args(), setting_sketches)
 
 

@@ -176,7 +176,6 @@ class PNGSketchEncoderWithAttention(PNGSketchEncoder):
     """
     带注意力机制的PNG草图编码器
     """
-    
     def __init__(self, 
                  model_name='vit_base_patch16_224',
                  pretrained=True,
