@@ -65,22 +65,6 @@ class SBIRModelWrapper(nn.Module):
     
     def _init_encoders(self, sketch_model_name, image_model_name, dropout_rate):
         """初始化编码器"""
-        # if self.sketch_format == 'vector':
-        #     print('---- create VECTOR sketch encoder ----')
-        #     self.sketch_encoder = BiLSTMEncoder(embed_dim=self.embed_dim)
-        #
-        #     # self.sketch_encoder = SDGraphEmbedding(embed_dim=self.embed_dim)
-        #
-        # else:
-        #     print('---- create IMAGE sketch encoder ----')
-        #     # PNG草图编码器（可训练）
-        #     self.sketch_encoder = se.create_sketch_encoder(
-        #         model_name=sketch_model_name,
-        #         pretrained=True,
-        #         freeze_backbone=self.freeze_sketch_backbone,
-        #         output_dim=self.embed_dim,
-        #         dropout_rate=dropout_rate
-        #     )
 
         # PNG草图编码器（可训练）
         self.sketch_encoder = se.create_sketch_encoder(

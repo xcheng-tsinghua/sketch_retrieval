@@ -283,7 +283,6 @@ class SBIRTrainer:
         vis_class = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         visualize_embeddings(sketch_features, class_labels, vis_class, class_name)
 
-
     def save_checkpoint(self, is_best=False):
         """保存模型检查点"""
 
@@ -664,7 +663,7 @@ def visualize_embeddings(embeddings: torch.Tensor,
         idx = labels_np == class_idx
         label_name = class_names[class_idx] if class_names and class_idx < len(class_names) else f'Class {class_idx}'
         plt.scatter(embeddings_2d[idx, 0], embeddings_2d[idx, 1],
-                    label=label_name, alpha=0.7, s=10, color=cmap(i))  # cmap(i)
+                    label=label_name, alpha=0.7, s=10, color=cmap(i) if i < 20 else 'black')  # cmap(i)
 
         # label_name = class_names[class_idx] if class_names and class_idx < len(class_names) else f'Class {class_idx}'
         # plt.scatter([], [], label=label_name, color=cmap(i))

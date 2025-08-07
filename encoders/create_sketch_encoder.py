@@ -261,7 +261,7 @@ class PNGSketchEncoderWithAttention(PNGSketchEncoder):
 
 def create_sketch_encoder(model_name,
                             output_dim=512,
-                            pretrained=True,
+                            pretrained=False,
                             freeze_backbone=False,
                             dropout_rate=0.1,
                             use_attention=False):
