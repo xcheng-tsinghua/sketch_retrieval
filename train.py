@@ -131,6 +131,8 @@ def main(args):
     # 恢复训练（如果指定）
     if eval(args.is_load_ckpt):
         model_trainer.load_checkpoint(check_point)
+    else:
+        print('不加载权重，从零开始训练模型')
     
     # 开始训练
     model_trainer.train()
