@@ -86,17 +86,17 @@ def main(args):
     print(f"  可训练参数: {param_counts['trainable']:,}")
     print(f"  冻结参数: {param_counts['frozen']:,}")
 
-    if args.sketch_model == 'sdgraph':
-        stop_val = 0.76
-
-    elif args.sketch_model == 'vit':
-        stop_val = 0.52
-
-    elif args.sketch_model == 'lstm':
-        stop_val = 0.47
-
-    else:
-        stop_val = 1.00
+    # if args.sketch_model == 'sdgraph':
+    #     stop_val = 0.76
+    #
+    # elif args.sketch_model == 'vit':
+    #     stop_val = 0.52
+    #
+    # elif args.sketch_model == 'lstm':
+    #     stop_val = 0.47
+    #
+    # else:
+    #     stop_val = 1.00
 
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)
@@ -115,7 +115,7 @@ def main(args):
         dataset_info=dataset_info,
         log_dir='log',
         retrieval_mode=args.retrieval_mode,
-        stop_val=stop_val
+        # stop_val=stop_val
     )
     
     # 恢复训练（如果指定）
