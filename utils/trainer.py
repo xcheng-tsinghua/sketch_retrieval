@@ -666,9 +666,9 @@ def visualize_embeddings(embeddings: torch.Tensor,
                     label=label_name, alpha=0.7, s=10, color=cmap(i) if i < 20 else 'black')  # cmap(i)
 
         # label_name = class_names[class_idx] if class_names and class_idx < len(class_names) else f'Class {class_idx}'
-        # plt.scatter([], [], label=label_name, color=cmap(i))
+        # plt.scatter([], [], label=label_name, color=cmap(i) if i < 20 else 'black')
 
-    plt.legend()
+    # plt.legend()
     # plt.title("t-SNE Visualization of Embeddings")
     plt.tight_layout()
     plt.axis('off')
