@@ -355,7 +355,7 @@ class SBIRTrainer:
             log_str = log_str.replace(' ', '\t')
             self.logger.info(log_str)
 
-            if map_200 > self.stop_val:
+            if map_200 < self.stop_val:
                 break
 
         # 保存训练历史
