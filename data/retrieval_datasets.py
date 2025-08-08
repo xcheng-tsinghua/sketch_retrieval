@@ -727,13 +727,27 @@ def create_dataset_split_file(
     # zero-shot 检索直接将类别划分为训练类别和测试类别
     if split_mode == 'ZS-SBIR':
         for category, pairs in category_pairs_dict.items():
-            if category in sketchy_evaluate:
-                test_pairs.extend(pairs)
-                test_stats[category] = len(pairs)
 
-            else:
+            if full_train:
                 train_pairs.extend(pairs)
                 train_stats[category] = len(pairs)
+
+                if category in sketchy_evaluate:
+                    test_pairs.extend(pairs)
+                    test_stats[category] = len(pairs)
+
+                else:
+                    test_stats[category] = 0
+
+            else:
+
+                if category in sketchy_evaluate:
+                    test_pairs.extend(pairs)
+                    test_stats[category] = len(pairs)
+
+                else:
+                    train_pairs.extend(pairs)
+                    train_stats[category] = len(pairs)
 
     else:
         for category, pairs in category_pairs_dict.items():
