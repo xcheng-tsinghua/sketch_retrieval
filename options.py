@@ -31,6 +31,7 @@ def parse_args():
 
     parser.add_argument('--add_str', type=str, default='', help='附带的字符串')
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
+    parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='False', help='使用全部数据训练')
 
     # visualizing
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')

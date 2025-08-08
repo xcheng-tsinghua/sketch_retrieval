@@ -48,7 +48,7 @@ def main(args):
             sketch_image_suffix=sketch_image_suffix,
             is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
             split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
-            full_train=True
+            full_train=eval(args.is_full_train)
         )
     
     # 创建数据加载器
