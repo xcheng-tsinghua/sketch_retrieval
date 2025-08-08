@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='False', help='是否创建固定数据集划分文件')
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
 
-    parser.add_argument('--add_str', type=str, default='-down', help='附带的字符串')
+    parser.add_argument('--add_str', type=str, default='', help='附带的字符串')
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
     parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='False', help='使用全部数据训练')
 
