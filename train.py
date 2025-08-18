@@ -87,7 +87,7 @@ def main(args):
     print(f"  冻结参数: {param_counts['frozen']:,}")
 
     # if args.sketch_model == 'sdgraph':
-    #     stop_val = 0.86
+    #     stop_val = 0.76
     #
     # elif args.sketch_model == 'vit':
     #     stop_val = 0.52

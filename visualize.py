@@ -356,11 +356,6 @@ if __name__ == '__main__':
         # 'raccoon@n02508021_15891-10',
         # 'wheelchair@n04576002_10456-2',
 
-
-
-
-
-
         # 'tree@n12523475_9706-4',
         # 'pear@n07768230_1040-4',
         # 'sword@n04373894_31746-2',
@@ -368,8 +363,16 @@ if __name__ == '__main__':
         # 'skyscraper@n04233124_14086-4',
         # 'helicopter@n03512147_1318-6'
 
+
+
     ]
 
-    main(options.parse_args(), setting_sketches)
+    setting_sketches2 = [
+        'ant@n02219486_526-1',
+        'ant@n02219486_526-2'
+
+    ]
+
+    main(options.parse_args(), setting_sketches2)
 
 

@@ -10,10 +10,10 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
-    parser.add_argument('--sketch_model', type=str, default='lstm', choices=['vit', 'lstm', 'sdgraph'], help='使用矢量草图还是图片草图')
+    parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'sdgraph'], help='使用矢量草图还是图片草图')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='使用矢量草图还是图片草图')
     parser.add_argument('--retrieval_mode', type=str, default='cl', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
-    parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
+    parser.add_argument('--task', type=str, default='zs_sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
     parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
