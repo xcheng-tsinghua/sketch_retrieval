@@ -310,6 +310,10 @@ def create_sketch_encoder(model_name,
         print('---- create VECTOR sketch encoder ----')
         encoder = sdgraph_sel.SDGraphEmbedding(embed_dim=output_dim)
 
+    elif model_name == 'sketchtransformer':
+        print('---- create VECTOR sketch encoder ----')
+        encoder = sdgraph_sel.SDGraphEmbedding(embed_dim=output_dim)
+
     else:
         raise TypeError('unsupported encoder name')
 
@@ -325,34 +329,36 @@ def get_sketch_info(sketch_model: str):
 
 
 if __name__ == '__main__':
-    # 测试PNG草图编码器
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"使用设备: {device}")
-    
-    # 创建编码器
-    encoder = create_sketch_encoder(
-        model_name='vit_base_patch16_224',
-        pretrained=True,
-        freeze_backbone=True,
-        output_dim=512
-    )
-    encoder.to(device)
-    
-    # 测试前向传播
-    batch_size = 4
-    test_sketches = torch.randn(batch_size, 3, 224, 224).to(device)
-    
-    with torch.no_grad():
-        features = encoder(test_sketches)
-        
-    print(f"\\n测试结果:")
-    print(f"输入形状: {test_sketches.shape}")
-    print(f"输出形状: {features.shape}")
-    print(f"特征范数: {torch.norm(features, dim=1)}")
-    
-    # 参数统计
-    param_counts = encoder.get_parameter_count()
-    print(f"\\n参数统计:")
-    print(f"总参数: {param_counts['total']:,}")
-    print(f"可训练参数: {param_counts['trainable']:,}")
-    print(f"冻结参数: {param_counts['frozen']:,}")
+    # # 测试PNG草图编码器
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # print(f"使用设备: {device}")
+    #
+    # # 创建编码器
+    # encoder = create_sketch_encoder(
+    #     model_name='vit_base_patch16_224',
+    #     pretrained=True,
+    #     freeze_backbone=True,
+    #     output_dim=512
+    # )
+    # encoder.to(device)
+    #
+    # # 测试前向传播
+    # batch_size = 4
+    # test_sketches = torch.randn(batch_size, 3, 224, 224).to(device)
+    #
+    # with torch.no_grad():
+    #     features = encoder(test_sketches)
+    #
+    # print(f"\\n测试结果:")
+    # print(f"输入形状: {test_sketches.shape}")
+    # print(f"输出形状: {features.shape}")
+    # print(f"特征范数: {torch.norm(features, dim=1)}")
+    #
+    # # 参数统计
+    # param_counts = encoder.get_parameter_count()
+    # print(f"\\n参数统计:")
+    # print(f"总参数: {param_counts['total']:,}")
+    # print(f"可训练参数: {param_counts['trainable']:,}")
+    # print(f"冻结参数: {param_counts['frozen']:,}")
+    pass
+

@@ -11,4 +11,10 @@ model_trained/
 vis_results/
 log/
 bks/
+create_fixed_dataset.py
+dataset_split.py
+diagnose_retrieval_anomaly.py
+evaluate_png_sketch_retrieval.py
+evaluate_sketch_image_retrieval.py
+train_unified_crossmodal.py
 
