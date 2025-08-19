@@ -11,5 +11,5 @@ model_trained/
 vis_results/
 log/
 bks/
-evaluate.py
+
 
