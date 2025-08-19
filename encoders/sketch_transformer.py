@@ -524,6 +524,7 @@ class SketchTransformerModel(nn.Module):
 class SketchTransformer(nn.Module):
     def __init__(self, max_length, embed_dim=512, dropout=0.4):  # max_length = 1200
         super().__init__()
+        print('create sketch_transformer model')
 
         self.sketch_transformer = SketchTransformerModel(max_length=max_length)
         self.linear = nn.Sequential(
