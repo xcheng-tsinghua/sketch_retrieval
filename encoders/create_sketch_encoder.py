@@ -24,7 +24,16 @@ supported_encoders = {
 
     'lstm': {'format': 'vector',
              'rep': 'S5',
+             'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')},
+
+    'gru': {'format': 'vector',
+                           'rep': 'S5',
+                           'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')},
+
+    'sketch_transformer': {'format': 'vector',
+             'rep': 'S5',
              'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')}
+
 }
 
 
