@@ -29,7 +29,7 @@ class SBIRTrainer:
                  learning_rate=1e-4,
                  weight_decay=1e-4,
                  max_epochs=50,
-                 stop_val=100
+                 # stop_val=100
                  ):
         assert retrieval_mode in ('cl', 'fg')
 
@@ -44,7 +44,7 @@ class SBIRTrainer:
         self.logger = logger
         self.dataset_info = dataset_info
         self.log_dir = log_dir
-        self.stop_val = stop_val
+        # self.stop_val = stop_val
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
 

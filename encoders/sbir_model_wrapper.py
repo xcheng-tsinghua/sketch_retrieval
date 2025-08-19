@@ -293,45 +293,47 @@ def create_sbir_model_wrapper(embed_dim,
 
 
 if __name__ == '__main__':
-    # 测试模型
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
-    
-    # 创建模型
-    model = SBIRModelWrapper(
-        embed_dim=512,
-        freeze_image_encoder=True,
-        freeze_sketch_backbone=False
-    )
-    model.to(device)
-    
-    # 测试数据
-    batch_size = 4
-    sketch_images = torch.randn(batch_size, 3, 224, 224).to(device)
-    images = torch.randn(batch_size, 3, 224, 224).to(device)
-    
-    # 前向传播
-    with torch.no_grad():
-        sketch_features, image_features, logit_scale = model(sketch_images, images)
-        
-        # 计算相似度
-        similarity = model.compute_similarity(sketch_features, image_features)
-    
-    print(f"Test results:")
-    print(f"  Sketch features shape: {sketch_features.shape}")
-    print(f"  Image features shape: {image_features.shape}")
-    print(f"  Similarity matrix shape: {similarity.shape}")
-    print(f"  Temperature parameter: {logit_scale.item():.4f}")
-    
-    # 参数统计
-    param_counts = model.get_parameter_count()
-    print(f"Parameter statistics:")
-    print(f"  Total parameters: {param_counts['total']:,}")
-    print(f"  Trainable parameters: {param_counts['trainable']:,}")
-    print(f"  Frozen parameters: {param_counts['frozen']:,}")
-    
-    # 可训练参数详情
-    trainable_params, frozen_params = model.get_trainable_parameters()
-    print(f"Trainable parameter modules:")
-    for name, param in trainable_params[:10]:  # 只显示前10个
-        print(f"  {name}: {param.shape}")
+    # # 测试模型
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # print(f"Using device: {device}")
+    #
+    # # 创建模型
+    # model = SBIRModelWrapper(
+    #     embed_dim=512,
+    #     freeze_image_encoder=True,
+    #     freeze_sketch_backbone=False
+    # )
+    # model.to(device)
+    #
+    # # 测试数据
+    # batch_size = 4
+    # sketch_images = torch.randn(batch_size, 3, 224, 224).to(device)
+    # images = torch.randn(batch_size, 3, 224, 224).to(device)
+    #
+    # # 前向传播
+    # with torch.no_grad():
+    #     sketch_features, image_features, logit_scale = model(sketch_images, images)
+    #
+    #     # 计算相似度
+    #     similarity = model.compute_similarity(sketch_features, image_features)
+    #
+    # print(f"Test results:")
+    # print(f"  Sketch features shape: {sketch_features.shape}")
+    # print(f"  Image features shape: {image_features.shape}")
+    # print(f"  Similarity matrix shape: {similarity.shape}")
+    # print(f"  Temperature parameter: {logit_scale.item():.4f}")
+    #
+    # # 参数统计
+    # param_counts = model.get_parameter_count()
+    # print(f"Parameter statistics:")
+    # print(f"  Total parameters: {param_counts['total']:,}")
+    # print(f"  Trainable parameters: {param_counts['trainable']:,}")
+    # print(f"  Frozen parameters: {param_counts['frozen']:,}")
+    #
+    # # 可训练参数详情
+    # trainable_params, frozen_params = model.get_trainable_parameters()
+    # print(f"Trainable parameter modules:")
+    # for name, param in trainable_params[:10]:  # 只显示前10个
+    #     print(f"  {name}: {param.shape}")
+
+    pass

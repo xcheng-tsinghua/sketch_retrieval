@@ -2,7 +2,6 @@
 PNG草图-图像对齐模型训练脚本
 使用PNG格式的草图与图像进行对齐训练
 """
-
 import os
 import torch
 from datetime import datetime
@@ -63,13 +62,13 @@ def main(args):
         is_back_dataset=True
     )
     
-    print(f"        数据集信息:")
-    print(f"  训练集: {dataset_info['train_info']['total_pairs']} 对")
-    print(f"  测试集: {dataset_info['test_info']['total_pairs']} 对")
-    print(f"  类别数: {dataset_info['category_info']['num_categories']}")
+    print(f" -> 数据集信息:")
+    print(f" 训练集: {dataset_info['train_info']['total_pairs']} 对")
+    print(f" 测试集: {dataset_info['test_info']['total_pairs']} 对")
+    print(f" 类别数: {dataset_info['category_info']['num_categories']}")
     
     # 创建模型
-    print("         创建草图-图像对齐模型...")
+    print(" -> 创建草图-图像对齐模型...")
     model = sbir_model_wrapper.create_sbir_model_wrapper(
         embed_dim=args.embed_dim,
         freeze_image_encoder=eval(args.is_freeze_image_encoder),
@@ -81,10 +80,10 @@ def main(args):
     
     # 参数统计
     param_counts = model.get_parameter_count()
-    print(f"        模型参数统计:")
-    print(f"  总参数: {param_counts['total']:,}")
-    print(f"  可训练参数: {param_counts['trainable']:,}")
-    print(f"  冻结参数: {param_counts['frozen']:,}")
+    print(f" -> 模型参数统计:")
+    print(f" 总参数: {param_counts['total']:,}")
+    print(f" 可训练参数: {param_counts['trainable']:,}")
+    print(f" 冻结参数: {param_counts['frozen']:,}")
 
     # if args.sketch_model == 'sdgraph':
     #     stop_val = 0.76

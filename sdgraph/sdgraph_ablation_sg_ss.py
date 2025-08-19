@@ -7,10 +7,8 @@ import einops
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from einops import rearrange
 
-import global_defs
+from sdgraph import global_defs
 from sdgraph import utils as eu
 
 

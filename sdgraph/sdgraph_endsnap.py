@@ -2,14 +2,13 @@
 用于解决笔划末端不重合的问题
 """
 import einops
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
 from einops import rearrange
 
-import global_defs
+from sdgraph import global_defs
 import sdgraph.utils as eu
 
 

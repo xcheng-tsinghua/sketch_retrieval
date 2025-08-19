@@ -8,6 +8,8 @@ import timm
 
 from encoders import lstm
 from sdgraph import sdgraph_sel
+from encoders import gru
+from encoders import sketch_transformer
 
 
 # model_name: [sketch_format, sketch_rep, subdirs]
@@ -260,11 +262,12 @@ class PNGSketchEncoderWithAttention(PNGSketchEncoder):
 
 
 def create_sketch_encoder(model_name,
-                            output_dim=512,
-                            pretrained=False,
-                            freeze_backbone=False,
-                            dropout_rate=0.1,
-                            use_attention=False):
+                          output_dim=512,
+                          pretrained=False,
+                          freeze_backbone=False,
+                          dropout_rate=0.1,
+                          use_attention=False
+                          ):
     """
     创建PNG草图编码器
     
@@ -310,9 +313,14 @@ def create_sketch_encoder(model_name,
         print('---- create VECTOR sketch encoder ----')
         encoder = sdgraph_sel.SDGraphEmbedding(embed_dim=output_dim)
 
-    elif model_name == 'sketchtransformer':
+    elif model_name == 'sketch_transformer':
         print('---- create VECTOR sketch encoder ----')
-        encoder = sdgraph_sel.SDGraphEmbedding(embed_dim=output_dim)
+        encoder = sketch_transformer.SketchTransformer(11*32, output_dim)
+
+    elif model_name == 'gru':
+        print('---- create VECTOR sketch encoder ----')
+        encoder = gru.GRUEncoder(embed_dim=output_dim)
+
 
     else:
         raise TypeError('unsupported encoder name')

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import global_defs
+from sdgraph import global_defs
 from sdgraph import sdgraph_utils as su
 from sdgraph import utils as eu
 
