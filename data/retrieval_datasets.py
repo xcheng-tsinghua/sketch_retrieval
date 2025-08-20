@@ -23,7 +23,7 @@ class SketchImageDataset(Dataset):
     def __init__(self,
                  root,
                  mode,
-                 fixed_split_path,
+                 pre_load,
                  vec_sketch_rep,  # [S5, STK_11_32]
                  sketch_image_subdirs,  # [0]: vector_sketch, [1]: image_sketch, [2]: photo
                  sketch_transform=None,
@@ -47,10 +47,10 @@ class SketchImageDataset(Dataset):
 
         print(f"PNGSketchImageDataset initialized with:")
         print(f"  Mode: {mode}")
-        print(f"  Fixed split path: {fixed_split_path}")
+        # print(f"  Fixed split path: {fixed_split_path}")
         
         self.mode = mode
-        self.fixed_split_path = fixed_split_path
+        # self.fixed_split_path = fixed_split_path
         self.root = root
         self.sketch_format = sketch_format
         self.is_back_image_only = is_back_image_only
@@ -95,30 +95,31 @@ class SketchImageDataset(Dataset):
                 image_transform=self.sketch_transform
             )
         
-        # 加载固定的数据集划分
-        self._load_fixed_split()
+        # 预先划分
+        # self.pre_load = pre_load
+        self._load_fixed_split(pre_load)
         # print(self.mode + f' pairs: {len(self)}')
         
-    def _load_fixed_split(self):
+    def _load_fixed_split(self, pre_load):
         """加载固定的数据集划分"""
-        print(f"Loading fixed dataset split from: {self.fixed_split_path}")
+        # print(f"Loading fixed dataset split from: {self.fixed_split_path}")
         
-        if not os.path.exists(self.fixed_split_path):
-            raise FileNotFoundError(f"固定数据集划分文件不存在: {self.fixed_split_path}")
-            
-        with open(self.fixed_split_path, 'rb') as f:
-            dataset_info = pickle.load(f)
+        # if not os.path.exists(self.fixed_split_path):
+        #     raise FileNotFoundError(f"固定数据集划分文件不存在: {self.fixed_split_path}")
+        #
+        # with open(self.fixed_split_path, 'rb') as f:
+        #     dataset_info = pickle.load(f)
         
         # 根据模式选择数据
         if self.mode == 'train':
-            self.data_pairs = dataset_info['train_pairs']
+            self.data_pairs = pre_load.train_pairs
         elif self.mode == 'test':
-            self.data_pairs = dataset_info['test_pairs']
+            self.data_pairs = pre_load.test_pairs
         else:
             raise ValueError(f"不支持的模式: {self.mode}")
         
-        self.categories = dataset_info['common_categories']
-        self.images_set = dataset_info['images_set']
+        self.categories = pre_load.common_categories
+        self.images_set = pre_load.images_set
         self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
         
         print(f"Loaded fixed split: {len(self.data_pairs)} pairs")
@@ -244,8 +245,9 @@ class SketchImageDataset(Dataset):
 
 class DatasetPreload(object):
     """
-    定位文件夹层级如下：
+    读取文件并分割为训练集测试集
 
+    定位文件夹层级如下：
     sketch_root
     ├─ Bushes
     │   ├─0.png
@@ -317,15 +319,31 @@ class DatasetPreload(object):
                        is_full_train
                        )
 
+    def get_info(self):
+        dataset_info = {
+            'train_pairs': self.train_pairs,
+            'test_pairs': self.test_pairs,
+            'images_set': self.images_set,
+            'category_stats': self.category_stats,
+            'train_stats': self.train_stats,
+            'test_stats': self.test_stats,
+            'total_categories': len(self.common_categories),
+            'train_split': self.train_split,
+            'random_seed': self.random_seed,
+            'common_categories': self.common_categories,
+            'data_type': 'png_sketch'  # 标识这是PNG草图数据集
+        }
+        return dataset_info
+
     def load_data(self,
                   sketch_root,
                   image_root,
                   sketch_image_suffix,
-                  train_split=0.8,
-                  random_seed=42,
-                  is_multi_pair=False,
-                  split_mode='ZS-SBIR',
-                  full_train=False
+                  train_split,
+                  random_seed,
+                  is_multi_pair,
+                  split_mode,
+                  full_train
                   ):
         assert split_mode in ['SBIR', 'ZS-SBIR']
 
@@ -522,7 +540,7 @@ def get_allfiles(dir_path, suffix='txt', filename_only=False):
 
 def create_sketch_image_dataloaders(batch_size,
                                     num_workers,
-                                    fixed_split_path,
+                                    pre_load,
                                     root,
                                     sketch_format,
                                     vec_sketch_rep,
@@ -535,7 +553,7 @@ def create_sketch_image_dataloaders(batch_size,
     Args:
         batch_size: 批次大小
         num_workers: 数据加载进程数
-        fixed_split_path: 固定数据集划分文件路径
+        pre_load: 固定数据集划分信息
         root:
         sketch_format:
         vec_sketch_rep: 矢量草图格式 [S5, STK_11_32]
@@ -574,7 +592,7 @@ def create_sketch_image_dataloaders(batch_size,
     # 创建数据集
     train_dataset = SketchImageDataset(
         mode='train',
-        fixed_split_path=fixed_split_path,
+        pre_load=pre_load,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
         root=root,
@@ -585,7 +603,7 @@ def create_sketch_image_dataloaders(batch_size,
 
     test_dataset = SketchImageDataset(
         mode='test',
-        fixed_split_path=fixed_split_path,
+        pre_load=pre_load,
         sketch_transform=test_transform,
         image_transform=test_transform,
         root=root,

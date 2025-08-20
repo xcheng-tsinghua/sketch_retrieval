@@ -1,8 +1,6 @@
 """
-PNG草图编码器
-使用Vision Transformer架构对PNG格式的草图进行编码
+添加 Encoders 时，需要在 supported_encoders 中添加对应的信息
 """
-import torch
 import torch.nn as nn
 import timm
 
@@ -12,27 +10,36 @@ from encoders import gru
 from encoders import sketch_transformer
 
 
-# model_name: [sketch_format, sketch_rep, subdirs]
 supported_encoders = {
-    'vit': {'format': 'image',
-            'rep': 'IMG',
-            'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')},
+    'vit': {
+        'format': 'image',
+        'rep': 'IMG',
+        'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')
+    },
 
-    'sdgraph': {'format': 'vector',
-                'rep': 'STK_11_32',
-                'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')},
+    'sdgraph': {
+        'format': 'vector',
+        'rep': 'STK_11_32',
+        'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')
+    },
 
-    'lstm': {'format': 'vector',
-             'rep': 'S5',
-             'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')},
+    'lstm': {
+        'format': 'vector',
+        'rep': 'S5',
+        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
+    },
 
-    'gru': {'format': 'vector',
-                           'rep': 'S5',
-                           'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')},
+    'gru': {
+        'format': 'vector',
+        'rep': 'S5',
+        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
+    },
 
-    'sketch_transformer': {'format': 'vector',
-             'rep': 'S5',
-             'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')}
+    'sketch_transformer': {
+        'format': 'vector',
+        'rep': 'S5',
+        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
+    }
 
 }
 
