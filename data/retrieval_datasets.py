@@ -37,7 +37,7 @@ class SketchImageDataset(Dataset):
         
         Args:
             mode: 'train' 或 'test'
-            fixed_split_path: 固定数据集划分文件路径
+            pre_load: 固定数据集划分
             sketch_transform: 草图变换
             image_transform: 图像变换
             is_back_image_only: 是否仅返回图像，用于一张图片对应多个草图时，进行测试时不返回重复的图片
@@ -246,8 +246,12 @@ class SketchImageDataset(Dataset):
 class DatasetPreload(object):
     """
     读取文件并分割为训练集测试集
+    要求：
+    1. sketch_root 和 image_root 是两个不同的文件夹
+    2. 草图和图片文件夹下的类别文件夹要一致
+    3. 实例级配对的图片和草图文件名一致（扩展名可不一致），若某张图片对应多个草图，草图末尾加 _1 等区分，即下划线加序号
 
-    定位文件夹层级如下：
+    定位文件夹层级示例如下：
     sketch_root
     ├─ Bushes
     │   ├─0.png
@@ -293,9 +297,9 @@ class DatasetPreload(object):
                  random_seed=42,
                  is_multi_pair=False,
                  split_mode='ZS-SBIR',  # ['SBIR', 'ZS-SBIR'],
-                 is_full_train=False
                  # 'SBIR': 使用所有类别，每个类别内取出一定数量用作测试。
                  # 'ZS-SBIR': 一部分类别全部用于训练，另一部分类别全部用于测试，即训练类别和测试类别不重合
+                 is_full_train=False
                  ):
 
         self.train_pairs = []
@@ -383,8 +387,7 @@ class DatasetPreload(object):
                 # 获取图片文件名，不带路径与后缀
                 instance_id = os.path.splitext(image_file)[0]
 
-                relative_image_path = os.path.join(image_category_path, image_file)  # 仅带类别和文件名的路径，例如 cat/aaa.jpg
-                imgid_name[instance_id] = relative_image_path
+                imgid_name[instance_id] = os.path.join(image_category_path, image_file)
                 skhid_name[instance_id] = []
 
             # 收集每个实例对应的所有草图
@@ -860,20 +863,20 @@ def create_dataset_split_file(
     return dataset_info
 
 
-def get_split_file_name(sketch_format: str, pair_mode: str, task: str):
-    """
-    统一的数据集分割文件名获取方式
-
-    sketch_format: ('vector', 'image')
-    pair_mode: ('multi_pair', 'single_pair')
-    task: ('sbir', 'zs_sbir')
-    """
-    assert sketch_format in ('vector', 'image')
-    assert pair_mode in ('multi_pair', 'single_pair')
-    assert task in ('sbir', 'zs_sbir')
-
-    split_file = f'./data/fixed_splits/dataset_split_{pair_mode}_{task}_{sketch_format}_sketch.pkl'
-    return split_file
+# def get_split_file_name(sketch_format: str, pair_mode: str, task: str):
+#     """
+#     统一的数据集分割文件名获取方式
+#
+#     sketch_format: ('vector', 'image')
+#     pair_mode: ('multi_pair', 'single_pair')
+#     task: ('sbir', 'zs_sbir')
+#     """
+#     assert sketch_format in ('vector', 'image')
+#     assert pair_mode in ('multi_pair', 'single_pair')
+#     assert task in ('sbir', 'zs_sbir')
+#
+#     split_file = f'./data/fixed_splits/dataset_split_{pair_mode}_{task}_{sketch_format}_sketch.pkl'
+#     return split_file
 
 
 if __name__ == '__main__':
