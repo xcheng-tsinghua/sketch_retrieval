@@ -105,7 +105,7 @@ class SBIRTrainer:
             loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
 
             # 计算分类损失
-            # loss_cls = F.nll_loss(pred, target) pred: [bs, channel], raeget: [bs, ]
+            # loss_cls = F.nll_loss(pred, target) pred: [bs, channel], target: [bs, ]
 
             # 反向传播
             loss.backward()
