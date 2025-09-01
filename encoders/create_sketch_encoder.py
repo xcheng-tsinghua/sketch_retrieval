@@ -161,7 +161,11 @@ class PNGSketchEncoder(nn.Module):
         
         # L2归一化
         sketch_features = nn.functional.normalize(sketch_features, p=2, dim=1)
-        
+
+        # sketch_features = MLP(sketch_features)
+        # cls_logis = F.log_softmax(sketch_features, dim=1)
+        # return cls_logis, sketch_features
+
         return sketch_features
     
     def get_trainable_parameters(self):

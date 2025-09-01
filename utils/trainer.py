@@ -93,7 +93,7 @@ class SBIRTrainer:
             # 移动数据到设备
             sketches = sketches.to(self.device)
             images = images.to(self.device)
-            category_indices = category_indices.to(self.device)
+            category_indices = category_indices.long().to(self.device)
 
             # 清零梯度
             self.optimizer.zero_grad()
@@ -103,6 +103,9 @@ class SBIRTrainer:
 
             # 计算损失
             loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
+
+            # 计算分类损失
+            # loss_cls = F.nll_loss(pred, target) pred: [bs, channel], raeget: [bs, ]
 
             # 反向传播
             loss.backward()
