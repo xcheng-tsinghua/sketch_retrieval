@@ -58,7 +58,8 @@ def main(args):
         sketch_image_suffix = ('txt', 'jpg')
     else:
         sketch_subdir = sketch_info['subdirs'][1]
-        sketch_image_suffix = ('png', 'jpg')
+        # sketch_image_suffix = ('png', 'jpg')
+        sketch_image_suffix = ('png', 'png')
 
     image_subdir = sketch_info['subdirs'][2]
 

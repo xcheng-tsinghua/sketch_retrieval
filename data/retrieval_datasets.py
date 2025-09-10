@@ -466,23 +466,16 @@ class DatasetPreload(object):
                 # 使用固定种子打乱该类别的样本
                 random.Random(random_seed + hash(category)).shuffle(pairs)
 
-                if full_train:
-                    category_train = pairs
-                    category_test = pairs if category in scfg.sketchy_test_classes else []
+                split_idx = int(len(pairs) * train_split)
 
-                    # category_test = pairs[:10]
+                # 确保每个类别在训练集和测试集中都有至少1个样本
+                if split_idx == 0:
+                    split_idx = 1
+                if split_idx == len(pairs):
+                    split_idx = len(pairs) - 1
 
-                else:
-                    split_idx = int(len(pairs) * train_split)
-
-                    # 确保每个类别在训练集和测试集中都有至少1个样本
-                    if split_idx == 0:
-                        split_idx = 1
-                    if split_idx == len(pairs):
-                        split_idx = len(pairs) - 1
-
-                    category_train = pairs[:split_idx]
-                    category_test = pairs[split_idx:]
+                category_train = pairs if full_train else pairs[:split_idx]
+                category_test = pairs[split_idx:]
 
                 self.train_pairs.extend(category_train)
                 self.test_pairs.extend(category_test)
