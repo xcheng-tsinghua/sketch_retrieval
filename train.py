@@ -70,10 +70,10 @@ def main(args):
         is_back_dataset=True
     )
     
-    print(f" -> 数据集信息:")
-    print(f" 训练集: {dataset_info['train_info']['total_pairs']} 对")
-    print(f" 测试集: {dataset_info['test_info']['total_pairs']} 对")
-    print(f" 类别数: {dataset_info['category_info']['num_categories']}")
+    # print(f" -> 数据集信息:")
+    # print(f" 训练集: {dataset_info['train_info']['total_pairs']} 对")
+    # print(f" 测试集: {dataset_info['test_info']['total_pairs']} 对")
+    # print(f" 类别数: {dataset_info['category_info']['num_categories']}")
     
     # 创建模型
     print(" -> 创建草图-图像对齐模型...")
@@ -88,10 +88,10 @@ def main(args):
     
     # 参数统计
     param_counts = model.get_parameter_count()
-    print(f" -> 模型参数统计:")
-    print(f" 总参数: {param_counts['total']:,}")
-    print(f" 可训练参数: {param_counts['trainable']:,}")
-    print(f" 冻结参数: {param_counts['frozen']:,}")
+    # print(f" -> 模型参数统计:")
+    # print(f" 总参数: {param_counts['total']:,}")
+    # print(f" 可训练参数: {param_counts['trainable']:,}")
+    # print(f" 冻结参数: {param_counts['frozen']:,}")
 
     # if args.sketch_model == 'sdgraph':
     #     stop_val = 0.76
