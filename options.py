@@ -12,7 +12,7 @@ def parse_args():
 
     parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'sdgraph', 'sketch_transformer', 'gru'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='使用矢量草图还是图片草图')
-    parser.add_argument('--retrieval_mode', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
+    parser.add_argument('--retrieval_mode', type=str, default='cl', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
     parser.add_argument('--pair_mode', type=str, default='single_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
 
@@ -29,7 +29,7 @@ def parse_args():
     # parser.add_argument('--is_create_fix_data_file', type=str, choices=['True', 'False'], default='True', help='是否创建固定数据集划分文件')
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
 
-    parser.add_argument('--add_str', type=str, default='_cad', help='附带的字符串')
+    parser.add_argument('--add_str', type=str, default='_sketchProj', help='附带的字符串')
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
     parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
 

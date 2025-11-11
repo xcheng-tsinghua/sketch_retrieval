@@ -8,6 +8,7 @@ import logging
 import torch.nn as nn
 from functools import partial
 import os
+import torchvision.transforms as transforms
 
 
 class MLP(nn.Module):
@@ -296,10 +297,33 @@ def vis_s3(s3_file, delimiter=','):
     plt.show()
 
 
-def image_loader(image_path, image_transform):
-    image_pil = Image.open(image_path).convert('RGB')
+def image_loader(image_path, image_transform, empty_fill=(255, 255, 255)):
+    """
+    读取图片到 torch.tensor，且png图片的空白区域填充 empty_fill 指定颜色
+    """
+    image_pil = Image.open(image_path)
+
+    if image_pil.mode == 'RGBA':
+        background = Image.new('RGBA', image_pil.size, (*empty_fill, 255))
+        image_pil = Image.alpha_composite(background, image_pil)
+
+    image_pil = image_pil.convert('RGB')
     image = image_transform(image_pil)
     return image
+
+    # image_pil = Image.open(image_path).convert('RGBA')
+    #
+    # # 创建一个白色背景图像
+    # background = Image.new('RGBA', image_pil.size, (*empty_fill, 255))
+    #
+    # # 将原图粘贴到背景上，用 alpha 通道作为 mask
+    # image_pil = Image.alpha_composite(background, image_pil)
+    #
+    # # 去掉 alpha 通道
+    # image_pil = image_pil.convert('RGB')
+    #
+    # image = image_transform(image_pil)
+    # return image
 
 
 def get_log(log_root: str):
@@ -339,18 +363,31 @@ def get_save_str(args):
 
 
 if __name__ == '__main__':
-    as3_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt'
-    stk_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_stk11_stkpnt32\airplane\n02691156_58-1.txt'
-    trans_save = r'C:\Users\ChengXi\Desktop\60mm20250708\rel_skh.png'
+    # as3_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt'
+    # stk_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_stk11_stkpnt32\airplane\n02691156_58-1.txt'
+    # trans_save = r'C:\Users\ChengXi\Desktop\60mm20250708\rel_skh.png'
+    #
+    # # raw_s3 = np.loadtxt(as3_file, delimiter=',')
+    # # s5_tensor = s3_file_to_s5(as3_file, is_back_mask=False)
+    # # s5_to_tensor_img(s5_tensor, save_path=trans_save)
+    #
+    # raw_stk = np.loadtxt(stk_file, delimiter=',')
+    # raw_stk = raw_stk.reshape(11, 32, 2)
+    #
+    # stk_to_tensor_image(torch.from_numpy(raw_stk), trans_save)
+    image_transform_ = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor()
+    ])
 
-    # raw_s3 = np.loadtxt(as3_file, delimiter=',')
-    # s5_tensor = s3_file_to_s5(as3_file, is_back_mask=False)
-    # s5_to_tensor_img(s5_tensor, save_path=trans_save)
+    tensor_img = image_loader(r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai\衬套\0ece4f05e97dcfc6ea9750dac8aa4988_1.png', image_transform_)
 
-    raw_stk = np.loadtxt(stk_file, delimiter=',')
-    raw_stk = raw_stk.reshape(11, 32, 2)
+    # Tensor 格式通常是 (C, H, W)，要转为 (H, W, C)
+    plt.imshow(tensor_img.permute(1, 2, 0))
+    plt.axis('off')  # 去掉坐标轴
+    plt.show()
 
-    stk_to_tensor_image(torch.from_numpy(raw_stk), trans_save)
+    pass
 
 
 
