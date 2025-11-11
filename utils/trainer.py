@@ -147,22 +147,17 @@ class SBIRTrainer:
 
         total_loss = 0.0
         with torch.no_grad():
-            # 提取草图特征
-            self.test_set.set_back_mode('sketch')
-
-
-
-            for imgs_cls in tqdm(self.test_set.imgs_all, desc="Validating images"):
-                c_img_tensor, c_img_cls = imgs_cls
-                c_img_tensor = utils.image_loader(c_img_tensor, self.test_set.image_transform).unsqueeze(0)
+            # 提取图片特征
+            self.test_set.set_back_mode('image')
+            for c_img_tensor, c_img_cls in tqdm(self.test_loader, desc="Validating images"):
                 c_img_tensor = c_img_tensor.to(self.device)
                 c_img_fea = self.model.encode_image(c_img_tensor)
                 image_features.append(c_img_fea)
                 image_cls.append(c_img_cls)
 
-            for skhs_cls in tqdm(self.test_set.imgs_all, desc="Validating sketches"):
-                c_skh_tensor, c_skh_cls = skhs_cls
-                c_skh_tensor = self.test_set.sketch_loader(c_skh_tensor).unsqueeze(0)
+            # 提取草图特征
+            self.test_set.set_back_mode('sketch')
+            for c_skh_tensor, c_skh_cls in tqdm(self.test_set.imgs_all, desc="Validating sketches"):
                 c_skh_tensor = c_skh_tensor.to(self.device)
                 c_skh_fea = self.model.encode_sketch(c_skh_tensor)
                 sketch_features.append(c_skh_fea)

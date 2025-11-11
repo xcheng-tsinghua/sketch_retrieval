@@ -5,9 +5,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # training & visualizing
-    parser.add_argument('--bs', type=int, default=20, help='批次大小')  # 200
+    parser.add_argument('--bs', type=int, default=100, help='批次大小')  # 200
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
-    parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
+    parser.add_argument('--num_workers', type=int, default=16, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
     parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'sdgraph', 'sketch_transformer', 'gru'], help='草图Encoder的名字')
