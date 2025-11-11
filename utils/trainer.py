@@ -215,7 +215,8 @@ class SBIRTrainer:
 
             print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
 
-        map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
+        # map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
+        map_200, prec_200 = 0, 0
         acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features)
 
         print(f'---mAP@200: {map_200:.4f}, Precision@200: {prec_200:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
