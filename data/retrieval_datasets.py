@@ -326,11 +326,8 @@ class DatasetPreloadSketchProj(object):
         self.random_seed = random_seed
         self.common_categories = []
 
-        self.load_data(
-            # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_ai',
-            # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_png',
-                       r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai',
-                       r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_png',
+        self.load_data(sketch_root,
+                       image_root,
                        ('png', 'png'),
                        train_split,
                        random_seed,
