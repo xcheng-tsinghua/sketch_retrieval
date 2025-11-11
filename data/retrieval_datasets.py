@@ -103,16 +103,12 @@ class SketchImageDataset(Dataset):
         self.imgs_all = []
         for c_img in pre_load.images_set:
             img_str, cls_idx = c_img
-
-            image = utils.image_loader(img_str, self.image_transform)
-            self.imgs_all.append((image.unsqueeze(0), cls_idx))
+            self.imgs_all.append((img_str, cls_idx))
 
         self.skhs_all = []
         for c_skh in pre_load.sketch_set:
             skh_str, cls_idx = c_skh
-
-            skh_tensor = self.sketch_loader(skh_str)
-            self.skhs_all.append((skh_tensor.unsqueeze(0), cls_idx))
+            self.skhs_all.append((skh_str, cls_idx))
 
         # print(self.mode + f' pairs: {len(self)}')
         
@@ -330,8 +326,11 @@ class DatasetPreloadSketchProj(object):
         self.random_seed = random_seed
         self.common_categories = []
 
-        self.load_data(r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_ai',  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_ai', r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai'
-                       r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_png',  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_png', r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_png'
+        self.load_data(
+            # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_ai',
+            # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_png',
+                       r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai',
+                       r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_png',
                        ('png', 'png'),
                        train_split,
                        random_seed,
