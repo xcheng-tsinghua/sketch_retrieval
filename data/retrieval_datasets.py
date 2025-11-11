@@ -45,6 +45,8 @@ class SketchImageDataset(Dataset):
         """
         assert mode in ('train', 'test')
 
+        self.return_mode = 'normal'  # ['normal', 'image', 'sketch']
+
         print(f"PNGSketchImageDataset initialized with:")
         print(f"  Mode: {mode}")
         # print(f"  Fixed split path: {fixed_split_path}")
@@ -100,15 +102,8 @@ class SketchImageDataset(Dataset):
         self._load_fixed_split(pre_load)
 
         # 将图片和草图转化为 tensor 和对应的类别
-        self.imgs_all = []
-        for c_img in pre_load.images_set:
-            img_str, cls_idx = c_img
-            self.imgs_all.append((img_str, cls_idx))
-
-        self.skhs_all = []
-        for c_skh in pre_load.sketch_set:
-            skh_str, cls_idx = c_skh
-            self.skhs_all.append((skh_str, cls_idx))
+        self.imgs_all = pre_load.images_set
+        self.skhs_all = pre_load.sketch_set
 
         # print(self.mode + f' pairs: {len(self)}')
         
@@ -140,8 +135,14 @@ class SketchImageDataset(Dataset):
     def __len__(self):
         if self.is_back_image_only:
             return len(self.images_set)
-        else:
+        elif self.return_mode == 'normal':
             return len(self.data_pairs)
+        elif self.return_mode == 'image':
+            return len(self.imgs_all)
+        elif self.return_mode == 'sketch':
+            return len(self.skhs_all)
+        else:
+            raise ValueError('error back mode: ', self.return_mode)
     
     def __getitem__(self, idx):
         """
@@ -166,7 +167,7 @@ class SketchImageDataset(Dataset):
 
             return idx, image, category_idx, category
 
-        else:
+        elif self.return_mode == 'normal':
             sketch_file, image_file, category = self.data_pairs[idx]
 
             try:
@@ -187,6 +188,22 @@ class SketchImageDataset(Dataset):
                 print(f"Sketch path: {sketch_file}")
                 print(f"Image path: {image_file}")
                 raise e
+
+        elif self.return_mode == 'image':
+            c_img, c_img_idx = self.imgs_all[idx]
+            # 加载JPG图像
+            image = utils.image_loader(c_img, self.image_transform)
+            return image, c_img_idx
+
+        elif self.return_mode == 'sketch':
+            c_skh, c_skh_idx = self.skhs_all[idx]
+            # 加载JPG图像
+            sketch = self.sketch_loader(c_skh)
+            return sketch, c_skh_idx
+
+        else:
+            raise ValueError('error back mode: ', self.return_mode)
+
 
     def get_sketch_path(self, category, sketch_file):
         """
@@ -250,6 +267,10 @@ class SketchImageDataset(Dataset):
 
     def train(self):
         self.is_back_image_only = False
+
+    def set_back_mode(self, mode_input):
+        assert mode_input in ['normal', 'image', 'sketch']
+        self.return_mode = mode_input
 
 
 class DatasetPreloadSketchProj(object):

@@ -148,6 +148,10 @@ class SBIRTrainer:
         total_loss = 0.0
         with torch.no_grad():
             # 提取草图特征
+            self.test_set.set_back_mode('sketch')
+
+
+
             for imgs_cls in tqdm(self.test_set.imgs_all, desc="Validating images"):
                 c_img_tensor, c_img_cls = imgs_cls
                 c_img_tensor = utils.image_loader(c_img_tensor, self.test_set.image_transform).unsqueeze(0)
