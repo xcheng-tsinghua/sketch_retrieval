@@ -151,6 +151,7 @@ class SBIRTrainer:
             self.test_set.set_back_mode('image')
             for c_img_tensor, c_img_cls in tqdm(self.test_loader, desc="Validating images"):
                 c_img_tensor = c_img_tensor.to(self.device)
+                c_img_cls = c_img_cls.to(self.device)
                 c_img_fea = self.model.encode_image(c_img_tensor)
                 image_features.append(c_img_fea)
                 image_cls.append(c_img_cls)
@@ -159,6 +160,7 @@ class SBIRTrainer:
             self.test_set.set_back_mode('sketch')
             for c_skh_tensor, c_skh_cls in tqdm(self.test_loader, desc="Validating sketches"):
                 c_skh_tensor = c_skh_tensor.to(self.device)
+                c_skh_cls = c_skh_cls.to(self.device)
                 c_skh_fea = self.model.encode_sketch(c_skh_tensor)
                 sketch_features.append(c_skh_fea)
                 sketch_cls.append(c_skh_cls)
