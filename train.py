@@ -63,8 +63,7 @@ def main(args):
 
     image_subdir = sketch_info['subdirs'][2]
 
-    # pre_load = retrieval_datasets.DatasetPreload(
-    pre_load=retrieval_datasets.DatasetPreloadSketchProj(
+    pre_load = retrieval_datasets.DatasetPreload(
         sketch_root=os.path.join(root, sketch_subdir),
         image_root=os.path.join(root, image_subdir),
         sketch_image_suffix=sketch_image_suffix,

@@ -7,6 +7,7 @@ from sklearn.metrics import average_precision_score
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+import torch.nn.functional as F
 
 from utils import loss_func
 
@@ -215,9 +216,8 @@ class SBIRTrainer:
 
             print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
 
-        # map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
-        map_200, prec_200 = 0, 0
-        acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features)
+        map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
+        acc_1, acc_5 = compute_topk_accuracy_fg(sketch_features, image_features)
 
         print(f'---mAP@200: {map_200:.4f}, Precision@200: {prec_200:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
 
@@ -547,7 +547,7 @@ def map_and_precision_at_k(sketch_fea, image_fea, class_id, k=200):
     return mean_precision, mean_ap
 
 
-def compute_topk_accuracy(sketch_fea, image_fea, topk=(1, 5)):
+def compute_topk_accuracy_fg(sketch_fea, image_fea, topk=(1, 5)):
     """
     计算 Acc@1 和 Acc@5，不使用 class label，只匹配同索引位置的配对样本
     sketch_fea: [bs, d]
@@ -573,6 +573,45 @@ def compute_topk_accuracy(sketch_fea, image_fea, topk=(1, 5)):
         accs.append(acc)
 
     return accs
+
+
+def compute_topk_accuracy_cl(sketch_feat, sketch_label, image_feat, image_label, topk_list=(5, 10)):
+    """
+    计算草图检索图片的 Acc@K 指标
+    Args:
+        sketch_feat: (m, f) 草图特征
+        sketch_label: (m,) 草图类别
+        image_feat: (n, f) 图片特征
+        image_label: (n,) 图片类别
+        topk_list: int 或 list[int], 指定要计算的 K 值，如 [1, 5, 10]
+    Returns:
+        dict, 例如 {'Acc@5': 0.48, 'Acc@10': 0.65}
+    """
+    if isinstance(topk_list, int):
+        topk_list = [topk_list]
+    max_k = max(topk_list)
+
+    # 归一化特征向量（余弦相似度）
+    sketch_norm = F.normalize(sketch_feat, dim=1)
+    image_norm = F.normalize(image_feat, dim=1)
+
+    # 相似度矩阵
+    sim = sketch_norm @ image_norm.T  # (m, n)
+
+    # 获取前 max_k 个最相似图片索引
+    topk = sim.topk(k=max_k, dim=1).indices  # (m, max_k)
+
+    # 获取对应的图片类别
+    retrieved_labels = image_label[topk]  # (m, max_k)
+
+    # 对每个 K 计算准确率
+    results = {}
+    for k in topk_list:
+        correct = (retrieved_labels[:, :k] == sketch_label.unsqueeze(1)).any(dim=1)
+        acc = correct.float().mean().item()
+        results[f'Acc@{k}'] = acc
+
+    return results
 
 
 def compute_topk_accuracy_with_file(sketch_fea, image_fea, data_indices, topk=(1, 5)):
