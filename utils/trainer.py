@@ -165,10 +165,10 @@ class SBIRTrainer:
 
         # 合并特征
         sketch_features = torch.cat(sketch_features, dim=0)
-        sketch_cls = torch.tensor(sketch_cls)
+        sketch_cls = torch.cat(sketch_cls, dim=0)
 
         image_features = torch.cat(image_features, dim=0)
-        image_cls = torch.tensor(image_cls)
+        image_cls = torch.cat(image_cls, dim=0)
 
         map_200, prec_200 = retrieval_acc(sketch_features, sketch_cls, image_features, image_cls)
         acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features)
