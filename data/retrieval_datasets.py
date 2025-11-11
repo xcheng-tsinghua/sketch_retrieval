@@ -566,7 +566,7 @@ def create_sketch_image_dataloaders(batch_size,
     
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=500,
+        batch_size=200,
         shuffle=False,
         num_workers=num_workers,
         pin_memory=True
