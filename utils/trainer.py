@@ -7,6 +7,7 @@ from sklearn.metrics import average_precision_score
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+import torch.nn.functional as F
 
 from utils import loss_func
 
@@ -139,87 +140,38 @@ class SBIRTrainer:
 
         # 提取特征
         sketch_features = []
+        sketch_cls = []
         image_features = []
-        class_labels = []
-        sketch_categories = []
+        image_cls = []
 
         total_loss = 0.0
         with torch.no_grad():
             # 提取草图特征
-            for sketches, images, category_indices, category_names in tqdm(self.test_loader, desc="Validating"):
-                sketches = sketches.to(self.device)
-                images = images.to(self.device)
-                category_indices = category_indices.to(self.device)
+            for imgs_cls in tqdm(self.test_set.imgs_all, desc="Validating images"):
+                c_img_tensor, c_img_cls = imgs_cls
+                c_img_tensor = c_img_tensor.to(self.device)
+                c_img_fea = self.model.encode_image(c_img_tensor)
+                image_features.append(c_img_fea)
+                image_cls.append(c_img_cls)
 
-                sketch_feat, image_feat, logit_scale = self.model(sketches, images)
-                loss = self.criterion(sketch_feat, image_feat, category_indices, logit_scale)
-                total_loss += loss.item()
-
-                sketch_features.append(sketch_feat.cpu())
-                image_features.append(image_feat.cpu())
-                class_labels.extend(category_indices.cpu().numpy())
-                sketch_categories.extend(category_names)
+            for skhs_cls in tqdm(self.test_set.imgs_all, desc="Validating sketches"):
+                c_skh_tensor, c_skh_cls = skhs_cls
+                c_skh_tensor = c_skh_tensor.to(self.device)
+                c_skh_fea = self.model.encode_sketch(c_skh_tensor)
+                sketch_features.append(c_skh_fea)
+                sketch_cls.append(c_skh_cls)
 
         # 合并特征
         sketch_features = torch.cat(sketch_features, dim=0)
+        sketch_cls = torch.tensor(sketch_cls)
+
         image_features = torch.cat(image_features, dim=0)
-        class_labels = torch.tensor(class_labels)
+        image_cls = torch.tensor(image_cls)
 
-        # 计算相似度矩阵, 数值越大表示越相似
-        # 因为 (a1, b1), (a2, b2), cosθ = a1 * b1 + a2 * b2，余弦值越大表示夹角越小，也就是越相似
-        # 注意计算余弦距离需要单位向量
-        # skh_fea_norm = F.normalize(sketch_features, dim=1)
-        # img_fea_norm = F.normalize(image_features, dim=1)
-        similarity_matrix = torch.matmul(sketch_features, image_features.t())
-
-        # 计算检索指标
-        metrics = compute_retrieval_metrics(similarity_matrix, class_labels)
-
-        print(f"=== 检索性能评估结果 ===")
-        print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
-        print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
-        print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
-        print(f"mAP_all: {metrics['mAP_all']:.4f}")
-
-        # 按类别评估
-        categories = self.dataset_info['category_info']['categories']
-        category_metrics = evaluate_by_category(
-            similarity_matrix, class_labels, sketch_categories, categories
-        )
-
-        print(f"评估 {len(categories)} 个类别的性能...")
-
-        # 显示部分类别结果
-        sorted_categories = sorted(category_metrics.items(),
-                                   key=lambda x: x[1]['accuracy'], reverse=True)
-
-        for i, (category, cat_metrics) in enumerate(sorted_categories[:10]):
-            accuracy = cat_metrics['accuracy']
-            num_samples = cat_metrics['num_samples']
-            correct = cat_metrics['correct']
-            print(f"  {category}: {correct}/{num_samples} = {accuracy:.4f}")
-
-        # 找到最佳和最差类别
-        if category_metrics:
-            best_category = max(category_metrics.items(), key=lambda x: x[1]['accuracy'])
-            worst_category = min(category_metrics.items(), key=lambda x: x[1]['accuracy'])
-
-            print(f"最佳类别: {best_category[0]} ({best_category[1]['accuracy']:.4f})")
-            print(f"最差类别: {worst_category[0]} ({worst_category[1]['accuracy']:.4f})")
-
-            # 统计类别分布
-            num_good = sum(1 for cat_metrics in category_metrics.values()
-                           if cat_metrics['accuracy'] > 0)
-            num_zero = sum(1 for cat_metrics in category_metrics.values()
-                           if cat_metrics['accuracy'] == 0)
-
-            print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
-
-        # map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
-        map_200, prec_200 = 0, 0
+        map_200, prec_200 = retrieval_acc(sketch_features, sketch_cls, image_features, image_cls)
         acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features)
 
-        print(f'---mAP@200: {map_200:.4f}, Precision@200: {prec_200:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
+        print(f'---Acc@5-cl: {map_200:.4f}, Acc@10-cl: {prec_200:.4f}, Acc@1-fg: {acc_1:.4f}, Acc@5-fg: {acc_5:.4f}')
 
         test_loss = total_loss / len(self.test_loader)
         return test_loss, map_200, prec_200, acc_1, acc_5
@@ -573,6 +525,45 @@ def compute_topk_accuracy(sketch_fea, image_fea, topk=(1, 5)):
         accs.append(acc)
 
     return accs
+
+
+def retrieval_acc(sketch_feat, sketch_label, image_feat, image_label, topk_list=(5, 10)):
+    """
+    计算草图检索图片的 Acc@K 指标
+    Args:
+        sketch_feat: (m, f) 草图特征
+        sketch_label: (m,) 草图类别
+        image_feat: (n, f) 图片特征
+        image_label: (n,) 图片类别
+        topk_list: int 或 list[int], 指定要计算的 K 值，如 [1, 5, 10]
+    Returns:
+        dict, 例如 {'Acc@5': 0.48, 'Acc@10': 0.65}
+    """
+    if isinstance(topk_list, int):
+        topk_list = [topk_list]
+    max_k = max(topk_list)
+
+    # 归一化特征向量（余弦相似度）
+    sketch_norm = F.normalize(sketch_feat, dim=1)
+    image_norm = F.normalize(image_feat, dim=1)
+
+    # 相似度矩阵
+    sim = sketch_norm @ image_norm.T  # (m, n)
+
+    # 获取前 max_k 个最相似图片索引
+    topk = sim.topk(k=max_k, dim=1).indices  # (m, max_k)
+
+    # 获取对应的图片类别
+    retrieved_labels = image_label[topk]  # (m, max_k)
+
+    # 对每个 K 计算准确率
+    results = {}
+    for k in topk_list:
+        correct = (retrieved_labels[:, :k] == sketch_label.unsqueeze(1)).any(dim=1)
+        acc = correct.float().mean().item()
+        results[f'Acc@{k}'] = acc
+
+    return results[f'Acc@{topk_list[0]}'], results[f'Acc@{topk_list[1]}']
 
 
 def compute_topk_accuracy_with_file(sketch_fea, image_fea, data_indices, topk=(1, 5)):
