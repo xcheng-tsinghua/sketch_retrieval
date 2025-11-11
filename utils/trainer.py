@@ -157,7 +157,7 @@ class SBIRTrainer:
 
             # 提取草图特征
             self.test_set.set_back_mode('sketch')
-            for c_skh_tensor, c_skh_cls in tqdm(self.test_set.imgs_all, desc="Validating sketches"):
+            for c_skh_tensor, c_skh_cls in tqdm(self.test_loader, desc="Validating sketches"):
                 c_skh_tensor = c_skh_tensor.to(self.device)
                 c_skh_fea = self.model.encode_sketch(c_skh_tensor)
                 sketch_features.append(c_skh_fea)
