@@ -56,8 +56,6 @@ def main(args):
         is_full_train=eval(args.is_full_train)
     )
 
-    # b_info = pre_load.get_info()
-
     # 创建数据加载器
     train_set, test_set, train_loader, test_loader, dataset_info = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
@@ -69,12 +67,7 @@ def main(args):
         sketch_image_subdirs=sketch_info['subdirs'],
         is_back_dataset=True
     )
-    
-    # print(f" -> 数据集信息:")
-    # print(f" 训练集: {dataset_info['train_info']['total_pairs']} 对")
-    # print(f" 测试集: {dataset_info['test_info']['total_pairs']} 对")
-    # print(f" 类别数: {dataset_info['category_info']['num_categories']}")
-    
+
     # 创建模型
     print(" -> 创建草图-图像对齐模型...")
     model = sbir_model_wrapper.create_sbir_model_wrapper(
@@ -85,25 +78,6 @@ def main(args):
         image_model_name=args.image_model
     )
     model.to(device)
-    
-    # 参数统计
-    param_counts = model.get_parameter_count()
-    # print(f" -> 模型参数统计:")
-    # print(f" 总参数: {param_counts['total']:,}")
-    # print(f" 可训练参数: {param_counts['trainable']:,}")
-    # print(f" 冻结参数: {param_counts['frozen']:,}")
-
-    # if args.sketch_model == 'sdgraph':
-    #     stop_val = 0.76
-    #
-    # elif args.sketch_model == 'vit':
-    #     stop_val = 0.52
-    #
-    # elif args.sketch_model == 'lstm':
-    #     stop_val = 0.47
-    #
-    # else:
-    #     stop_val = 1.00
 
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)
@@ -136,19 +110,6 @@ def main(args):
         model_trainer.vis_fea_cluster()
     else:
         model_trainer.train()
-
-    # acc_1_idxes, acc_5_idxes = model_trainer.get_acc_files_epoch()
-    # logger.info('acc_1_sketches:')
-    #
-    # for c_idx in acc_1_idxes:
-    #     c_sketch_file, _ = test_set.get_file_pair_by_index(c_idx)
-    #     logger.info(c_sketch_file)
-    #
-    # logger.info('acc_5_sketches:')
-    #
-    # for c_idx in acc_5_idxes:
-    #     c_sketch_file, _ = test_set.get_file_pair_by_index(c_idx)
-    #     logger.info(c_sketch_file)
 
 
 if __name__ == '__main__':
