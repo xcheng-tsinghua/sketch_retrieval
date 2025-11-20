@@ -47,13 +47,14 @@ def main(args):
         sketch_root = r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_ai'
         image_root = r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_png'
 
-    pre_load = retrieval_datasets.DatasetPreloadSketchProj(
+    pre_load = retrieval_datasets.DatasetPreload(
         sketch_root=sketch_root,
         image_root=image_root,
         sketch_image_suffix=sketch_image_suffix,
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
-        is_full_train=eval(args.is_full_train)
+        is_full_train=eval(args.is_full_train),
+        sketch_choice=300
     )
 
     # 创建数据加载器
@@ -107,7 +108,8 @@ def main(args):
     
     # 开始训练
     if eval(args.is_vis):
-        model_trainer.vis_fea_cluster()
+        model_trainer.validate_epoch()
+        # model_trainer.vis_fea_cluster()
     else:
         model_trainer.train()
 

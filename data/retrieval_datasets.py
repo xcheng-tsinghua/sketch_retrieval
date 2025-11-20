@@ -47,8 +47,8 @@ class SketchImageDataset(Dataset):
 
         self.return_mode = 'normal'  # ['normal', 'image', 'sketch']
 
-        print(f"PNGSketchImageDataset initialized with:")
-        print(f"  Mode: {mode}")
+        # print(f"PNGSketchImageDataset initialized with:")
+        # print(f"  Mode: {mode}")
         # print(f"  Fixed split path: {fixed_split_path}")
         
         self.mode = mode
@@ -105,6 +105,8 @@ class SketchImageDataset(Dataset):
         self.imgs_all = pre_load.images_set
         self.skhs_all = pre_load.sketch_set
 
+        self.classes_idx = pre_load.classes_idx
+
         # print(self.mode + f' pairs: {len(self)}')
         
     def _load_fixed_split(self, pre_load):
@@ -129,8 +131,8 @@ class SketchImageDataset(Dataset):
         self.images_set = pre_load.images_set
         self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
         
-        print(f"Loaded fixed split: {len(self.data_pairs)} pairs")
-        print(f"Total categories: {len(self.categories)}")
+        # print(f"Loaded fixed split: {len(self.data_pairs)} pairs")
+        # print(f"Total categories: {len(self.categories)}")
         
     def __len__(self):
         if self.is_back_image_only:
@@ -193,7 +195,7 @@ class SketchImageDataset(Dataset):
             c_img, c_img_idx = self.imgs_all[idx]
             # 加载JPG图像
             image = utils.image_loader(c_img, self.image_transform)
-            return image, c_img_idx
+            return idx, image, c_img_idx
 
         elif self.return_mode == 'sketch':
             c_skh, c_skh_idx = self.skhs_all[idx]
@@ -273,7 +275,7 @@ class SketchImageDataset(Dataset):
         self.return_mode = mode_input
 
 
-class DatasetPreloadSketchProj(object):
+class DatasetPreload(object):
     """
     专为草图项目的85%准确率检索写的数据读取
     这里的草图为 AI 生成草图
@@ -332,7 +334,8 @@ class DatasetPreloadSketchProj(object):
                  split_mode='ZS-SBIR',  # ['SBIR', 'ZS-SBIR'],
                  # 'SBIR': 使用所有类别，每个类别内取出一定数量用作测试。
                  # 'ZS-SBIR': 一部分类别全部用于训练，另一部分类别全部用于测试，即训练类别和测试类别不重合
-                 is_full_train=False
+                 is_full_train=False,
+                 sketch_choice=None,
                  ):
 
         self.train_pairs = []
@@ -346,6 +349,7 @@ class DatasetPreloadSketchProj(object):
         self.train_split = train_split
         self.random_seed = random_seed
         self.common_categories = []
+        self.classes_idx = {}
 
         self.load_data(sketch_root,
                        image_root,
@@ -354,7 +358,8 @@ class DatasetPreloadSketchProj(object):
                        random_seed,
                        is_multi_pair,
                        split_mode,  # ['SBIR', 'ZS-SBIR'],
-                       is_full_train
+                       is_full_train,
+                       sketch_choice
                        )
 
     def get_info(self):
@@ -381,7 +386,8 @@ class DatasetPreloadSketchProj(object):
                   random_seed,
                   is_multi_pair,
                   split_mode,
-                  full_train
+                  full_train,
+                  sketch_choice
                   ):
         assert split_mode in ['SBIR', 'ZS-SBIR']
 
@@ -401,9 +407,7 @@ class DatasetPreloadSketchProj(object):
         self.common_categories.sort()
         self.total_categories = len(self.common_categories)
 
-        classes_idx = dict(zip(self.common_categories, range(self.total_categories)))
-
-        all_data_pairs = []
+        self.classes_idx = dict(zip(self.common_categories, range(self.total_categories)))
 
         for category in self.common_categories:
             sketch_category_path = os.path.join(sketch_root, category)
@@ -415,10 +419,10 @@ class DatasetPreloadSketchProj(object):
 
             # 将草图和图片数据存储进数组
             for c_sketch in sketch_files:
-                self.sketch_set.append((c_sketch, classes_idx[category]))
+                self.sketch_set.append((c_sketch, self.classes_idx[category]))
 
             for c_image in image_files:
-                self.images_set.append((c_image, classes_idx[category]))
+                self.images_set.append((c_image, self.classes_idx[category]))
 
             # 已知每个草图对应一张图片
             for c_sketch in sketch_files:
@@ -431,8 +435,12 @@ class DatasetPreloadSketchProj(object):
         random.Random(random_seed).shuffle(self.train_pairs)
         random.Random(random_seed + 1).shuffle(self.test_pairs)
 
-        print(f"训练集: {len(self.train_pairs)} 对")
-        print(f"测试集: {len(self.test_pairs)} 对")
+        # 随机取指定个元素
+        if sketch_choice is not None:
+            self.sketch_set = random.sample(self.sketch_set, sketch_choice)
+
+        # print(f"训练集: {len(self.train_pairs)} 对")
+        # print(f"测试集: {len(self.test_pairs)} 对")
         print(f"ai草图数: {len(self.sketch_set)} ")
         print(f"真实草图数: {len(self.images_set)} ")
 

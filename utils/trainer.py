@@ -149,7 +149,7 @@ class SBIRTrainer:
         with torch.no_grad():
             # 提取图片特征
             self.test_set.set_back_mode('image')
-            for c_img_tensor, c_img_cls in tqdm(self.test_loader, desc="Validating images"):
+            for _, c_img_tensor, c_img_cls in tqdm(self.test_loader, desc="Validating images"):
                 c_img_tensor = c_img_tensor.to(self.device)
                 c_img_cls = c_img_cls.to(self.device)
                 c_img_fea = self.model.encode_image(c_img_tensor)

@@ -109,12 +109,12 @@ class PNGSketchEncoder(nn.Module):
         # 初始化投影层权重
         self._init_projection_weights()
         
-        print(f"PNGSketchEncoder initialized:")
-        print(f"  Model: {model_name}")
-        print(f"  Pretrained: {pretrained}")
-        print(f"  Freeze backbone: {freeze_backbone}")
-        print(f"  Hidden dim: {hidden_dim}")
-        print(f"  Output dim: {output_dim}")
+        # print(f"PNGSketchEncoder initialized:")
+        # print(f"  Model: {model_name}")
+        # print(f"  Pretrained: {pretrained}")
+        # print(f"  Freeze backbone: {freeze_backbone}")
+        # print(f"  Hidden dim: {hidden_dim}")
+        # print(f"  Output dim: {output_dim}")
     
     def _init_projection_weights(self):
         """初始化投影层权重"""
@@ -304,7 +304,7 @@ def create_sketch_encoder(model_name,
     """
 
     if model_name == 'vit':
-        print('---- create IMAGE sketch encoder ----')
+        # print('---- create IMAGE sketch encoder ----')
         real_name = 'vit_base_patch16_224'
 
         if use_attention:
