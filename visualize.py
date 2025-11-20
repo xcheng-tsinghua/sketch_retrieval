@@ -102,7 +102,7 @@ def visualize_sketch_retrieval_results(
         topk_images: torch.Tensor,               # [m, k, c, h, w]
         sketch_cat,  # [m]，草图对应的类别索引
         image_cat,  # [m, k]，检索到的图片的类别索引
-        save_dir: str,
+        save_dir,
         cat_name_idx_dict: dict
 ):
     def get_key_by_value(_target_value):
@@ -124,20 +124,7 @@ def visualize_sketch_retrieval_results(
         axes[i][0].axis("off")
         axes[i][0].set_title(get_key_by_value(sketch_cat[i]))
 
-        # c_sketch_path = os.path.join(save_dir, f'sketch_{i}.png')
-        # plt.imsave(c_sketch_path, sketch_np, cmap='gray' if sketch_np.ndim == 2 else None)
-
-        # sketch_gt = gt_images[i]
-        # axes[i][1].imshow(sketch_gt, cmap='gray' if sketch_np.ndim == 2 else None)
-        # axes[i][1].axis("off")
-
-        # c_sketch_path = os.path.join(save_dir, f'gt_{i}.png')
-        # plt.imsave(c_sketch_path, sketch_gt, cmap='gray' if sketch_gt.ndim == 2 else None)
-
         for j in range(k):
-            # retrieved_local_idx = topk_indices[i][j].item()
-            # retrieved_global_idx = image_idx[retrieved_local_idx].item()
-
             img = topk_images[i][j]
             img_np = tensor_to_image(img)
 
@@ -147,9 +134,6 @@ def visualize_sketch_retrieval_results(
             if skh_class != img_class:
                 img_np = add_red_border(img_np)
 
-            # if retrieved_global_idx != pair_global_idx:
-            #     img_np = add_red_border(img_np)
-
             axes[i][j + 1].imshow(img_np, cmap='gray' if img_np.ndim == 2 else None)
             axes[i][j + 1].axis("off")
             axes[i][j + 1].set_title(get_key_by_value(img_class))
@@ -157,11 +141,10 @@ def visualize_sketch_retrieval_results(
             # c_image_path = os.path.join(save_dir, f'image_{i}_{j}.png')
             # plt.imsave(c_image_path, img_np, cmap='gray' if img_np.ndim == 2 else None)
 
-    summary_path = os.path.join(save_dir, 'overall.png')
     plt.tight_layout()
-    plt.savefig(summary_path)
+    plt.savefig(save_dir)
     plt.close()
-    print(f"Saved visualization to: {summary_path}")
+    print(f"Saved visualization to: {save_dir}")
 
 
 def tensor_to_image(tensor):
@@ -254,7 +237,7 @@ def sketch_tensor_to_pixel_image(sketch_tensor, sketch_rep):
     return transed_tensor
 
 
-def main(args, eval_sketches, is_load_data=True):
+def main(args, eval_sketches):
     print("开始可视化前5好类别的PNG草图-图像检索效果...")
     
     # 设置路径
@@ -264,8 +247,8 @@ def main(args, eval_sketches, is_load_data=True):
     # split_file = retrieval_datasets.get_split_file_name(sketch_info['format'], args.pair_mode, args.task)
 
     # 创建输出目录
-    current_vis_dir = os.path.join(args.output_dir, save_str + '_' + datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
-    os.makedirs(current_vis_dir, exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
+    current_vis_file = os.path.join(args.output_dir, save_str + '_' + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + '.png')
     
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -343,10 +326,10 @@ def main(args, eval_sketches, is_load_data=True):
     # 将草图的名字转化为索引
     sketch_cat = [test_set.classes_idx[c_name] for c_name in sketch_cat]
 
-    tensor_save_path = 'model_trained/img_feas_inferred.safetensors'
-    if is_load_data:
-        print('load data from: ' + tensor_save_path)
-        data_loaded = load_file(tensor_save_path)
+    # tensor_save_path = 'model_trained/img_feas_inferred.safetensors'
+    if eval(args.is_load_features):
+        print('load data from: ' + args.fea_save_path)
+        data_loaded = load_file(args.fea_save_path)
         image_cat = data_loaded['image_cat']
         image_features = data_loaded['image_features']
         image_file_tensor = data_loaded['image_file_tensor']
@@ -383,15 +366,15 @@ def main(args, eval_sketches, is_load_data=True):
         }
 
         # torch.save(img_feas_inferred, 'model_trained/img_feas_inferred.pt')
-        save_file(img_feas_inferred, tensor_save_path)
-        print('属性保存完成，保存到：' + tensor_save_path)
+        save_file(img_feas_inferred, args.fea_save_path)
+        print('属性保存完成，保存到：' + args.fea_save_path)
 
     # 找到最近的图片索引
     topk_images, topk_indices, matched_cat = find_topk_matching_images(sketch_features, image_features, image_file_tensor, args.n_vis_images, image_cat)
 
     # 可视化图片 tensor
     sketch_pixel_tensor = sketch_tensor_to_pixel_image(sketch_file_tensor, sketch_info['rep'])
-    visualize_sketch_retrieval_results(sketch_pixel_tensor, topk_images, sketch_cat, matched_cat, current_vis_dir, test_set.classes_idx)
+    visualize_sketch_retrieval_results(sketch_pixel_tensor, topk_images, sketch_cat, matched_cat, current_vis_file, test_set.classes_idx)
 
 
 if __name__ == '__main__':
@@ -439,7 +422,7 @@ if __name__ == '__main__':
 
     ]
 
-    main(options.parse_args(), setting_sketches, True)
+    main(options.parse_args(), setting_sketches)
 
 
     # atensor = torch.rand(3, )

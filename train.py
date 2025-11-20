@@ -97,6 +97,8 @@ def main(args):
         dataset_info=dataset_info,
         log_dir='log',
         retrieval_mode=args.retrieval_mode,
+        is_load_features=args.is_load_features,
+        fea_save_path=args.fea_save_path
         # stop_val=stop_val
     )
     

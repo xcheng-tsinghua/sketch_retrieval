@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import torch.nn.functional as F
 from utils import utils
-
+from safetensors.torch import save_file, load_file
 from utils import loss_func
 
 
@@ -31,6 +31,8 @@ class SBIRTrainer:
                  learning_rate=1e-4,
                  weight_decay=1e-4,
                  max_epochs=50,
+                 is_load_features=True,
+                 fea_save_path=None
                  # stop_val=100
                  ):
         assert retrieval_mode in ('cl', 'fg')
@@ -46,6 +48,8 @@ class SBIRTrainer:
         self.logger = logger
         self.dataset_info = dataset_info
         self.log_dir = log_dir
+        self.is_load_features = is_load_features
+        self.fea_save_path = fea_save_path
         # self.stop_val = stop_val
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
@@ -148,13 +152,23 @@ class SBIRTrainer:
         total_loss = 0.0
         with torch.no_grad():
             # 提取图片特征
-            self.test_set.set_back_mode('image')
-            for _, c_img_tensor, c_img_cls in tqdm(self.test_loader, desc="Validating images"):
-                c_img_tensor = c_img_tensor.to(self.device)
-                c_img_cls = c_img_cls.to(self.device)
-                c_img_fea = self.model.encode_image(c_img_tensor)
-                image_features.append(c_img_fea)
-                image_cls.append(c_img_cls)
+            if self.is_load_features:
+                print('load data from: ' + self.fea_save_path)
+                data_loaded = load_file(self.fea_save_path)
+
+                image_cls = data_loaded['image_cat'].cuda()
+                image_features = data_loaded['image_features'].cuda()
+
+                print('load features finished')
+
+            else:
+                self.test_set.set_back_mode('image')
+                for _, c_img_tensor, c_img_cls in tqdm(self.test_loader, desc="Validating images"):
+                    c_img_tensor = c_img_tensor.to(self.device)
+                    c_img_cls = c_img_cls.to(self.device)
+                    c_img_fea = self.model.encode_image(c_img_tensor)
+                    image_features.append(c_img_fea)
+                    image_cls.append(c_img_cls)
 
             # 提取草图特征
             self.test_set.set_back_mode('sketch')
@@ -169,8 +183,9 @@ class SBIRTrainer:
         sketch_features = torch.cat(sketch_features, dim=0)
         sketch_cls = torch.cat(sketch_cls, dim=0)
 
-        image_features = torch.cat(image_features, dim=0)
-        image_cls = torch.cat(image_cls, dim=0)
+        if not self.is_load_features:
+            image_features = torch.cat(image_features, dim=0)
+            image_cls = torch.cat(image_cls, dim=0)
 
         map_200, prec_200 = retrieval_acc(sketch_features, sketch_cls, image_features, image_cls)
         acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features)

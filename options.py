@@ -33,6 +33,9 @@ def parse_args():
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
     parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
 
+    parser.add_argument('--is_load_features', type=str, choices=['True', 'False'], default='True', help='是否加载已推理出的图片特征')
+    parser.add_argument('--fea_save_path', type=str, default='model_trained/img_feas_inferred.safetensors', help='已推理出的图片特征保存路径')
+
     # visualizing
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')
     parser.add_argument('--n_vis_images', type=int, default=5, help='每张草图查询的图片数')
