@@ -395,8 +395,8 @@ class DatasetPreload(object):
         # 将图片视为用户绘制草图，即通过AI生成草图检索用户绘制草图
 
         # 设置随机种子
-        random.seed(random_seed)
-        np.random.seed(random_seed)
+        # random.seed(random_seed)
+        # np.random.seed(random_seed)
 
         # 获取所有类别
         sketch_categories = get_subdirs(sketch_root)
