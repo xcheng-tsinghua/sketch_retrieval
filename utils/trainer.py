@@ -1,4 +1,6 @@
 import os
+import time
+
 import torch
 import torch.optim as optim
 import json
@@ -106,6 +108,12 @@ class SBIRTrainer:
 
             # 前向传播
             sketch_features, image_features, logit_scale = self.model(sketches, images)
+
+            # 记录起始时间
+            # cstart_time = time.time()
+            # _ = self.model.encode_sketch(sketches[0].unsqueeze(0))
+            # cend_time = time.time()
+            # print(f'当前编码时间: {cend_time - cstart_time}')
 
             # 计算损失
             loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
@@ -329,7 +337,7 @@ class SBIRTrainer:
                 print(f"新的最佳测试损失: {test_loss:.4f}")
 
             # 保存检查点
-            self.save_checkpoint(is_best=is_best)
+            # self.save_checkpoint(is_best=is_best)
 
             log_str = f'epoch {epoch + 1}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
             log_str = log_str.replace(' ', '\t')
@@ -339,7 +347,7 @@ class SBIRTrainer:
             #     break
 
         # 保存训练历史
-        self.save_training_history()
+        # self.save_training_history()
         print("训练完成!")
 
     def save_training_history(self):

@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
+import time
 
 # 导入数据集和模型
 from data import retrieval_datasets
@@ -322,6 +323,14 @@ def main(args, eval_sketches):
     print("提取特征...")
     sketch_file_tensor, pair_image_idx, sketch_cat = sketch_file_list_to_tensor(eval_sketches, test_set)
     sketch_features = model.encode_sketch(sketch_file_tensor.to(device)).cpu()
+
+    for i in range(sketch_file_tensor.size(0)):
+        cstart_time = time.time()
+        csketch = sketch_file_tensor[i].unsqueeze(0).to(device)
+        print(csketch.size())
+        _ = model.encode_sketch(csketch).cpu()
+        cend_time = time.time()
+        print(f'当前编码时间: {cend_time - cstart_time}')
 
     # 将草图的名字转化为索引
     sketch_cat = [test_set.classes_idx[c_name] for c_name in sketch_cat]

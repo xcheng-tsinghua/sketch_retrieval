@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
 
     # training
-    parser.add_argument('--epoch', type=int, default=1000, help='最大训练轮数')
+    parser.add_argument('--epoch', type=int, default=10000, help='最大训练轮数')
     parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
 
     parser.add_argument('--add_str', type=str, default='_sketchProj', help='附带的字符串')
-    parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
+    parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='True', help='是否可视化草图特征，可视化后不进行训练')
     parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
 
     parser.add_argument('--is_load_features', type=str, choices=['True', 'False'], default='True', help='是否加载已推理出的图片特征')
