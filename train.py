@@ -11,14 +11,11 @@ from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import trainer, utils
 import options
-from encoders import create_sketch_encoder
 
 
 def main(args):
     save_str = utils.get_save_str(args)
     print('-----> model save name: ' + save_str + ' <-----')
-
-    sketch_info = create_sketch_encoder.get_sketch_info(args.sketch_model)
 
     # 设置日志
     os.makedirs('log', exist_ok=True)
@@ -27,70 +24,17 @@ def main(args):
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # 首先创建数据集划分（如果不存在）
-    # root = args.root_local if eval(args.local) else args.root_sever
-    # split_file = retrieval_datasets.get_split_file_name(sketch_info['format'], args.pair_mode, args.task)
-    # if sketch_info['format'] == 'vector':
-    #     sketch_subdir = sketch_info['subdirs'][0]
-    #     sketch_image_suffix = ('txt', 'jpg')
-    # else:
-    #     sketch_subdir = sketch_info['subdirs'][1]
-    #     sketch_image_suffix = ('png', 'jpg')
-    #
-    # if eval(args.is_create_fix_data_file) or not os.path.exists(split_file):
-    #     print("PNG草图数据集划分文件不存在，正在创建...")
-    #     image_subdir = sketch_info['subdirs'][2]
-    #     a_info = retrieval_datasets.create_dataset_split_file(
-    #         save_root=split_file,
-    #         sketch_root=os.path.join(root, sketch_subdir),
-    #         image_root=os.path.join(root, image_subdir),
-    #         sketch_image_suffix=sketch_image_suffix,
-    #         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-    #         split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
-    #         full_train=eval(args.is_full_train)
-    #     )
-
     # 预加载数据集
     root = args.root_local if eval(args.local) else args.root_sever
 
-    if sketch_info['format'] == 'vector':
-        sketch_subdir = sketch_info['subdirs'][0]
-        sketch_image_suffix = ('txt', 'jpg')
-    else:
-        sketch_subdir = sketch_info['subdirs'][1]
-        # sketch_image_suffix = ('png', 'jpg')
-        sketch_image_suffix = ('png', 'png')
-
-    image_subdir = sketch_info['subdirs'][2]
-
-    pre_load = retrieval_datasets.DatasetPreload(
-        sketch_root=os.path.join(root, sketch_subdir),
-        image_root=os.path.join(root, image_subdir),
-        sketch_image_suffix=sketch_image_suffix,
-        is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-        split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
-        is_full_train=eval(args.is_full_train)
-    )
-
-    # b_info = pre_load.get_info()
-
     # 创建数据加载器
-    train_set, test_set, train_loader, test_loader, dataset_info = retrieval_datasets.create_sketch_image_dataloaders(
+    train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
-        pre_load=pre_load,
         root=root,
-        sketch_format=sketch_info['format'],
-        vec_sketch_rep=sketch_info['rep'],
-        sketch_image_subdirs=sketch_info['subdirs'],
-        is_back_dataset=True
+        class_name=args.class_name
     )
-    
-    print(f" -> 数据集信息:")
-    print(f" 训练集: {dataset_info['train_info']['total_pairs']} 对")
-    print(f" 测试集: {dataset_info['test_info']['total_pairs']} 对")
-    print(f" 类别数: {dataset_info['category_info']['num_categories']}")
-    
+
     # 创建模型
     print(" -> 创建草图-图像对齐模型...")
     model = sbir_model_wrapper.create_sbir_model_wrapper(
@@ -101,44 +45,20 @@ def main(args):
         image_model_name=args.image_model
     )
     model.to(device)
-    
-    # 参数统计
-    param_counts = model.get_parameter_count()
-    print(f" -> 模型参数统计:")
-    print(f" 总参数: {param_counts['total']:,}")
-    print(f" 可训练参数: {param_counts['trainable']:,}")
-    print(f" 冻结参数: {param_counts['frozen']:,}")
-
-    # if args.sketch_model == 'sdgraph':
-    #     stop_val = 0.76
-    #
-    # elif args.sketch_model == 'vit':
-    #     stop_val = 0.52
-    #
-    # elif args.sketch_model == 'lstm':
-    #     stop_val = 0.47
-    #
-    # else:
-    #     stop_val = 1.00
 
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)
     model_trainer = trainer.SBIRTrainer(
         model=model,
-        train_set=train_set,
-        test_set=test_set,
         train_loader=train_loader,
         test_loader=test_loader,
         device=device,
         check_point=check_point,
         logger=logger,
+        log_dir=args.log_dir,
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
-        dataset_info=dataset_info,
-        log_dir='log',
-        retrieval_mode=args.retrieval_mode,
-        # stop_val=stop_val
     )
     
     # 恢复训练（如果指定）
@@ -152,19 +72,6 @@ def main(args):
         model_trainer.vis_fea_cluster()
     else:
         model_trainer.train()
-
-    # acc_1_idxes, acc_5_idxes = model_trainer.get_acc_files_epoch()
-    # logger.info('acc_1_sketches:')
-    #
-    # for c_idx in acc_1_idxes:
-    #     c_sketch_file, _ = test_set.get_file_pair_by_index(c_idx)
-    #     logger.info(c_sketch_file)
-    #
-    # logger.info('acc_5_sketches:')
-    #
-    # for c_idx in acc_5_idxes:
-    #     c_sketch_file, _ = test_set.get_file_pair_by_index(c_idx)
-    #     logger.info(c_sketch_file)
 
 
 if __name__ == '__main__':

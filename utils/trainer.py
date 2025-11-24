@@ -17,36 +17,25 @@ class SBIRTrainer:
 
     def __init__(self,
                  model,
-                 train_set,
-                 test_set,
                  train_loader,
                  test_loader,
                  device,
                  check_point,
                  logger,
-                 dataset_info,
                  log_dir,
-                 retrieval_mode,  # ['cl', 'fg']
-                 learning_rate=1e-4,
-                 weight_decay=1e-4,
-                 max_epochs=50,
-                 # stop_val=100
+                 learning_rate,
+                 weight_decay,
+                 max_epochs,
                  ):
-        assert retrieval_mode in ('cl', 'fg')
 
         self.model = model
-        self.train_set = train_set
-        self.test_set = test_set
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.device = device
         self.check_point = check_point
         self.max_epochs = max_epochs
         self.logger = logger
-        self.dataset_info = dataset_info
         self.log_dir = log_dir
-        # self.stop_val = stop_val
-
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
 
         # 创建输出目录
@@ -63,12 +52,8 @@ class SBIRTrainer:
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.9)
 
         # 损失函数
-        if retrieval_mode == 'cl':
-            self.criterion = loss_func.contrastive_loss_cl_zs_sbir
-
-        else:
-            self.criterion = loss_func.ContrastiveLoss(temperature=0.07)
-            # self.criterion = loss_func.contrastive_loss_fg_zs_sbir
+        # self.criterion = loss_func.contrastive_loss_cl_zs_sbir
+        self.criterion = loss_func.ContrastiveLoss(temperature=0.07)
 
         # 训练状态
         self.current_epoch = 0
@@ -90,11 +75,10 @@ class SBIRTrainer:
         num_batches = len(self.train_loader)
         progress_bar = tqdm(self.train_loader, desc=f"Epoch {self.current_epoch + 1}/{self.max_epochs}")
 
-        for batch_idx, (sketches, images, category_indices, category_names) in enumerate(progress_bar):
+        for batch_idx, (sketches, images) in enumerate(progress_bar):
             # 移动数据到设备
             sketches = sketches.to(self.device)
             images = images.to(self.device)
-            category_indices = category_indices.long().to(self.device)
 
             # 清零梯度
             self.optimizer.zero_grad()
@@ -103,10 +87,7 @@ class SBIRTrainer:
             sketch_features, image_features, logit_scale = self.model(sketches, images)
 
             # 计算损失
-            loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
-
-            # 计算分类损失
-            # loss_cls = F.nll_loss(pred, target) pred: [bs, channel], target: [bs, ]
+            loss = self.criterion(sketch_features, image_features, None, logit_scale)
 
             # 反向传播
             loss.backward()
@@ -141,88 +122,35 @@ class SBIRTrainer:
         # 提取特征
         sketch_features = []
         image_features = []
-        class_labels = []
-        sketch_categories = []
 
         total_loss = 0.0
         with torch.no_grad():
             # 提取草图特征
-            for sketches, images, category_indices, category_names in tqdm(self.test_loader, desc="Validating"):
+            for sketches, images in tqdm(self.test_loader, desc="Validating"):
                 sketches = sketches.to(self.device)
                 images = images.to(self.device)
-                category_indices = category_indices.to(self.device)
 
                 sketch_feat, image_feat, logit_scale = self.model(sketches, images)
-                loss = self.criterion(sketch_feat, image_feat, category_indices, logit_scale)
+                loss = self.criterion(sketch_feat, image_feat, None, logit_scale)
                 total_loss += loss.item()
 
                 sketch_features.append(sketch_feat.cpu())
                 image_features.append(image_feat.cpu())
-                class_labels.extend(category_indices.cpu().numpy())
-                sketch_categories.extend(category_names)
 
         # 合并特征
         sketch_features = torch.cat(sketch_features, dim=0)
         image_features = torch.cat(image_features, dim=0)
-        class_labels = torch.tensor(class_labels)
-
-        # 计算相似度矩阵, 数值越大表示越相似
-        # 因为 (a1, b1), (a2, b2), cosθ = a1 * b1 + a2 * b2，余弦值越大表示夹角越小，也就是越相似
-        # 注意计算余弦距离需要单位向量
-        # skh_fea_norm = F.normalize(sketch_features, dim=1)
-        # img_fea_norm = F.normalize(image_features, dim=1)
-        similarity_matrix = torch.matmul(sketch_features, image_features.t())
 
         # 计算检索指标
-        metrics = compute_retrieval_metrics(similarity_matrix, class_labels)
+        metrics = compute_topk_accuracy_fg(sketch_features, image_features)
 
-        print(f"=== 检索性能评估结果 ===")
-        print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
-        print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
-        print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
-        print(f"mAP_all: {metrics['mAP_all']:.4f}")
-
-        # 按类别评估
-        categories = self.dataset_info['category_info']['categories']
-        category_metrics = evaluate_by_category(
-            similarity_matrix, class_labels, sketch_categories, categories
-        )
-
-        print(f"评估 {len(categories)} 个类别的性能...")
-
-        # 显示部分类别结果
-        sorted_categories = sorted(category_metrics.items(),
-                                   key=lambda x: x[1]['accuracy'], reverse=True)
-
-        for i, (category, cat_metrics) in enumerate(sorted_categories[:10]):
-            accuracy = cat_metrics['accuracy']
-            num_samples = cat_metrics['num_samples']
-            correct = cat_metrics['correct']
-            print(f"  {category}: {correct}/{num_samples} = {accuracy:.4f}")
-
-        # 找到最佳和最差类别
-        if category_metrics:
-            best_category = max(category_metrics.items(), key=lambda x: x[1]['accuracy'])
-            worst_category = min(category_metrics.items(), key=lambda x: x[1]['accuracy'])
-
-            print(f"最佳类别: {best_category[0]} ({best_category[1]['accuracy']:.4f})")
-            print(f"最差类别: {worst_category[0]} ({worst_category[1]['accuracy']:.4f})")
-
-            # 统计类别分布
-            num_good = sum(1 for cat_metrics in category_metrics.values()
-                           if cat_metrics['accuracy'] > 0)
-            num_zero = sum(1 for cat_metrics in category_metrics.values()
-                           if cat_metrics['accuracy'] == 0)
-
-            print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
-
-        map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
-        acc_1, acc_5 = compute_topk_accuracy_fg(sketch_features, image_features)
-
-        print(f'---mAP@200: {map_200:.4f}, Precision@200: {prec_200:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
+        evaluate_str = ''
+        for c_key, c_val in metrics.items():
+            evaluate_str += c_key + f': {c_val}; '
+        print(evaluate_str)
 
         test_loss = total_loss / len(self.test_loader)
-        return test_loss, map_200, prec_200, acc_1, acc_5
+        return test_loss, evaluate_str
 
     def get_acc_files_epoch(self):
         """
@@ -340,7 +268,7 @@ class SBIRTrainer:
             self.train_losses.append(train_loss)
 
             # 验证一个epoch
-            test_loss, map_200, prec_200, acc_1, acc_5 = self.validate_epoch()
+            test_loss, evaluate_str = self.validate_epoch()
             self.test_losses.append(test_loss)
 
             current_lr = self.optimizer.param_groups[0]['lr']
@@ -355,32 +283,11 @@ class SBIRTrainer:
             # 保存检查点
             self.save_checkpoint(is_best=is_best)
 
-            log_str = f'epoch {epoch + 1}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
+            log_str = f'epoch {epoch + 1}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} {evaluate_str}'
             log_str = log_str.replace(' ', '\t')
             self.logger.info(log_str)
 
-            # if map_200 < self.stop_val:
-            #     break
-
-        # 保存训练历史
-        self.save_training_history()
         print("训练完成!")
-
-    def save_training_history(self):
-        """保存训练历史"""
-        history = {
-            'train_losses': self.train_losses,
-            'test_losses': self.test_losses,
-            'best_loss': self.best_loss,
-            'epochs_trained': len(self.train_losses),
-            'final_lr': self.optimizer.param_groups[0]['lr']
-        }
-
-        history_path = os.path.join(os.path.dirname(self.check_point), 'training_history.json')
-        with open(history_path, 'w') as f:
-            json.dump(history, f, indent=2)
-
-        print(f"训练历史已保存: {history_path}")
 
 
 def compute_retrieval_metrics(similarity_matrix, labels):
@@ -547,7 +454,7 @@ def map_and_precision_at_k(sketch_fea, image_fea, class_id, k=200):
     return mean_precision, mean_ap
 
 
-def compute_topk_accuracy_fg(sketch_fea, image_fea, topk=(1, 5)):
+def compute_topk_accuracy_fg(sketch_fea, image_fea, topk=(1, 5, 10)):
     """
     计算 Acc@1 和 Acc@5，不使用 class label，只匹配同索引位置的配对样本
     sketch_fea: [bs, d]
@@ -567,10 +474,10 @@ def compute_topk_accuracy_fg(sketch_fea, image_fea, topk=(1, 5)):
 
     correct = (sorted_indices[:, :max(topk)] == target).int()  # [bs, topk]
 
-    accs = []
+    accs = {}
     for k in topk:
         acc = correct[:, :k].sum().item() / batch_size
-        accs.append(acc)
+        accs[f'Acc_{k}'] = acc
 
     return accs
 
