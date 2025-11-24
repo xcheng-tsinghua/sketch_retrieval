@@ -49,7 +49,7 @@ class SBIRTrainer:
             betas=(0.9, 0.98),
             eps=1e-6
         )
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.9)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.98)
 
         # 损失函数
         # self.criterion = loss_func.contrastive_loss_cl_zs_sbir
