@@ -230,11 +230,15 @@ class SBIRTrainer:
 
         torch.save(checkpoint, self.check_point)
 
-        if is_best:
-            torch.save(checkpoint, self.check_point_best)
-            print(f"保存最佳模型: {self.check_point_best}")
+        try:
+            if is_best:
+                torch.save(checkpoint, self.check_point_best)
+                print(f"保存最佳模型: {self.check_point_best}")
 
-        print(f"保存检查点: {self.check_point}")
+            print(f"保存检查点: {self.check_point}")
+
+        except Exception as e:
+            print(f'error occurred when save weights: {e}')
 
     def load_checkpoint(self, checkpoint_path):
         """加载模型检查点"""
