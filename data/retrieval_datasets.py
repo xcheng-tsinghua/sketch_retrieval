@@ -500,6 +500,7 @@ class QMULDataset(Dataset):
                  is_train=True,
                  image_transform=None,
                  is_full_train=False,
+                 sketch_format='IMG',  # ['IMG', 'S3', 'S5', 'STK']
                  ):
         """
         初始化数据集
@@ -511,16 +512,24 @@ class QMULDataset(Dataset):
             image_transform: 图像变换
 
         """
-        assert class_name in ('ChairV2', 'ShoeV2')
+        assert class_name in ('ChairV2', 'ShoeV2') and sketch_format in ('IMG', 'S3', 'S5', 'STK')
         root = os.path.join(root, class_name)
         self.image_transform = image_transform
 
         # 草图加载器
-        self.sketch_loader = partial(
-            utils.load_stk_sketch,
-            stk_name='sketch_11_32',
-            delimiter=' '
-        )
+        if sketch_format == 'STK':
+            self.sketch_loader = partial(
+                utils.load_stk_sketch,
+                stk_name='sketch_11_32',
+                delimiter=' '
+            )
+        elif sketch_format == 'IMG':
+            self.sketch_loader = partial(
+                utils.stk_to_tensor_image,
+                stk_name='sketch_11_32',
+                delimiter=' ',
+                save_path=None
+            )
 
         sketch_root = os.path.join(root, 'sketch_stk', 'train') if is_train else os.path.join(root, 'sketch_stk', 'test')
         photo_root = os.path.join(root, 'photo')
@@ -637,7 +646,8 @@ def create_sketch_image_dataloaders(batch_size,
                                     num_workers,
                                     root,
                                     class_name,
-                                    is_full_train
+                                    is_full_train,
+                                    sketch_format,  # ['IMG', 'S3', 'S5', 'STK']
                                     ):
     """
     创建训练和测试数据加载器
@@ -648,6 +658,7 @@ def create_sketch_image_dataloaders(batch_size,
         root:
         class_name: 使用 'ShoeV2' 还是 'ChairV2'
         is_full_train: 是否使用全部数据训练
+        sketch_format: 草图格式
         
     Returns:
         train_loader, test_loader, dataset_info
@@ -675,7 +686,8 @@ def create_sketch_image_dataloaders(batch_size,
         class_name=class_name,  # ['ChairV2', 'ShoeV2']
         is_train=True,
         image_transform=train_image_transform,
-        is_full_train=is_full_train
+        is_full_train=is_full_train,
+        sketch_format=sketch_format,
     )
 
     test_dataset = QMULDataset(
@@ -683,7 +695,8 @@ def create_sketch_image_dataloaders(batch_size,
         class_name=class_name,  # ['ChairV2', 'ShoeV2']
         is_train=False,
         image_transform=test_transform,
-        is_full_train=is_full_train
+        is_full_train=is_full_train,
+        sketch_format=sketch_format,
     )
     
     # 创建数据加载器
@@ -693,7 +706,7 @@ def create_sketch_image_dataloaders(batch_size,
         shuffle=True,
         num_workers=num_workers,
         pin_memory=True,
-        drop_last=True
+        drop_last=True,
     )
     
     test_loader = torch.utils.data.DataLoader(

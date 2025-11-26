@@ -33,7 +33,8 @@ def main(args):
         num_workers=args.num_workers,
         root=root,
         class_name=args.class_name,
-        is_full_train=args.is_full_train
+        is_full_train=args.is_full_train,
+        sketch_format='IMG' if args.sketch_model == 'vit' else 'STK'
     )
 
     # 创建模型

@@ -11,7 +11,7 @@ def parse_args():
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
     parser.add_argument('--log_dir', type=str, default='log', help='日志目录')
 
-    parser.add_argument('--sketch_model', type=str, default='sdgraph', choices=['vit', 'lstm', 'sdgraph', 'sketch_transformer', 'gru'], help='草图Encoder的名字')
+    parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'sdgraph', 'sketch_transformer', 'gru'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='使用矢量草图还是图片草图')
     parser.add_argument('--retrieval_mode', type=str, default='cl', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument('--class_name', type=str, default='ChairV2', choices=['ChairV2', 'ShoeV2'], help='附带的字符串')
 
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
-    parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
+    parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='False', help='使用全部数据训练')
 
     # visualizing
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')

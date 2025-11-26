@@ -196,12 +196,16 @@ def s5_to_tensor_img(s5_tensor, coor_mode='REL', save_path=None):
     return tensor_img
 
 
-def stk_to_tensor_image(stk_tensor, save_path=None):
+def stk_to_tensor_image(stk_tensor, stk_name=None, delimiter=',', save_path=None):
     """
     将 stk_tensor 转化为可视化图片
     stk_tensor: [n_stk, n_stk_pnt, 2]
+    stk_name: eg. STK_11_32 用于表达 STK 的笔划数和笔划点数
     """
     # 先将stk_tensor转化为s3
+    if isinstance(stk_tensor, str):
+        stk_tensor = load_stk_sketch(stk_tensor, stk_name, delimiter)
+
     n_stk, n_stk_pnt, _ = stk_tensor.size()
     new_x = torch.cat([stk_tensor, torch.ones(n_stk, n_stk_pnt, 1)], dim=2)
 
@@ -382,10 +386,10 @@ if __name__ == '__main__':
         transforms.ToTensor()
     ])
 
-    tensor_img = image_loader(r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai\衬套\0ece4f05e97dcfc6ea9750dac8aa4988_1.png', image_transform_)
+    _tensor_img = image_loader(r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai\衬套\0ece4f05e97dcfc6ea9750dac8aa4988_1.png', image_transform_)
 
     # Tensor 格式通常是 (C, H, W)，要转为 (H, W, C)
-    plt.imshow(tensor_img.permute(1, 2, 0))
+    plt.imshow(_tensor_img.permute(1, 2, 0))
     plt.axis('off')  # 去掉坐标轴
     plt.show()
 
