@@ -10,38 +10,38 @@ from encoders import gru
 from encoders import sketch_transformer
 
 
-supported_encoders = {
-    'vit': {
-        'format': 'image',
-        'rep': 'IMG',
-        'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')
-    },
-
-    'sdgraph': {
-        'format': 'vector',
-        'rep': 'STK_11_32',
-        'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')
-    },
-
-    'lstm': {
-        'format': 'vector',
-        'rep': 'S5',
-        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
-    },
-
-    'gru': {
-        'format': 'vector',
-        'rep': 'S5',
-        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
-    },
-
-    'sketch_transformer': {
-        'format': 'vector',
-        'rep': 'S5',
-        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
-    }
-
-}
+# supported_encoders = {
+#     'vit': {
+#         'format': 'image',
+#         'rep': 'IMG',
+#         'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')
+#     },
+#
+#     'sdgraph': {
+#         'format': 'vector',
+#         'rep': 'STK_11_32',
+#         'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')
+#     },
+#
+#     'lstm': {
+#         'format': 'vector',
+#         'rep': 'S5',
+#         'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
+#     },
+#
+#     'gru': {
+#         'format': 'vector',
+#         'rep': 'S5',
+#         'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
+#     },
+#
+#     'sketch_transformer': {
+#         'format': 'vector',
+#         'rep': 'S5',
+#         'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
+#     }
+#
+# }
 
 
 class PNGSketchEncoder(nn.Module):
@@ -65,7 +65,7 @@ class PNGSketchEncoder(nn.Module):
             output_dim: 输出特征维度
             dropout_rate: Dropout率
         """
-        super(PNGSketchEncoder, self).__init__()
+        super().__init__()
         
         self.model_name = model_name
         self.output_dim = output_dim
@@ -109,12 +109,12 @@ class PNGSketchEncoder(nn.Module):
         # 初始化投影层权重
         self._init_projection_weights()
         
-        print(f"PNGSketchEncoder initialized:")
-        print(f"  Model: {model_name}")
-        print(f"  Pretrained: {pretrained}")
-        print(f"  Freeze backbone: {freeze_backbone}")
-        print(f"  Hidden dim: {hidden_dim}")
-        print(f"  Output dim: {output_dim}")
+        # print(f"PNGSketchEncoder initialized:")
+        # print(f"  Model: {model_name}")
+        # print(f"  Pretrained: {pretrained}")
+        # print(f"  Freeze backbone: {freeze_backbone}")
+        # print(f"  Hidden dim: {hidden_dim}")
+        # print(f"  Output dim: {output_dim}")
     
     def _init_projection_weights(self):
         """初始化投影层权重"""
@@ -348,12 +348,12 @@ def create_sketch_encoder(model_name,
     return encoder
 
 
-def get_sketch_info(sketch_model: str):
-    """
-    根据草图模型名获取其使用的草图类别及其他信息
-    """
-    sketch_format = supported_encoders[sketch_model]
-    return sketch_format
+# def get_sketch_info(sketch_model: str):
+#     """
+#     根据草图模型名获取其使用的草图类别及其他信息
+#     """
+#     sketch_format = supported_encoders[sketch_model]
+#     return sketch_format
 
 
 if __name__ == '__main__':

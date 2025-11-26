@@ -358,7 +358,9 @@ def get_save_str(args):
                 args.image_model + '_' +
                 args.retrieval_mode + '_' +
                 args.task + '_' +
-                args.pair_mode + args.add_str)
+                args.pair_mode + '_' +
+                args.class_name
+                )
     return save_str
 
 

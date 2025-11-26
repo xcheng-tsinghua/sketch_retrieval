@@ -32,7 +32,8 @@ def main(args):
         batch_size=args.bs,
         num_workers=args.num_workers,
         root=root,
-        class_name=args.class_name
+        class_name=args.class_name,
+        is_full_train=args.is_full_train
     )
 
     # 创建模型

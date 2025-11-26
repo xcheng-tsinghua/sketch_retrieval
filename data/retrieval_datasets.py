@@ -499,6 +499,7 @@ class QMULDataset(Dataset):
                  class_name='ChairV2',  # ['ChairV2', 'ShoeV2']
                  is_train=True,
                  image_transform=None,
+                 is_full_train=False,
                  ):
         """
         初始化数据集
@@ -522,18 +523,30 @@ class QMULDataset(Dataset):
         )
 
         sketch_root = os.path.join(root, 'sketch_stk', 'train') if is_train else os.path.join(root, 'sketch_stk', 'test')
+        photo_root = os.path.join(root, 'photo')
 
+        # 找到全部的草图文件
+        self.data_pairs = self.get_data_pairs(sketch_root, photo_root)
+
+        if is_train and is_full_train:
+            test_root = os.path.join(root, 'sketch_stk', 'test')
+            self.data_pairs.extend(self.get_data_pairs(test_root, photo_root))
+
+        print(f'QMULDataset initialized in: ' + sketch_root)
+        print(f'Number of data pairs: {len(self.data_pairs)}')
+
+    @staticmethod
+    def get_data_pairs(sketch_root, photo_root):
         # 找到全部的草图文件
         sketches_all = get_allfiles(sketch_root, 'txt')
 
         # 找到全部配对
-        self.data_pairs = []
+        data_pairs = []
         for c_sketch in sketches_all:
-            png_name = os.path.join(root, 'photo', basename_without_ext(c_sketch).rsplit('_', 1)[0] + '.png')
-            self.data_pairs.append((c_sketch, png_name))
+            png_name = os.path.join(photo_root, basename_without_ext(c_sketch).rsplit('_', 1)[0] + '.png')
+            data_pairs.append((c_sketch, png_name))
 
-        print(f'QMULDataset initialized in: ' + sketch_root)
-        print(f'Number of data pairs: {len(self.data_pairs)}')
+        return data_pairs
 
     def __len__(self):
         return len(self.data_pairs)
@@ -624,6 +637,7 @@ def create_sketch_image_dataloaders(batch_size,
                                     num_workers,
                                     root,
                                     class_name,
+                                    is_full_train
                                     ):
     """
     创建训练和测试数据加载器
@@ -633,6 +647,7 @@ def create_sketch_image_dataloaders(batch_size,
         num_workers: 数据加载进程数
         root:
         class_name: 使用 'ShoeV2' 还是 'ChairV2'
+        is_full_train: 是否使用全部数据训练
         
     Returns:
         train_loader, test_loader, dataset_info
@@ -660,6 +675,7 @@ def create_sketch_image_dataloaders(batch_size,
         class_name=class_name,  # ['ChairV2', 'ShoeV2']
         is_train=True,
         image_transform=train_image_transform,
+        is_full_train=is_full_train
     )
 
     test_dataset = QMULDataset(
@@ -667,6 +683,7 @@ def create_sketch_image_dataloaders(batch_size,
         class_name=class_name,  # ['ChairV2', 'ShoeV2']
         is_train=False,
         image_transform=test_transform,
+        is_full_train=is_full_train
     )
     
     # 创建数据加载器

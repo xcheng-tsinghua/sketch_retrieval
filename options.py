@@ -30,7 +30,6 @@ def parse_args():
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
     parser.add_argument('--class_name', type=str, default='ChairV2', choices=['ChairV2', 'ShoeV2'], help='附带的字符串')
 
-    parser.add_argument('--add_str', type=str, default='_ChairV2', help='附带的字符串')
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
     parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
 
