@@ -1,4 +1,6 @@
 import os
+import time
+
 import torch
 import torch.optim as optim
 import json
@@ -217,6 +219,7 @@ class SBIRTrainer:
 
     def save_checkpoint(self, is_best=False):
         """保存模型检查点"""
+        time.sleep(20)
 
         checkpoint = {
             'epoch': self.current_epoch + 1,
