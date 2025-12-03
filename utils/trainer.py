@@ -198,7 +198,8 @@ class SBIRTrainer:
         map_200, prec_200 = retrieval_acc(sketch_features, sketch_cls, image_features, image_cls)
         acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features)
 
-        print(f'---Acc@5-cl: {map_200:.4f}, Acc@10-cl: {prec_200:.4f}, Acc@1-fg: {acc_1:.4f}, Acc@5-fg: {acc_5:.4f}')
+        # print(f'---Acc@5-cl: {map_200:.4f}, Acc@10-cl: {prec_200:.4f}, Acc@1-fg: {acc_1:.4f}, Acc@5-fg: {acc_5:.4f}')
+        print(f'---Acc@5-cl: {map_200:.4f}, Acc@10-cl: {prec_200:.4f}')
 
         test_loss = total_loss / len(self.test_loader)
         return test_loss, map_200, prec_200, acc_1, acc_5
