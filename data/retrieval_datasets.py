@@ -501,6 +501,8 @@ class QMULDataset(Dataset):
                  image_transform=None,
                  is_full_train=False,
                  sketch_format='IMG',  # ['IMG', 'S3', 'S5', 'STK']
+                 sketch_subdir='sketch_stk_autospace',
+                 image_subdir='photo'
                  ):
         """
         初始化数据集
@@ -531,14 +533,14 @@ class QMULDataset(Dataset):
                 save_path=None
             )
 
-        sketch_root = os.path.join(root, 'sketch_stk', 'train') if is_train else os.path.join(root, 'sketch_stk', 'test')
-        photo_root = os.path.join(root, 'photo')
+        sketch_root = os.path.join(root, sketch_subdir, 'train') if is_train else os.path.join(root, sketch_subdir, 'test')
+        photo_root = os.path.join(root, image_subdir)
 
         # 找到全部的草图文件
         self.data_pairs = self.get_data_pairs(sketch_root, photo_root)
 
         if is_train and is_full_train:
-            test_root = os.path.join(root, 'sketch_stk', 'test')
+            test_root = os.path.join(root, sketch_subdir, 'test')
             self.data_pairs.extend(self.get_data_pairs(test_root, photo_root))
 
         print(f'QMULDataset initialized in: ' + sketch_root)
