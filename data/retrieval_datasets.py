@@ -522,13 +522,13 @@ class QMULDataset(Dataset):
         if sketch_format == 'STK':
             self.sketch_loader = partial(
                 utils.load_stk_sketch,
-                stk_name='sketch_11_32',
+                stk_name='sketch_16_32',
                 delimiter=' '
             )
         elif sketch_format == 'IMG':
             self.sketch_loader = partial(
                 utils.stk_to_tensor_image,
-                stk_name='sketch_11_32',
+                stk_name='sketch_16_32',
                 delimiter=' ',
                 save_path=None
             )
