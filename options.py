@@ -18,7 +18,7 @@ def parse_args():
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
+    parser.add_argument('--root_local', type=str, default=r'F:\sketch_proj\retrieval_dataset')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
 
     # training
     parser.add_argument('--epoch', type=int, default=10000, help='最大训练轮数')

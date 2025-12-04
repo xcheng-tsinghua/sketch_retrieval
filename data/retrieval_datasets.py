@@ -201,7 +201,7 @@ class SketchImageDataset(Dataset):
             c_skh, c_skh_idx = self.skhs_all[idx]
             # 加载JPG图像
             sketch = self.sketch_loader(c_skh)
-            return sketch, c_skh_idx
+            return idx, sketch, c_skh_idx
 
         else:
             raise ValueError('error back mode: ', self.return_mode)
@@ -327,7 +327,6 @@ class DatasetPreload(object):
     def __init__(self,
                  sketch_root,
                  image_root,
-                 sketch_image_suffix,  # ('txt', 'jpg') or ('png', 'jpg')
                  train_split=0.8,
                  random_seed=42,
                  is_multi_pair=False,

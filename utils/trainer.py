@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from utils import utils
 from safetensors.torch import save_file, load_file
 from utils import loss_func
+from pathlib import Path
 
 
 class SBIRTrainer:
@@ -180,26 +181,39 @@ class SBIRTrainer:
 
             # 提取草图特征
             self.test_set.set_back_mode('sketch')
-            for c_skh_tensor, c_skh_cls in tqdm(self.test_loader, desc="Validating sketches"):
+            sketch_load_idx = []
+            for skh_idx, c_skh_tensor, c_skh_cls in tqdm(self.test_loader, desc="Validating sketches"):
                 c_skh_tensor = c_skh_tensor.to(self.device)
                 c_skh_cls = c_skh_cls.to(self.device)
                 c_skh_fea = self.model.encode_sketch(c_skh_tensor)
                 sketch_features.append(c_skh_fea)
                 sketch_cls.append(c_skh_cls)
+                sketch_load_idx.append(skh_idx)
 
         # 合并特征
         sketch_features = torch.cat(sketch_features, dim=0)
         sketch_cls = torch.cat(sketch_cls, dim=0)
+        sketch_load_idx = torch.cat(sketch_load_idx, dim=0)
 
         if not self.is_load_features:
             image_features = torch.cat(image_features, dim=0)
             image_cls = torch.cat(image_cls, dim=0)
 
-        map_200, prec_200 = retrieval_acc(sketch_features, sketch_cls, image_features, image_cls)
+        map_200, prec_200, failed_indices = retrieval_acc(sketch_features, sketch_cls, image_features, image_cls)
         acc_1, acc_5 = compute_topk_accuracy(sketch_features, image_features)
 
         # print(f'---Acc@5-cl: {map_200:.4f}, Acc@10-cl: {prec_200:.4f}, Acc@1-fg: {acc_1:.4f}, Acc@5-fg: {acc_5:.4f}')
         print(f'---Acc@5-cl: {map_200:.4f}, Acc@10-cl: {prec_200:.4f}')
+
+        # 显示失败的例子
+        for c_fail_idx in failed_indices:
+            # 先将加载索引转换为实际索引
+            c_fail_real = sketch_load_idx[c_fail_idx].item()
+
+            # 然后将失败草图转化为 class@name 形式
+            c_skh, _ = self.test_set.skhs_all[c_fail_real]
+            parts = Path(c_skh).parts
+            print(f'\'{parts[-2]}@{parts[-1][:-4]}\',')
 
         test_loss = total_loss / len(self.test_loader)
         return test_loss, map_200, prec_200, acc_1, acc_5
@@ -596,7 +610,11 @@ def retrieval_acc(sketch_feat, sketch_label, image_feat, image_label, topk_list=
         acc = correct.float().mean().item()
         results[f'Acc@{k}'] = acc
 
-    return results[f'Acc@{topk_list[0]}'], results[f'Acc@{topk_list[1]}']
+    # ===== 新增：检索失败的草图索引（在 max_k 范围内均未匹配正确）=====
+    correct_maxk = (retrieved_labels[:, :min(topk_list)] == sketch_label.unsqueeze(1)).any(dim=1)
+    failed_indices = (~correct_maxk).nonzero(as_tuple=True)[0].tolist()
+
+    return results[f'Acc@{topk_list[0]}'], results[f'Acc@{topk_list[1]}'], failed_indices
 
 
 def compute_topk_accuracy_with_file(sketch_fea, image_fea, data_indices, topk=(1, 5)):

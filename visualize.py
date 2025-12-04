@@ -20,8 +20,8 @@ from encoders import create_sketch_encoder
 from safetensors.torch import save_file, load_file
 
 
-DATASET_IMG_ROOT = r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_png'
-DATASET_SKH_ROOT = r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai'
+# DATASET_IMG_ROOT = r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_png'
+# DATASET_SKH_ROOT = r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai'
 
 # ========== 永久解决中文显示问题 ==========
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei',
@@ -30,7 +30,7 @@ plt.rcParams['axes.unicode_minus'] = False
 # ===========================================
 
 
-def sketch_file_list_to_tensor(sketch_file_list, sketch_dataset: retrieval_datasets.SketchImageDataset):
+def sketch_file_list_to_tensor(sketch_file_list, sketch_dataset: retrieval_datasets.SketchImageDataset, sketch_root, image_root):
     """
     将文件列表转化为 tensor
     注意每个文件表达方式为 类别@文件名，例如 'pear@n12651611_7402-2'
@@ -47,10 +47,10 @@ def sketch_file_list_to_tensor(sketch_file_list, sketch_dataset: retrieval_datas
         base_name = base_name + sketch_suffix
 
         # c_path = sketch_dataset.get_sketch_path(category, base_name)
-        c_path = os.path.join(DATASET_SKH_ROOT, category, base_name)
+        c_path = os.path.join(sketch_root, category, base_name)
         # c_pair_image_idx = sketch_dataset.find_image_idx(category, base_name)
 
-        c_img_path = os.path.join(DATASET_IMG_ROOT, category, base_name)
+        c_img_path = os.path.join(image_root, category, base_name)
         c_pair_image_idx = sketch_dataset.imgs_all.index((c_img_path, sketch_dataset.classes_idx[category]))
 
         c_sketch_tensor = sketch_dataset.sketch_loader(c_path)
@@ -262,28 +262,14 @@ def main(args, eval_sketches):
 
     # 创建数据加载器
     print("加载测试数据集...")
-    # root = args.root_local if eval(args.local) else args.root_sever
-
     root = args.root_local if eval(args.local) else args.root_sever
 
-    if sketch_info['format'] == 'vector':
-        sketch_subdir = sketch_info['subdirs'][0]
-        sketch_image_suffix = ('txt', 'jpg')
-    else:
-        sketch_subdir = sketch_info['subdirs'][1]
-        sketch_image_suffix = ('png', 'jpg')
-
-    if eval(args.local):
-        sketch_root = r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai'
-        image_root = r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_png'
-    else:
-        sketch_root = r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_ai'
-        image_root = r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_png'
+    sketch_root = os.path.join(root, 'sketch_ai')
+    image_root = os.path.join(root, 'sketch_png')
 
     pre_load = retrieval_datasets.DatasetPreload(
         sketch_root=sketch_root,
         image_root=image_root,
-        sketch_image_suffix=sketch_image_suffix,
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
         is_full_train=eval(args.is_full_train),
@@ -321,7 +307,7 @@ def main(args, eval_sketches):
     
     # 提取特征
     print("提取特征...")
-    sketch_file_tensor, pair_image_idx, sketch_cat = sketch_file_list_to_tensor(eval_sketches, test_set)
+    sketch_file_tensor, pair_image_idx, sketch_cat = sketch_file_list_to_tensor(eval_sketches, test_set, sketch_root, image_root)
     sketch_features = model.encode_sketch(sketch_file_tensor.to(device)).cpu()
 
     for i in range(sketch_file_tensor.size(0)):
@@ -351,11 +337,12 @@ def main(args, eval_sketches):
         image_file_tensor = []
         image_features = []
         image_cat = []
+        image_idx = []
         with torch.no_grad():
             for idx, images, category_indices in tqdm(test_loader):
                 images = images.to(device)
                 image_file_tensor.append(images.cpu())
-                # image_idx.append(idx.cpu())
+                image_idx.append(idx.cpu())
                 image_cat.append(category_indices.cpu())
 
                 # 编码草图和图像
@@ -366,12 +353,14 @@ def main(args, eval_sketches):
         image_cat = torch.cat(image_cat)
         image_features = torch.cat(image_features, dim=0)
         image_file_tensor = torch.cat(image_file_tensor, dim=0)
+        image_idx = torch.cat(image_idx, dim=0)
         print(f"提取特征完成: sketch {sketch_features.shape}, image {image_features.shape}")
 
         img_feas_inferred = {
             'image_features': image_features,  # 图片的特征 [n, c]
             'image_cat': image_cat,  # 图片的类别编号 [n, ]
             'image_file_tensor': image_file_tensor,  # 用于图片显示 [n, 3, w, h]
+            'image_idx_in_dataset': image_idx
         }
 
         # torch.save(img_feas_inferred, 'model_trained/img_feas_inferred.pt')
@@ -393,17 +382,17 @@ if __name__ == '__main__':
     setting_sketches = [
         # 'tree@n11759853_24427-2',
         # 'seagull@n02041246_20823-3',
-        '衬套@0ece4f05e97dcfc6ea9750dac8aa4988_1',
+        # '衬套@f9137c5364cea9b4d72223c53e7ec772_3',
         # 'helicopter@n03512147_1414-3',
-        '挡圈@0af3e3cdd1fee208b4b62dffd485f96d_2',
-        '脚轮@34dc393db3e9fd6be4b336de0b3a22cb_1',
+        # '挡圈@0af3e3cdd1fee208b4b62dffd485f96d_2',
+        # '脚轮@34dc393db3e9fd6be4b336de0b3a22cb_1',
         # 'songbird@n01532829_2619-1',
         # 'sword@n04373894_59060-3',
         # 'door@n03222318_7012-1',
         # 'scissors@n04148054_3393-3',
         # 'saw@n02770585_4664-1',
         # 'songbird@n01527347_17110-3',
-        '涡轮@2e383fb609c43c89198bc96cd7efb18a_1',
+        # '涡轮@2e383fb609c43c89198bc96cd7efb18a_1',
 
         # 'bat@n02139199_10978-1',
         # 'bat@n02139199_11031-2',
@@ -417,7 +406,7 @@ if __name__ == '__main__':
         # 'giraffe@n02439033_10491-3',
         # 'helicopter@n03512147_1191-5',
         # 'mouse@n02330245_1044-3',
-        '风扇@4cb9ab1cc91d75644fda9b8aac56bb35_4',
+        # '风扇@4cb9ab1cc91d75644fda9b8aac56bb35_4',
         # 'raccoon@n02508021_15891-10',
         # 'wheelchair@n04576002_10456-2',
 
@@ -427,7 +416,11 @@ if __name__ == '__main__':
         # 'songbird@n01530575_10073-3',
         # 'skyscraper@n04233124_14086-4',
         # 'helicopter@n03512147_1318-6',
-        '键@7c938d4073f9e54754aabc972c48ff90_4'
+        # '键@7c938d4073f9e54754aabc972c48ff90_4'
+        '法兰@00d35b9d395d99fd73521636e2deb6c9_5',
+        '带轮@6ad5ed8e5877affa8ea50fae5665f38b_3',
+        '螺栓@410348d59600a28bb9faee888010240c_1',
+
 
     ]
 

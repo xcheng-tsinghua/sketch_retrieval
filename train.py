@@ -30,27 +30,12 @@ def main(args):
     # 预加载数据集
     root = args.root_local if eval(args.local) else args.root_sever
 
-    if sketch_info['format'] == 'vector':
-        sketch_subdir = sketch_info['subdirs'][0]
-        sketch_image_suffix = ('txt', 'jpg')
-    else:
-        sketch_subdir = sketch_info['subdirs'][1]
-        # sketch_image_suffix = ('png', 'jpg')
-        sketch_image_suffix = ('png', 'png')
-
-    image_subdir = sketch_info['subdirs'][2]
-
-    if eval(args.local):
-        sketch_root = r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai'
-        image_root = r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_png'
-    else:
-        sketch_root = r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_ai'
-        image_root = r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad/sketch_png'
+    sketch_root = os.path.join(root, 'sketch_ai')
+    image_root = os.path.join(root, 'sketch_png')
 
     pre_load = retrieval_datasets.DatasetPreload(
         sketch_root=sketch_root,
         image_root=image_root,
-        sketch_image_suffix=sketch_image_suffix,
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
         is_full_train=eval(args.is_full_train),
