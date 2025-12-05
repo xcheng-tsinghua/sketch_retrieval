@@ -249,8 +249,8 @@ class SBIRTrainer:
             checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
             self.model.load_state_dict(checkpoint['model_state_dict'])
-            # self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            # self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             self.current_epoch = checkpoint['epoch']
             self.best_loss = checkpoint['best_loss']
             self.train_losses = checkpoint['train_losses']
@@ -260,8 +260,26 @@ class SBIRTrainer:
             return True
 
         except:
-            print(f'从如下文件加载检查点失败，从零开始训练：{checkpoint_path}')
-            return False
+            best_ckpt = checkpoint_path.replace('.pth', '_best.pth')
+            print(f'从如下文件加载检查点失败：{checkpoint_path}，尝试加载最佳权重：{best_ckpt}：')
+
+            try:
+                checkpoint = torch.load(best_ckpt, map_location=self.device)
+
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+                self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                self.current_epoch = checkpoint['epoch']
+                self.best_loss = checkpoint['best_loss']
+                self.train_losses = checkpoint['train_losses']
+                self.test_losses = checkpoint['test_losses']
+
+                print(f"从检查点恢复训练: {best_ckpt}")
+                return True
+
+            except:
+                print(f'从如下文件加载检查点失败：{best_ckpt}，从零开始训练')
+                return False
 
     def train(self):
         """开始训练"""
