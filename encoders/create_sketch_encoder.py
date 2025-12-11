@@ -29,7 +29,19 @@ supported_encoders = {
         'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
     },
 
+    'bidir_lstm': {
+        'format': 'vector',
+        'rep': 'S5',
+        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
+    },
+
     'gru': {
+        'format': 'vector',
+        'rep': 'S5',
+        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
+    },
+
+    'bidir_gru': {
         'format': 'vector',
         'rep': 'S5',
         'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
