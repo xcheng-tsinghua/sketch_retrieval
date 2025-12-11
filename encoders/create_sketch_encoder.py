@@ -327,7 +327,11 @@ def create_sketch_encoder(model_name,
 
     elif model_name == 'lstm':
         print('---- create VECTOR sketch encoder ----')
-        encoder = lstm.BiLSTMEncoder(embed_dim=output_dim)
+        encoder = lstm.BiLSTMEncoder(embed_dim=output_dim, bidirectional=False)
+
+    elif model_name == 'bidir_lstm':
+        print('---- create VECTOR sketch encoder ----')
+        encoder = lstm.BiLSTMEncoder(embed_dim=output_dim, bidirectional=True)
 
     elif model_name == 'sdgraph':
         print('---- create VECTOR sketch encoder ----')
@@ -339,8 +343,11 @@ def create_sketch_encoder(model_name,
 
     elif model_name == 'gru':
         print('---- create VECTOR sketch encoder ----')
-        encoder = gru.GRUEncoder(embed_dim=output_dim)
+        encoder = gru.GRUEncoder(embed_dim=output_dim, bidirectional=False)
 
+    elif model_name == 'bidir_gru':
+        print('---- create VECTOR sketch encoder ----')
+        encoder = gru.GRUEncoder(embed_dim=output_dim, bidirectional=True)
 
     else:
         raise TypeError('unsupported encoder name')
