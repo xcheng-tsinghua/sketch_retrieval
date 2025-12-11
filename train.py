@@ -27,35 +27,13 @@ def main(args):
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # 首先创建数据集划分（如果不存在）
-    # root = args.root_local if eval(args.local) else args.root_sever
-    # split_file = retrieval_datasets.get_split_file_name(sketch_info['format'], args.pair_mode, args.task)
-    # if sketch_info['format'] == 'vector':
-    #     sketch_subdir = sketch_info['subdirs'][0]
-    #     sketch_image_suffix = ('txt', 'jpg')
-    # else:
-    #     sketch_subdir = sketch_info['subdirs'][1]
-    #     sketch_image_suffix = ('png', 'jpg')
-    #
-    # if eval(args.is_create_fix_data_file) or not os.path.exists(split_file):
-    #     print("PNG草图数据集划分文件不存在，正在创建...")
-    #     image_subdir = sketch_info['subdirs'][2]
-    #     a_info = retrieval_datasets.create_dataset_split_file(
-    #         save_root=split_file,
-    #         sketch_root=os.path.join(root, sketch_subdir),
-    #         image_root=os.path.join(root, image_subdir),
-    #         sketch_image_suffix=sketch_image_suffix,
-    #         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-    #         split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
-    #         full_train=eval(args.is_full_train)
-    #     )
-
     # 预加载数据集
     root = args.root_local if eval(args.local) else args.root_sever
 
     if sketch_info['format'] == 'vector':
         sketch_subdir = sketch_info['subdirs'][0]
-        sketch_image_suffix = ('txt', 'jpg')
+        # sketch_image_suffix = ('txt', 'jpg')
+        sketch_image_suffix = ('txt', 'png')
     else:
         sketch_subdir = sketch_info['subdirs'][1]
         # sketch_image_suffix = ('png', 'jpg')

@@ -299,7 +299,8 @@ class DatasetPreload(object):
                  split_mode='ZS-SBIR',  # ['SBIR', 'ZS-SBIR'],
                  # 'SBIR': 使用所有类别，每个类别内取出一定数量用作测试。
                  # 'ZS-SBIR': 一部分类别全部用于训练，另一部分类别全部用于测试，即训练类别和测试类别不重合
-                 is_full_train=False
+                 is_full_train=False,
+                 multi_sketch_split='_'  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
                  ):
 
         self.train_pairs = []
@@ -320,7 +321,8 @@ class DatasetPreload(object):
                        random_seed,
                        is_multi_pair,
                        split_mode,  # ['SBIR', 'ZS-SBIR'],
-                       is_full_train
+                       is_full_train,
+                       multi_sketch_split
                        )
 
     def get_info(self):
@@ -347,7 +349,8 @@ class DatasetPreload(object):
                   random_seed,
                   is_multi_pair,
                   split_mode,
-                  full_train
+                  full_train,
+                  multi_sketch_split
                   ):
         assert split_mode in ['SBIR', 'ZS-SBIR']
 
@@ -399,9 +402,9 @@ class DatasetPreload(object):
                 # 首先尝试直接匹配
                 if sketch_base_name in imgid_name:
                     skhid_name[sketch_base_name].append(sketch_file)
-                elif '-' in sketch_base_name:
+                elif multi_sketch_split in sketch_base_name:
                     # 如果有'-'分隔符，尝试取前面部分作为实例ID
-                    instance_id = sketch_base_name.rsplit('-', 1)[0]
+                    instance_id = sketch_base_name.rsplit(multi_sketch_split, 1)[0]
                     if instance_id in imgid_name:
                         skhid_name[instance_id].append(sketch_file)
 
