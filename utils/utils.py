@@ -9,6 +9,7 @@ import torch.nn as nn
 from functools import partial
 import os
 import torchvision.transforms as transforms
+import einops
 
 
 class MLP(nn.Module):
@@ -102,7 +103,7 @@ class MLP(nn.Module):
         return fea
 
 
-def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=0, coor_mode='ABS', save_path=None):
+def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=2, pen_up=1, coor_mode='ABS', save_path=None):
     """
     将 S3 草图转化为 Tensor 图片
     sketch: np.ndarray
@@ -120,7 +121,8 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=0, 
     :param sketch: 文件路径或者加载好的 [n, 3] 草图
     :param image_size:
     :param line_thickness:
-    :param pen_up:
+    :param pen_up: 下一个点抬笔的标志位，对于 S3 而言应该是1，但之前弄成了 0，需要注意
+    :param coor_mode: 输入坐标是相对坐标还是绝对坐标
     :return: list(image_size), 224, 224 为预训练的 vit 的图片大小
     """
     assert coor_mode in ['REL', 'ABS']
@@ -176,6 +178,7 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=0, 
     if save_path is not None:
         cv2.imwrite(save_path, img)
 
+    tensor_img = einops.repeat(tensor_img, '... -> 3 ...')
     return tensor_img
 
 
@@ -215,13 +218,13 @@ def stk_to_tensor_image(stk_tensor, save_path=None):
     return tensor_img
 
 
-def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=False, is_back_mask=True):
+def s3_file_to_s5(root, max_length=11*32, pen_up=1, coor_mode='REL', is_shuffle_stroke=False, is_back_mask=True):
     """
     将草S3图转换为 S5 格式，(x, y, s1, s2, s3)
     默认存储绝对坐标
     :param root:
     :param max_length:
-    :param coor_mode: ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
+    :param coor_mode: 返回的坐标格式，输入默认绝对坐标 ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
     :param is_shuffle_stroke: 是否打乱笔划
     :param is_back_mask:
     :return:
@@ -230,7 +233,7 @@ def s3_file_to_s5(root, max_length=11*32, coor_mode='REL', is_shuffle_stroke=Fal
 
     # 打乱笔划
     if is_shuffle_stroke:
-        stroke_list = np.split(data_raw, np.where(data_raw[:, 2] == 0)[0] + 1)[:-1]
+        stroke_list = np.split(data_raw, np.where(data_raw[:, 2] == pen_up)[0] + 1)[:-1]
         random.shuffle(stroke_list)
         data_raw = np.vstack(stroke_list)
 
@@ -297,7 +300,13 @@ def vis_s3(s3_file, delimiter=','):
     plt.show()
 
 
-def image_loader(image_path, image_transform, empty_fill=(255, 255, 255)):
+def image_loader(image_path,
+                 image_transform=transforms.Compose([transforms.Resize((224, 224)),
+                                                     transforms.ToTensor(),
+                                                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
+                                                    ),
+                 empty_fill=(255, 255, 255)
+                 ):
     """
     读取图片到 torch.tensor，且png图片的空白区域填充 empty_fill 指定颜色
     """
@@ -375,17 +384,22 @@ if __name__ == '__main__':
     # raw_stk = raw_stk.reshape(11, 32, 2)
     #
     # stk_to_tensor_image(torch.from_numpy(raw_stk), trans_save)
-    image_transform_ = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor()
-    ])
 
-    tensor_img = image_loader(r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai\衬套\0ece4f05e97dcfc6ea9750dac8aa4988_1.png', image_transform_)
+    # image_transform_ = transforms.Compose([
+    #     transforms.Resize((256, 256)),
+    #     transforms.ToTensor()
+    # ])
+    #
+    # tensor_img = image_loader(r'D:\document\DeepLearning\DataSet\草图项目\retrieval_cad\sketch_ai\衬套\0ece4f05e97dcfc6ea9750dac8aa4988_1.png', image_transform_)
+    #
+    # # Tensor 格式通常是 (C, H, W)，要转为 (H, W, C)
+    # plt.imshow(tensor_img.permute(1, 2, 0))
+    # plt.axis('off')  # 去掉坐标轴
+    # plt.show()
 
-    # Tensor 格式通常是 (C, H, W)，要转为 (H, W, C)
-    plt.imshow(tensor_img.permute(1, 2, 0))
-    plt.axis('off')  # 去掉坐标轴
-    plt.show()
+    res = s3_to_tensor_img(r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_s3_352\test\class\9910-02-carbon_1.txt', pen_up=1, save_path=r'C:\Users\ChengXi\Desktop\cstnet2\gen2.png')
+
+    res2 = image_loader(r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\photo\test\class\123-din-s.png')
 
     pass
 

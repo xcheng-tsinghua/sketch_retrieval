@@ -10,52 +10,6 @@ from encoders import gru
 from encoders import sketch_transformer
 
 
-supported_encoders = {
-    'vit': {
-        'format': 'image',
-        'rep': 'IMG',
-        'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')
-    },
-
-    'sdgraph': {
-        'format': 'vector',
-        'rep': 'STK_11_32',
-        'subdirs': ('sketch_stk11_stkpnt32', 'sketch_png', 'photo')
-    },
-
-    'lstm': {
-        'format': 'vector',
-        'rep': 'S5',
-        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
-    },
-
-    'bidir_lstm': {
-        'format': 'vector',
-        'rep': 'S5',
-        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
-    },
-
-    'gru': {
-        'format': 'vector',
-        'rep': 'S5',
-        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
-    },
-
-    'bidir_gru': {
-        'format': 'vector',
-        'rep': 'S5',
-        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
-    },
-
-    'sketch_transformer': {
-        'format': 'vector',
-        'rep': 'S5',
-        'subdirs': ('sketch_s3_352', 'sketch_png', 'photo')
-    }
-
-}
-
-
 class PNGSketchEncoder(nn.Module):
     """
     PNG草图编码器，基于Vision Transformer
@@ -365,14 +319,6 @@ def create_sketch_encoder(model_name,
         raise TypeError('unsupported encoder name')
 
     return encoder
-
-
-def get_sketch_info(sketch_model: str):
-    """
-    根据草图模型名获取其使用的草图类别及其他信息
-    """
-    sketch_format = supported_encoders[sketch_model]
-    return sketch_format
 
 
 if __name__ == '__main__':

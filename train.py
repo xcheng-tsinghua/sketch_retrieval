@@ -11,14 +11,12 @@ from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import trainer, utils
 import options
-from encoders import create_sketch_encoder
 
 
 def main(args):
     save_str = utils.get_save_str(args)
     print('-----> model save name: ' + save_str + ' <-----')
-
-    sketch_info = create_sketch_encoder.get_sketch_info(args.sketch_model)
+    sketch_info = options.get_sketch_info(args.sketch_model)
 
     # 设置日志
     os.makedirs('log', exist_ok=True)
@@ -30,24 +28,13 @@ def main(args):
     # 预加载数据集
     root = args.root_local if eval(args.local) else args.root_sever
 
-    if sketch_info['format'] == 'vector':
-        sketch_subdir = sketch_info['subdirs'][0]
-        # sketch_image_suffix = ('txt', 'jpg')
-        sketch_image_suffix = ('txt', 'png')
-    else:
-        sketch_subdir = sketch_info['subdirs'][1]
-        # sketch_image_suffix = ('png', 'jpg')
-        sketch_image_suffix = ('png', 'png')
-
-    image_subdir = sketch_info['subdirs'][2]
-
     pre_load = retrieval_datasets.DatasetPreload(
-        sketch_root=os.path.join(root, sketch_subdir),
-        image_root=os.path.join(root, image_subdir),
-        sketch_suffix=sketch_image_suffix[0],
-        image_suffix=sketch_image_suffix[1],
+        sketch_root=os.path.join(root, sketch_info['sketch_subdir']),
+        image_root=os.path.join(root, sketch_info['image_subdir']),
+        sketch_suffix=sketch_info['sketch_suffix'],
+        image_suffix=sketch_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-        split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
+        split_mode=args.task,
         is_full_train=eval(args.is_full_train)
     )
 
@@ -56,10 +43,8 @@ def main(args):
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
-        root=root,
         sketch_format=sketch_info['format'],
         vec_sketch_rep=sketch_info['rep'],
-        sketch_image_subdirs=sketch_info['subdirs'],
         is_back_dataset=True
     )
 

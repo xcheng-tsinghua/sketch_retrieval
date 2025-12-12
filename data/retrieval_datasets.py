@@ -21,11 +21,9 @@ class SketchImageDataset(Dataset):
     PNG草图-图像配对数据集
     """
     def __init__(self,
-                 root,
                  mode,
                  pre_load,
                  vec_sketch_rep,  # [S5, STK_11_32]
-                 sketch_image_subdirs,  # [0]: vector_sketch, [1]: image_sketch, [2]: photo
                  sketch_transform=None,
                  image_transform=None,
                  sketch_format='vector',  # ['vector', 'image']
@@ -50,8 +48,6 @@ class SketchImageDataset(Dataset):
         # print(f"  Fixed split path: {fixed_split_path}")
         
         self.mode = mode
-        # self.fixed_split_path = fixed_split_path
-        self.root = root
         self.sketch_format = sketch_format
         self.is_back_image_only = is_back_image_only
 
@@ -68,10 +64,7 @@ class SketchImageDataset(Dataset):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        self.image_subdir = sketch_image_subdirs[2]
         if self.sketch_format == 'vector':
-            self.sketch_subdir = sketch_image_subdirs[0]
-
             if vec_sketch_rep == 'S5':
                 self.sketch_loader = partial(
                     utils.s3_file_to_s5,
@@ -79,6 +72,15 @@ class SketchImageDataset(Dataset):
                     coor_mode='REL',
                     is_shuffle_stroke=False,
                     is_back_mask=False
+                )
+            elif vec_sketch_rep == 'IMG':
+                self.sketch_loader = partial(
+                    utils.s3_to_tensor_img,
+                    image_size=(224, 224),
+                    line_thickness=2,
+                    pen_up=1,
+                    coor_mode='ABS',
+                    save_path=None
                 )
             elif 'STK' in vec_sketch_rep:
                 self.sketch_loader = partial(
@@ -89,7 +91,6 @@ class SketchImageDataset(Dataset):
                 raise TypeError('error vector sketch type')
 
         else:
-            self.sketch_subdir = sketch_image_subdirs[1]
             self.sketch_loader = partial(
                 utils.image_loader,
                 image_transform=self.sketch_transform
@@ -136,8 +137,7 @@ class SketchImageDataset(Dataset):
         """
 
         if self.is_back_image_only:
-            image_file, category = self.images_set[idx]
-            image_path = self.get_image_path(category, image_file)
+            image_path, category = self.images_set[idx]
 
             # 加载JPG图像
             image = utils.image_loader(image_path, self.image_transform)
@@ -148,11 +148,7 @@ class SketchImageDataset(Dataset):
             return idx, image, category_idx, category
 
         else:
-            sketch_file, image_file, category = self.data_pairs[idx]
-
-            sketch_path = self.get_sketch_path(category, sketch_file)
-            image_path = self.get_image_path(category, image_file)
-
+            sketch_path, image_path, category = self.data_pairs[idx]
             try:
                 # 加载草图
                 sketch = self.sketch_loader(sketch_path)
@@ -171,35 +167,6 @@ class SketchImageDataset(Dataset):
                 print(f"Sketch path: {sketch_path}")
                 print(f"Image path: {image_path}")
                 raise e
-
-    def get_sketch_path(self, category, sketch_file):
-        """
-        sketch_file: 例如 aaa.png
-        """
-        sketch_path = os.path.join(self.root, self.sketch_subdir, category, sketch_file)
-        return sketch_path
-
-    def get_image_path(self, category, image_file):
-        """
-        image_file: 例如 aaa.jpg
-        """
-        image_path = os.path.join(self.root, self.image_subdir, category, image_file)
-        return image_path
-
-    def get_category_info(self):
-        """获取类别信息"""
-        return {
-            'categories': self.categories,
-            'category_to_idx': self.category_to_idx,
-            'num_categories': len(self.categories)
-        }
-
-    def next(self, idx):
-        if idx == len(self) - 1:
-            idx = 0
-        else:
-            idx += 1
-        return idx
     
     def get_data_info(self):
         """获取数据集信息"""
@@ -336,7 +303,7 @@ class DatasetPreload(object):
                  train_split=0.8,
                  random_seed=42,
                  is_multi_pair=False,
-                 split_mode='ZS-SBIR',  # ['SBIR', 'ZS-SBIR']
+                 split_mode='zs-sbir',  # ['sbir', 'zs-sbir']
                  is_full_train=False,
                  multi_sketch_split='_'  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
                  ):
@@ -358,7 +325,7 @@ class DatasetPreload(object):
                        train_split,
                        random_seed,
                        is_multi_pair,
-                       split_mode,  # ['SBIR', 'ZS-SBIR'],
+                       split_mode,  # ['sbir', 'zs-sbir']
                        is_full_train,
                        multi_sketch_split
                        )
@@ -389,7 +356,7 @@ class DatasetPreload(object):
                   full_train,
                   multi_sketch_split
                   ):
-        assert split_mode in ['SBIR', 'ZS-SBIR']
+        assert split_mode in ['sbir', 'zs-sbir'], TypeError(f'error solit mode: {split_mode}')
 
         # 设置随机种子
         random.seed(random_seed)
@@ -473,7 +440,7 @@ class DatasetPreload(object):
 
             # 划分训练集和测试集
             for class_name, class_pair_list in all_category_pairs.items():
-                if split_mode == 'ZS-SBIR':  # zero-shot 检索直接将类别划分为训练类别和测试类别
+                if split_mode == 'zs-sbir':  # zero-shot 检索直接将类别划分为训练类别和测试类别
 
                     if class_name in scfg.sketchy_test_classes:
                         self.test_pairs.extend(class_pair_list)
@@ -623,10 +590,8 @@ def get_allfiles(dir_path, suffix='txt', filename_only=False):
 def create_sketch_image_dataloaders(batch_size,
                                     num_workers,
                                     pre_load,
-                                    root,
                                     sketch_format,
                                     vec_sketch_rep,
-                                    sketch_image_subdirs,
                                     is_back_dataset=False
                                     ):
     """
@@ -677,10 +642,8 @@ def create_sketch_image_dataloaders(batch_size,
         pre_load=pre_load,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
-        root=root,
         sketch_format=sketch_format,
         vec_sketch_rep=vec_sketch_rep,
-        sketch_image_subdirs=sketch_image_subdirs
     )
 
     test_dataset = SketchImageDataset(
@@ -688,10 +651,8 @@ def create_sketch_image_dataloaders(batch_size,
         pre_load=pre_load,
         sketch_transform=test_transform,
         image_transform=test_transform,
-        root=root,
         sketch_format=sketch_format,
         vec_sketch_rep=vec_sketch_rep,
-        sketch_image_subdirs=sketch_image_subdirs
     )
     
     # 创建数据加载器

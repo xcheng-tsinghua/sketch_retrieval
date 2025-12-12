@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
-    parser.add_argument('--sketch_model', type=str, default='bidir_gru', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
+    parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='使用矢量草图还是图片草图')
     parser.add_argument('--retrieval_mode', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
@@ -38,6 +38,81 @@ def parse_args():
 
     args = parser.parse_args()
     return args
+
+
+supported_encoders = {
+    'vit': {
+        'format': 'vector',
+        'rep': 'IMG',
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'sdgraph': {
+        'format': 'vector',
+        'rep': 'STK_11_32',
+        'sketch_subdir': 'sketch_stk11_stkpnt32',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'lstm': {
+        'format': 'vector',
+        'rep': 'S5',
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'bidir_lstm': {
+        'format': 'vector',
+        'rep': 'S5',
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'gru': {
+        'format': 'vector',
+        'rep': 'S5',
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'bidir_gru': {
+        'format': 'vector',
+        'rep': 'S5',
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'sketch_transformer': {
+        'format': 'vector',
+        'rep': 'S5',
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    }
+
+}
+
+
+def get_sketch_info(sketch_model: str):
+    """
+    根据草图模型名获取其使用的草图类别及其他信息
+    """
+    sketch_format = supported_encoders[sketch_model]
+    return sketch_format
 
 
 if __name__ == '__main__':
