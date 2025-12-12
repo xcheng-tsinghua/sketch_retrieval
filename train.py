@@ -114,7 +114,7 @@ def main(args):
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
         dataset_info=dataset_info,
-        log_dir='log',
+        # log_dir='log',
         retrieval_mode=args.retrieval_mode,
         # stop_val=stop_val
     )

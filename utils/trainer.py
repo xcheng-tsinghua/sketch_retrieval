@@ -25,7 +25,7 @@ class SBIRTrainer:
                  check_point,
                  logger,
                  dataset_info,
-                 log_dir,
+                 # log_dir,
                  retrieval_mode,  # ['cl', 'fg']
                  learning_rate=1e-4,
                  weight_decay=1e-4,
@@ -44,7 +44,7 @@ class SBIRTrainer:
         self.max_epochs = max_epochs
         self.logger = logger
         self.dataset_info = dataset_info
-        self.log_dir = log_dir
+        # self.log_dir = log_dir
         # self.stop_val = stop_val
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
