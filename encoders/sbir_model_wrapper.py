@@ -56,12 +56,12 @@ class SBIRModelWrapper(nn.Module):
         # 初始化参数
         self._initialize_parameters()
         
-        print(f"PNGSketchImageAlignmentModel initialized:")
-        print(f"  Embed dim: {embed_dim}")
-        print(f"  Sketch model: {sketch_model_name}")
-        print(f"  Image model: {image_model_name}")
-        print(f"  Freeze image encoder: {freeze_image_encoder}")
-        print(f"  Freeze sketch backbone: {freeze_sketch_backbone}")
+        # print(f"PNGSketchImageAlignmentModel initialized:")
+        # print(f"  Embed dim: {embed_dim}")
+        # print(f"  Sketch model: {sketch_model_name}")
+        # print(f"  Image model: {image_model_name}")
+        # print(f"  Freeze image encoder: {freeze_image_encoder}")
+        # print(f"  Freeze sketch backbone: {freeze_sketch_backbone}")
     
     def _init_encoders(self, sketch_model_name, image_model_name, dropout_rate):
         """初始化编码器"""

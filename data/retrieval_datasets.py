@@ -45,8 +45,8 @@ class SketchImageDataset(Dataset):
         """
         assert mode in ('train', 'test')
 
-        print(f"PNGSketchImageDataset initialized with:")
-        print(f"  Mode: {mode}")
+        print(f"SketchImageDataset initialized with:")
+        print(f"Mode: {mode}")
         # print(f"  Fixed split path: {fixed_split_path}")
         
         self.mode = mode
@@ -94,27 +94,20 @@ class SketchImageDataset(Dataset):
                 utils.image_loader,
                 image_transform=self.sketch_transform
             )
-        
-        # 预先划分
-        # self.pre_load = pre_load
+
         self._load_fixed_split(pre_load)
-        # print(self.mode + f' pairs: {len(self)}')
         
     def _load_fixed_split(self, pre_load):
-        """加载固定的数据集划分"""
-        # print(f"Loading fixed dataset split from: {self.fixed_split_path}")
-        
-        # if not os.path.exists(self.fixed_split_path):
-        #     raise FileNotFoundError(f"固定数据集划分文件不存在: {self.fixed_split_path}")
-        #
-        # with open(self.fixed_split_path, 'rb') as f:
-        #     dataset_info = pickle.load(f)
-        
+        """
+        加载固定的数据集划分
+        """
         # 根据模式选择数据
         if self.mode == 'train':
             self.data_pairs = pre_load.train_pairs
+
         elif self.mode == 'test':
             self.data_pairs = pre_load.test_pairs
+
         else:
             raise ValueError(f"不支持的模式: {self.mode}")
         
@@ -245,7 +238,7 @@ class SketchImageDataset(Dataset):
 
 class DatasetPreload(object):
     """
-    读取文件并分割为训练集测试集
+    读取文件并分割为训练集测试集，如果文件夹内的训练集测试集已划分好，则检索类别由文件夹内划分的训练集测试集决定
     要求：
     1. sketch_root 和 image_root 是两个不同的文件夹
     2. 草图和图片文件夹下的类别文件夹要一致
@@ -347,13 +340,12 @@ class DatasetPreload(object):
                  multi_sketch_split='_'  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
                  ):
 
-        self.train_pairs = []
+        self.train_pairs = []  # (sketch_root, image_root, class_name)
         self.test_pairs = []
         self.images_set = []
         self.category_stats = {}
         self.train_stats = {}
         self.test_stats = {}
-        self.total_categories = 0
         self.train_split = train_split
         self.random_seed = random_seed
         self.common_categories = []
@@ -377,10 +369,8 @@ class DatasetPreload(object):
             'category_stats': self.category_stats,
             'train_stats': self.train_stats,
             'test_stats': self.test_stats,
-            'total_categories': len(self.common_categories),
             'train_split': self.train_split,
             'random_seed': self.random_seed,
-            'common_categories': self.common_categories,
             'data_type': 'png_sketch'  # 标识这是PNG草图数据集
         }
         return dataset_info
@@ -406,135 +396,182 @@ class DatasetPreload(object):
         sketch_categories = get_subdirs(sketch_root)
         image_categories = get_subdirs(image_root)
 
-        # 找到草图和图片都有的类别
-        self.common_categories = list(set(sketch_categories) & set(image_categories))
-        self.common_categories.sort()
-        self.total_categories = len(self.common_categories)
+        # 判断是否存在 'train', 'test' 文件夹
+        is_train_test_divided = self.check_is_divided(sketch_categories, image_categories)
 
-        all_data_pairs = []
+        # 已划分好训练集测试集后需要重新获取类别
+        if is_train_test_divided:
+            print('Training set and testing set are already divided.')
 
-        for category in self.common_categories:
-            sketch_category_path = os.path.join(sketch_root, category)
-            image_category_path = os.path.join(image_root, category)
+            # 重新获取类别
+            sketch_categories_train = get_subdirs(os.path.join(sketch_root, 'train'))
+            sketch_categories_test = get_subdirs(os.path.join(sketch_root, 'test'))
 
-            # 获取该类别下的所有草图文件和图片文件
-            sketch_files = get_allfiles(sketch_category_path, sketch_image_suffix[0], filename_only=True)
-            image_files = get_allfiles(image_category_path, sketch_image_suffix[1], filename_only=True)
+            image_categories_train = get_subdirs(os.path.join(image_root, 'train'))
+            image_categories_test = get_subdirs(os.path.join(image_root, 'test'))
 
-            # 构建图片实例字典和对应的草图列表
-            # id 即不带路径也后缀的图片文件名，每个id和一个具体图片文件一一对应
-            # 每个 id 可能对应多个草图，因为一张图片可能画了多张草图
-            # 在 sketchy 数据集中，图片文件名和草图文件名的对应关系为 photo: aaa.jpg, sketch: [aaa_1.jpg, aaa_2.jpg, ...]
-            #    即用下划线加序号表示同一张图片绘制的多个草图
-            skhid_name = {}  # 草图 id 和文件名的对应字典, {实例id: [草图文件列表]}
-            imgid_name = {}  # 图片 id 和文件名的对应字典, {实例id: 图片路径},
+            common_categories_train = list(set(sketch_categories_train) & set(image_categories_train))
+            common_categories_test = list(set(sketch_categories_test) & set(image_categories_test))
 
-            # 构建图片实例字典
-            for image_file in image_files:
-                # 获取图片文件名，不带路径与后缀
-                instance_id = os.path.splitext(image_file)[0]
+            self.common_categories = list(set(common_categories_train) & set(common_categories_test))
 
-                imgid_name[instance_id] = os.path.join(image_category_path, image_file)
-                skhid_name[instance_id] = []
+            # 获取训练集下的配对列表
+            for category in common_categories_train:
+                category_pairs = self.get_category_pairs(
+                    os.path.join(sketch_root, 'train', category),
+                    os.path.join(image_root, 'train', category),
+                    sketch_image_suffix[0],
+                    sketch_image_suffix[1],
+                    category,
+                    multi_sketch_split,
+                    is_multi_pair,
+                    random_seed
+                )
+                self.train_pairs.extend(category_pairs)
 
-            # 收集每个实例对应的所有草图
-            for sketch_file in sketch_files:
-                # 去掉扩展名获取基础名称
-                sketch_base_name = os.path.splitext(sketch_file)[0]
-
-                # 尝试匹配实例ID（处理可能的草图变体）
-                # 首先尝试直接匹配
-                if sketch_base_name in imgid_name:
-                    skhid_name[sketch_base_name].append(sketch_file)
-                elif multi_sketch_split in sketch_base_name:
-                    # 如果有'-'分隔符，尝试取前面部分作为实例ID
-                    instance_id = sketch_base_name.rsplit(multi_sketch_split, 1)[0]
-                    if instance_id in imgid_name:
-                        skhid_name[instance_id].append(sketch_file)
-
-            # 为每个草图选择一张图片配对（使用确定性方法）
-            category_pairs = []
-            for instance_id, sketch_list in skhid_name.items():
-                if len(sketch_list) > 0 and instance_id in imgid_name:
-                    image_name = imgid_name[instance_id]
-                    self.images_set.append((image_name, category))
-
-                    # 一张图片对应多张草图
-                    if is_multi_pair:
-                        for sketch_name in sketch_list:
-                            category_pairs.append((sketch_name, image_name, category))
-
-                    # 一张图片对应一张草图
-                    else:
-                        # 使用确定性的选择方式（基于instance_id hash来选择）
-                        sketch_idx = hash(category + instance_id + str(random_seed)) % len(sketch_list)
-                        sketch_name = sketch_list[sketch_idx]
-                        category_pairs.append((sketch_name, image_name, category))
-
-            all_data_pairs.extend(category_pairs)
-            self.category_stats[category] = len(category_pairs)
-
-        # 按类别进行分层采样划分训练集和测试集
-        category_pairs_dict = {}  # {category: (sketch_name, image_name, category)}
-        for pair in all_data_pairs:
-            category = pair[2]
-            if category not in category_pairs_dict:
-                category_pairs_dict[category] = []
-            category_pairs_dict[category].append(pair)
-
-        # 对每个类别进行训练/测试划分
-        # zero-shot 检索直接将类别划分为训练类别和测试类别
-        if split_mode == 'ZS-SBIR':
-            for category, pairs in category_pairs_dict.items():
-
-                if full_train:
-                    self.train_pairs.extend(pairs)
-                    self.train_stats[category] = len(pairs)
-
-                    if category in scfg.sketchy_test_classes:
-                        self.test_pairs.extend(pairs)
-                        self.test_stats[category] = len(pairs)
-
-                    else:
-                        self.test_stats[category] = 0
-
-                else:
-                    if category in scfg.sketchy_test_classes:
-                        self.test_pairs.extend(pairs)
-                        self.test_stats[category] = len(pairs)
-
-                    else:
-                        self.train_pairs.extend(pairs)
-                        self.train_stats[category] = len(pairs)
+            # 获取测试集下的配对列表
+            for category in common_categories_test:
+                category_pairs = self.get_category_pairs(
+                    os.path.join(sketch_root, 'test', category),
+                    os.path.join(image_root, 'test', category),
+                    sketch_image_suffix[0],
+                    sketch_image_suffix[1],
+                    category,
+                    multi_sketch_split,
+                    is_multi_pair,
+                    random_seed
+                )
+                self.test_pairs.extend(category_pairs)
 
         else:
-            for category, pairs in category_pairs_dict.items():
-                # 使用固定种子打乱该类别的样本
-                random.Random(random_seed + hash(category)).shuffle(pairs)
+            print('Auto divided the training set and testing set.')
 
-                split_idx = int(len(pairs) * train_split)
+            # 找到草图和图片都有的类别
+            common_categories = list(set(sketch_categories) & set(image_categories))
+            common_categories.sort()
+            self.common_categories = common_categories
 
-                # 确保每个类别在训练集和测试集中都有至少1个样本
-                if split_idx == 0:
-                    split_idx = 1
-                if split_idx == len(pairs):
-                    split_idx = len(pairs) - 1
+            # 找到全部草图和图片的配对
+            all_category_pairs = {}  # {'class_name': [skh_path, img_path, 'class_name'], ...}
 
-                category_train = pairs if full_train else pairs[:split_idx]
-                category_test = pairs[split_idx:]
+            for category in common_categories:
+                category_pairs = self.get_category_pairs(
+                    os.path.join(sketch_root, category),
+                    os.path.join(image_root, category),
+                    sketch_image_suffix[0],
+                    sketch_image_suffix[1],
+                    category,
+                    multi_sketch_split,
+                    is_multi_pair,
+                    random_seed
+                )
 
-                self.train_pairs.extend(category_train)
-                self.test_pairs.extend(category_test)
+                all_category_pairs[category] = category_pairs
 
-                self.train_stats[category] = len(category_train)
-                self.test_stats[category] = len(category_test)
+            # 划分训练集和测试集
+            for class_name, class_pair_list in all_category_pairs.items():
+                if split_mode == 'ZS-SBIR':  # zero-shot 检索直接将类别划分为训练类别和测试类别
+
+                    if class_name in scfg.sketchy_test_classes:
+                        self.test_pairs.extend(class_pair_list)
+                        if full_train:
+                            self.train_pairs.extend(class_pair_list)
+                    else:
+                        self.train_pairs.extend(class_pair_list)
+
+                else:
+                    # 使用固定种子打乱该类别的样本
+                    random.Random(random_seed + hash(class_name)).shuffle(class_pair_list)
+
+                    split_idx = int(len(class_pair_list) * train_split)
+                    # 确保每个类别在训练集和测试集中都有至少1个样本
+                    if split_idx == 0:
+                        split_idx = 1
+                    if split_idx == len(class_pair_list):
+                        split_idx = len(class_pair_list) - 1
+
+                    category_train = class_pair_list if full_train else class_pair_list[:split_idx]
+                    category_test = class_pair_list[split_idx:]
+
+                    self.train_pairs.extend(category_train)
+                    self.test_pairs.extend(category_test)
 
         # 最终打乱
         random.Random(random_seed).shuffle(self.train_pairs)
         random.Random(random_seed + 1).shuffle(self.test_pairs)
 
+        print(f'-> 预加载数据信息')
         print(f"训练集: {len(self.train_pairs)} 对")
         print(f"测试集: {len(self.test_pairs)} 对")
+
+    @staticmethod
+    def check_is_divided(sketch_categories: list, image_categories: list):
+        is_train_in = 'train' in sketch_categories and 'train' in image_categories
+        is_test_in = 'test' in sketch_categories and 'test' in image_categories
+        is_len_2 = len(sketch_categories) == 2 and len(image_categories) == 2
+
+        return is_train_in and is_test_in and is_len_2
+
+    @staticmethod
+    def get_category_pairs(skh_root, img_root, skh_suffix, img_suffix, class_name, multi_sketch_split, is_multi_pair,
+                           random_seed):
+        """
+        将对应文件夹下的草图和图片文件进行配对
+        配对依据为文件名 skh_file_name = img_file_name + multi_sketch_split + num
+        """
+        # 获取该类别下的所有草图文件和图片文件
+        sketch_files = get_allfiles(skh_root, skh_suffix, filename_only=True)
+        image_files = get_allfiles(img_root, img_suffix, filename_only=True)
+
+        # 构建图片实例字典和对应的草图列表
+        # id 即不带路径也后缀的图片文件名，每个id和一个具体图片文件一一对应
+        # 每个 id 可能对应多个草图，因为一张图片可能画了多张草图
+        # 在 sketchy 数据集中，图片文件名和草图文件名的对应关系为 photo: aaa.jpg, sketch: [aaa_1.jpg, aaa_2.jpg, ...]
+        #    即用下划线加序号表示同一张图片绘制的多个草图
+        skhid_name = {}  # 草图 id 和文件名的对应字典, {实例id: [草图文件路径列表]}
+        imgid_name = {}  # 图片 id 和文件名的对应字典, {实例id: 图片路径},
+
+        # 构建图片实例字典
+        for image_file in image_files:
+            # 获取图片文件名，不带路径与后缀
+            instance_id = os.path.splitext(image_file)[0]
+
+            skhid_name[instance_id] = []
+            imgid_name[instance_id] = os.path.join(img_root, image_file)
+
+        # 收集每个实例对应的所有草图
+        for sketch_file in sketch_files:
+            # 去掉扩展名获取基础名称
+            sketch_base_name = os.path.splitext(sketch_file)[0]
+
+            # 尝试匹配实例ID（处理可能的草图变体）
+            # 首先尝试直接匹配
+            if sketch_base_name in imgid_name.keys():
+                skhid_name[sketch_base_name].append(sketch_file)
+
+            elif multi_sketch_split in sketch_base_name:
+                # 如果有'-'分隔符，尝试取前面部分作为实例ID
+                instance_id = sketch_base_name.rsplit(multi_sketch_split, 1)[0]
+                if instance_id in imgid_name.keys():
+                    skhid_name[instance_id].append(os.path.join(skh_root, sketch_file))
+
+        # 为每个草图选择一张图片配对
+        category_pairs = []
+        for instance_id, skh_path_list in skhid_name.items():
+            if len(skh_path_list) > 0 and instance_id in imgid_name.keys():
+                img_path = imgid_name[instance_id]
+
+                if is_multi_pair:  # 一张图片对应多张草图
+                    for skh_path in skh_path_list:
+                        category_pairs.append((skh_path, img_path, class_name))
+
+                else:  # 一张图片对应一张草图
+                    # 使用确定性的选择方式（基于instance_id hash来选择）
+                    sketch_idx = hash(class_name + instance_id + str(random_seed)) % len(skh_path_list)
+                    skh_path = skh_path_list[sketch_idx]
+                    category_pairs.append((skh_path, img_path, class_name))
+
+        return category_pairs
 
 
 def get_subdirs(dir_path):
