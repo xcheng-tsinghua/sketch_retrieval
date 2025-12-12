@@ -14,7 +14,6 @@ from utils import loss_func
 
 class SBIRTrainer:
     """PNG草图-图像对齐训练器"""
-
     def __init__(self,
                  model,
                  train_set,
@@ -26,9 +25,10 @@ class SBIRTrainer:
                  logger,
                  dataset_info,
                  retrieval_mode,  # ['cl', 'fg']
-                 learning_rate=1e-4,
-                 weight_decay=1e-4,
-                 max_epochs=50,
+                 save_str,
+                 learning_rate,
+                 weight_decay,
+                 max_epochs,
                  ckpt_save_interval=20,  # 检查点保存的 epoch 间隔
                  # stop_val=100
                  ):
@@ -45,6 +45,7 @@ class SBIRTrainer:
         self.logger = logger
         self.dataset_info = dataset_info
         self.ckpt_save_interval = ckpt_save_interval
+        self.save_str = save_str
         # self.stop_val = stop_val
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
@@ -88,7 +89,7 @@ class SBIRTrainer:
         self.model.train()
         total_loss = 0.0
         num_batches = len(self.train_loader)
-        progress_bar = tqdm(self.train_loader, desc=f"Epoch {self.current_epoch + 1}/{self.max_epochs}")
+        progress_bar = tqdm(self.train_loader, desc=f'{self.save_str}: {self.current_epoch + 1}/{self.max_epochs}')
 
         for batch_idx, (sketches, images, category_indices, category_names) in enumerate(progress_bar):
             # 移动数据到设备
@@ -123,9 +124,7 @@ class SBIRTrainer:
             # 更新进度条
             progress_bar.set_postfix({
                 'Loss': f"{loss.item():.4f}",
-                'Avg Loss': f"{total_loss / (batch_idx + 1):.4f}",
                 'LR': f"{self.optimizer.param_groups[0]['lr']:.6f}",
-                'Temp': f"{logit_scale.item():.4f}"
             })
         self.scheduler.step()
 

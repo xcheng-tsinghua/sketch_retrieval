@@ -110,12 +110,15 @@ def main(args):
         device=device,
         check_point=check_point,
         logger=logger,
+        dataset_info=dataset_info,
+        retrieval_mode=args.retrieval_mode,
+        save_str=save_str,
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
-        dataset_info=dataset_info,
+
         # log_dir='log',
-        retrieval_mode=args.retrieval_mode,
+
         # stop_val=stop_val
     )
     
