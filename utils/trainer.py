@@ -308,24 +308,25 @@ class SBIRTrainer:
 
         print(f"保存检查点: {self.check_point}")
 
-    def load_checkpoint(self, checkpoint_path):
+    def load_checkpoint(self, checkpoint_path, is_load_training_state=True):
         """加载模型检查点"""
         try:
             checkpoint = torch.load(checkpoint_path, map_location=self.device)
-
             self.model.load_state_dict(checkpoint['model_state_dict'])
-            # self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            # self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-            self.current_epoch = checkpoint['epoch']
-            self.best_loss = checkpoint['best_loss']
-            self.train_losses = checkpoint['train_losses']
-            self.test_losses = checkpoint['test_losses']
+
+            if is_load_training_state:
+                self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                self.current_epoch = checkpoint['epoch']
+                self.best_loss = checkpoint['best_loss']
+                self.train_losses = checkpoint['train_losses']
+                self.test_losses = checkpoint['test_losses']
 
             print(f"从检查点恢复训练: {checkpoint_path}")
             return True
 
-        except:
-            print(f'从如下文件加载检查点失败，从零开始训练：{checkpoint_path}')
+        except Exception as e:
+            print(f'从如下文件加载检查点失败，从零开始训练：{checkpoint_path}, 错误: {e}')
             return False
 
     def train(self):
@@ -364,24 +365,24 @@ class SBIRTrainer:
             #     break
 
         # 保存训练历史
-        self.save_training_history()
+        # self.save_training_history()
         print("训练完成!")
 
-    def save_training_history(self):
-        """保存训练历史"""
-        history = {
-            'train_losses': self.train_losses,
-            'test_losses': self.test_losses,
-            'best_loss': self.best_loss,
-            'epochs_trained': len(self.train_losses),
-            'final_lr': self.optimizer.param_groups[0]['lr']
-        }
-
-        history_path = os.path.join(os.path.dirname(self.check_point), 'training_history.json')
-        with open(history_path, 'w') as f:
-            json.dump(history, f, indent=2)
-
-        print(f"训练历史已保存: {history_path}")
+    # def save_training_history(self):
+    #     """保存训练历史"""
+    #     history = {
+    #         'train_losses': self.train_losses,
+    #         'test_losses': self.test_losses,
+    #         'best_loss': self.best_loss,
+    #         'epochs_trained': len(self.train_losses),
+    #         'final_lr': self.optimizer.param_groups[0]['lr']
+    #     }
+    #
+    #     history_path = os.path.join(os.path.dirname(self.check_point), 'training_history.json')
+    #     with open(history_path, 'w') as f:
+    #         json.dump(history, f, indent=2)
+    #
+    #     print(f"训练历史已保存: {history_path}")
 
 
 def compute_retrieval_metrics(similarity_matrix, labels):

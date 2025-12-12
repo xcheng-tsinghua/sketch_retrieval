@@ -252,6 +252,7 @@ class DatasetPreload(object):
     3. 实例级配对的图片和草图文件名一致（扩展名可不一致），若某张图片对应多个草图，草图末尾加 _1 等区分，即下划线加序号
 
     定位文件夹层级示例如下：
+    -> 不区分训练集测试集，自动划分的情况
     sketch_root
     ├─ Bushes
     │   ├─0.png
@@ -287,6 +288,81 @@ class DatasetPreload(object):
     │   ...
     │
     ...
+
+    -> 训练集测试集已区分好的情况
+    sketch_root
+    ├─ train
+    │   ├─ Bushes
+    │   │   ├─0.png
+    │   │   ├─1.png
+    │   │   │   ...
+    │   │
+    │   ├─ Clamps
+    │   │   ├─0.png
+    │   │   ├─1.png
+    │   │   ...
+    │   │
+    │   ├─ Bearing
+    │   │   ├─0.png
+    │   │   ├─1.png
+    │   │   ...
+    │   │
+    │   ...
+    │
+    ├─ test
+    │   ├─ Bushes
+    │   │   ├─0.png
+    │   │   ├─1.png
+    │   │   ...
+    │   │
+    │   ├─ Clamps
+    │   │   ├─0.png
+    │   │   ├─1.png
+    │   │   ...
+    │   │
+    │   ├─ Bearing
+    │   │   ├─0.png
+    │   │   ├─1.png
+    │   │   ...
+    │   │
+    │   ...
+
+    image_root
+    ├─ train
+    │   ├─ Bushes
+    │   │   ├─0.jpg
+    │   │   ├─1.jpg
+    │   │   │   ...
+    │   │
+    │   ├─ Clamps
+    │   │   ├─0.jpg
+    │   │   ├─1.jpg
+    │   │   ...
+    │   │
+    │   ├─ Bearing
+    │   │   ├─0.jpg
+    │   │   ├─1.jpg
+    │   │   ...
+    │   │
+    │   ...
+    │
+    ├─ test
+    │   ├─ Bushes
+    │   │   ├─0.jpg
+    │   │   ├─1.jpg
+    │   │   ...
+    │   │
+    │   ├─ Clamps
+    │   │   ├─0.jpg
+    │   │   ├─1.jpg
+    │   │   ...
+    │   │
+    │   ├─ Bearing
+    │   │   ├─0.jpg
+    │   │   ├─1.jpg
+    │   │   ...
+    │   │
+    │   ...
 
     """
     def __init__(self,
