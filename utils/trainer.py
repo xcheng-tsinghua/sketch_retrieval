@@ -25,11 +25,11 @@ class SBIRTrainer:
                  check_point,
                  logger,
                  dataset_info,
-                 # log_dir,
                  retrieval_mode,  # ['cl', 'fg']
                  learning_rate=1e-4,
                  weight_decay=1e-4,
                  max_epochs=50,
+                 ckpt_save_interval=10,  # 检查点保存的 epoch 间隔
                  # stop_val=100
                  ):
         assert retrieval_mode in ('cl', 'fg')
@@ -44,7 +44,7 @@ class SBIRTrainer:
         self.max_epochs = max_epochs
         self.logger = logger
         self.dataset_info = dataset_info
-        # self.log_dir = log_dir
+        self.ckpt_save_interval = ckpt_save_interval
         # self.stop_val = stop_val
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
@@ -346,14 +346,15 @@ class SBIRTrainer:
             current_lr = self.optimizer.param_groups[0]['lr']
             print(f'epoch {epoch + 1}/{self.max_epochs}: train_loss: {train_loss:.4f}, test_loss: {test_loss:.4f}, lr: {current_lr:.6f}')
 
-            # 检查是否是最佳模型
-            is_best = test_loss < self.best_loss
-            if is_best:
-                self.best_loss = test_loss
-                print(f"新的最佳测试损失: {test_loss:.4f}")
+            if epoch % self.ckpt_save_interval == 0:
+                # 检查是否是最佳模型
+                is_best = test_loss < self.best_loss
+                if is_best:
+                    self.best_loss = test_loss
+                    print(f"新的最佳测试损失: {test_loss:.4f}")
 
-            # 保存检查点
-            self.save_checkpoint(is_best=is_best)
+                # 保存检查点
+                self.save_checkpoint(is_best=is_best)
 
             log_str = f'epoch {epoch + 1}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
             log_str = log_str.replace(' ', '\t')
