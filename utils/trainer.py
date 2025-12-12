@@ -29,7 +29,7 @@ class SBIRTrainer:
                  learning_rate=1e-4,
                  weight_decay=1e-4,
                  max_epochs=50,
-                 ckpt_save_interval=10,  # 检查点保存的 epoch 间隔
+                 ckpt_save_interval=20,  # 检查点保存的 epoch 间隔
                  # stop_val=100
                  ):
         assert retrieval_mode in ('cl', 'fg')
@@ -76,7 +76,7 @@ class SBIRTrainer:
         self.train_losses = []
         self.test_losses = []
 
-        print(f"        训练器初始化完成:")
+        print(f"  训练器初始化完成:")
         print(f"  检查点保存: {self.check_point}")
         print(f"  学习率: {learning_rate}")
         print(f"  最大轮数: {max_epochs}")
@@ -171,58 +171,60 @@ class SBIRTrainer:
         # 注意计算余弦距离需要单位向量
         # skh_fea_norm = F.normalize(sketch_features, dim=1)
         # img_fea_norm = F.normalize(image_features, dim=1)
-        similarity_matrix = torch.matmul(sketch_features, image_features.t())
 
-        # 计算检索指标
-        metrics = compute_retrieval_metrics(similarity_matrix, class_labels)
+        # similarity_matrix = torch.matmul(sketch_features, image_features.t())
+        #
+        # # 计算检索指标
+        # metrics = compute_retrieval_metrics(similarity_matrix, class_labels)
+        #
+        # print(f"=== 检索性能评估结果 ===")
+        # print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
+        # print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
+        # print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
+        # print(f"mAP_all: {metrics['mAP_all']:.4f}")
+        #
+        # # 按类别评估
+        # categories = self.dataset_info['category_info']['categories']
+        # category_metrics = evaluate_by_category(
+        #     similarity_matrix, class_labels, sketch_categories, categories
+        # )
+        #
+        # print(f"评估 {len(categories)} 个类别的性能...")
+        #
+        # # 显示部分类别结果
+        # sorted_categories = sorted(category_metrics.items(),
+        #                            key=lambda x: x[1]['accuracy'], reverse=True)
+        #
+        # for i, (category, cat_metrics) in enumerate(sorted_categories[:10]):
+        #     accuracy = cat_metrics['accuracy']
+        #     num_samples = cat_metrics['num_samples']
+        #     correct = cat_metrics['correct']
+        #     print(f"  {category}: {correct}/{num_samples} = {accuracy:.4f}")
+        #
+        # # 找到最佳和最差类别
+        # if category_metrics:
+        #     best_category = max(category_metrics.items(), key=lambda x: x[1]['accuracy'])
+        #     worst_category = min(category_metrics.items(), key=lambda x: x[1]['accuracy'])
+        #
+        #     print(f"最佳类别: {best_category[0]} ({best_category[1]['accuracy']:.4f})")
+        #     print(f"最差类别: {worst_category[0]} ({worst_category[1]['accuracy']:.4f})")
+        #
+        #     # 统计类别分布
+        #     num_good = sum(1 for cat_metrics in category_metrics.values()
+        #                    if cat_metrics['accuracy'] > 0)
+        #     num_zero = sum(1 for cat_metrics in category_metrics.values()
+        #                    if cat_metrics['accuracy'] == 0)
+        #
+        #     print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
 
-        print(f"=== 检索性能评估结果 ===")
-        print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
-        print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
-        print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
-        print(f"mAP_all: {metrics['mAP_all']:.4f}")
-
-        # 按类别评估
-        categories = self.dataset_info['category_info']['categories']
-        category_metrics = evaluate_by_category(
-            similarity_matrix, class_labels, sketch_categories, categories
-        )
-
-        print(f"评估 {len(categories)} 个类别的性能...")
-
-        # 显示部分类别结果
-        sorted_categories = sorted(category_metrics.items(),
-                                   key=lambda x: x[1]['accuracy'], reverse=True)
-
-        for i, (category, cat_metrics) in enumerate(sorted_categories[:10]):
-            accuracy = cat_metrics['accuracy']
-            num_samples = cat_metrics['num_samples']
-            correct = cat_metrics['correct']
-            print(f"  {category}: {correct}/{num_samples} = {accuracy:.4f}")
-
-        # 找到最佳和最差类别
-        if category_metrics:
-            best_category = max(category_metrics.items(), key=lambda x: x[1]['accuracy'])
-            worst_category = min(category_metrics.items(), key=lambda x: x[1]['accuracy'])
-
-            print(f"最佳类别: {best_category[0]} ({best_category[1]['accuracy']:.4f})")
-            print(f"最差类别: {worst_category[0]} ({worst_category[1]['accuracy']:.4f})")
-
-            # 统计类别分布
-            num_good = sum(1 for cat_metrics in category_metrics.values()
-                           if cat_metrics['accuracy'] > 0)
-            num_zero = sum(1 for cat_metrics in category_metrics.values()
-                           if cat_metrics['accuracy'] == 0)
-
-            print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
-
-        map_200, prec_200 = map_and_precision_at_k(sketch_features, image_features, class_labels)
+        map_at = 200
+        map_val, prec_val = map_and_precision_at_k(sketch_features, image_features, class_labels, map_at)
         acc_1, acc_5 = compute_topk_accuracy_fg(sketch_features, image_features)
 
-        print(f'---mAP@200: {map_200:.4f}, Precision@200: {prec_200:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
+        print(f'---mAP@{map_at}: {map_val:.4f}, Precision@{map_at}: {prec_val:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
 
         test_loss = total_loss / len(self.test_loader)
-        return test_loss, map_200, prec_200, acc_1, acc_5
+        return test_loss, map_val, prec_val, acc_1, acc_5
 
     def get_acc_files_epoch(self):
         """

@@ -254,17 +254,12 @@ class DatasetPreload(object):
     定位文件夹层级示例如下：
     -> 不区分训练集测试集，自动划分的情况
     sketch_root
-    ├─ Bushes
+    ├─ Class1
     │   ├─0.png
     │   ├─1.png
     │   ...
     │
-    ├─ Clamps
-    │   ├─0.png
-    │   ├─1.png
-    │   ...
-    │
-    ├─ Bearing
+    ├─ Class2
     │   ├─0.png
     │   ├─1.png
     │   ...
@@ -272,17 +267,12 @@ class DatasetPreload(object):
     ...
 
     image_root
-    ├─ Bushes
+    ├─ Class1
     │   ├─0.jpg
     │   ├─1.jpg
     │   ...
     │
-    ├─ Clamps
-    │   ├─0.jpg
-    │   ├─1.jpg
-    │   ...
-    │
-    ├─ Bearing
+    ├─ Class2
     │   ├─0.jpg
     │   ├─1.jpg
     │   ...
@@ -292,17 +282,12 @@ class DatasetPreload(object):
     -> 训练集测试集已区分好的情况
     sketch_root
     ├─ train
-    │   ├─ Bushes
+    │   ├─ Class1
     │   │   ├─0.png
     │   │   ├─1.png
     │   │   │   ...
     │   │
-    │   ├─ Clamps
-    │   │   ├─0.png
-    │   │   ├─1.png
-    │   │   ...
-    │   │
-    │   ├─ Bearing
+    │   ├─ Class2
     │   │   ├─0.png
     │   │   ├─1.png
     │   │   ...
@@ -310,17 +295,12 @@ class DatasetPreload(object):
     │   ...
     │
     ├─ test
-    │   ├─ Bushes
+    │   ├─ Class1
     │   │   ├─0.png
     │   │   ├─1.png
     │   │   ...
     │   │
-    │   ├─ Clamps
-    │   │   ├─0.png
-    │   │   ├─1.png
-    │   │   ...
-    │   │
-    │   ├─ Bearing
+    │   ├─ Class2
     │   │   ├─0.png
     │   │   ├─1.png
     │   │   ...
@@ -329,17 +309,12 @@ class DatasetPreload(object):
 
     image_root
     ├─ train
-    │   ├─ Bushes
+    │   ├─ Class1
     │   │   ├─0.jpg
     │   │   ├─1.jpg
     │   │   │   ...
     │   │
-    │   ├─ Clamps
-    │   │   ├─0.jpg
-    │   │   ├─1.jpg
-    │   │   ...
-    │   │
-    │   ├─ Bearing
+    │   ├─ Class2
     │   │   ├─0.jpg
     │   │   ├─1.jpg
     │   │   ...
@@ -347,17 +322,12 @@ class DatasetPreload(object):
     │   ...
     │
     ├─ test
-    │   ├─ Bushes
+    │   ├─ Class1
     │   │   ├─0.jpg
     │   │   ├─1.jpg
     │   │   ...
     │   │
-    │   ├─ Clamps
-    │   │   ├─0.jpg
-    │   │   ├─1.jpg
-    │   │   ...
-    │   │
-    │   ├─ Bearing
+    │   ├─ Class2
     │   │   ├─0.jpg
     │   │   ├─1.jpg
     │   │   ...
@@ -372,9 +342,7 @@ class DatasetPreload(object):
                  train_split=0.8,
                  random_seed=42,
                  is_multi_pair=False,
-                 split_mode='ZS-SBIR',  # ['SBIR', 'ZS-SBIR'],
-                 # 'SBIR': 使用所有类别，每个类别内取出一定数量用作测试。
-                 # 'ZS-SBIR': 一部分类别全部用于训练，另一部分类别全部用于测试，即训练类别和测试类别不重合
+                 split_mode='ZS-SBIR',  # ['SBIR', 'ZS-SBIR']
                  is_full_train=False,
                  multi_sketch_split='_'  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
                  ):
