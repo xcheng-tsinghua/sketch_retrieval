@@ -331,7 +331,8 @@ class DatasetPreload(object):
     def __init__(self,
                  sketch_root,
                  image_root,
-                 sketch_image_suffix,  # ('txt', 'jpg') or ('png', 'jpg')
+                 sketch_suffix,
+                 image_suffix,
                  train_split=0.8,
                  random_seed=42,
                  is_multi_pair=False,
@@ -352,7 +353,8 @@ class DatasetPreload(object):
 
         self.load_data(sketch_root,
                        image_root,
-                       sketch_image_suffix,
+                       sketch_suffix,
+                       image_suffix,
                        train_split,
                        random_seed,
                        is_multi_pair,
@@ -378,7 +380,8 @@ class DatasetPreload(object):
     def load_data(self,
                   sketch_root,
                   image_root,
-                  sketch_image_suffix,
+                  sketch_suffix,
+                  image_suffix,
                   train_split,
                   random_seed,
                   is_multi_pair,
@@ -420,8 +423,8 @@ class DatasetPreload(object):
                 category_pairs = self.get_category_pairs(
                     os.path.join(sketch_root, 'train', category),
                     os.path.join(image_root, 'train', category),
-                    sketch_image_suffix[0],
-                    sketch_image_suffix[1],
+                    sketch_suffix,
+                    image_suffix,
                     category,
                     multi_sketch_split,
                     is_multi_pair,
@@ -434,8 +437,8 @@ class DatasetPreload(object):
                 category_pairs = self.get_category_pairs(
                     os.path.join(sketch_root, 'test', category),
                     os.path.join(image_root, 'test', category),
-                    sketch_image_suffix[0],
-                    sketch_image_suffix[1],
+                    sketch_suffix,
+                    image_suffix,
                     category,
                     multi_sketch_split,
                     is_multi_pair,
@@ -458,8 +461,8 @@ class DatasetPreload(object):
                 category_pairs = self.get_category_pairs(
                     os.path.join(sketch_root, category),
                     os.path.join(image_root, category),
-                    sketch_image_suffix[0],
-                    sketch_image_suffix[1],
+                    sketch_suffix,
+                    image_suffix,
                     category,
                     multi_sketch_split,
                     is_multi_pair,
@@ -708,18 +711,11 @@ def create_sketch_image_dataloaders(batch_size,
         num_workers=num_workers,
         pin_memory=True
     )
-    
-    # 获取数据集信息
-    dataset_info = {
-        'train_info': train_dataset.get_data_info(),
-        'test_info': test_dataset.get_data_info(),
-        'category_info': train_dataset.get_category_info()
-    }
 
     if is_back_dataset:
-        return train_dataset, test_dataset, train_loader, test_loader, dataset_info
+        return train_dataset, test_dataset, train_loader, test_loader
     else:
-        return train_loader, test_loader, dataset_info
+        return train_loader, test_loader
 
 
 def create_dataset_split_file(

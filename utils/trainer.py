@@ -23,7 +23,6 @@ class SBIRTrainer:
                  device,
                  check_point,
                  logger,
-                 dataset_info,
                  retrieval_mode,  # ['cl', 'fg']
                  save_str,
                  learning_rate,
@@ -43,7 +42,6 @@ class SBIRTrainer:
         self.check_point = check_point
         self.max_epochs = max_epochs
         self.logger = logger
-        self.dataset_info = dataset_info
         self.ckpt_save_interval = ckpt_save_interval
         self.save_str = save_str
         # self.stop_val = stop_val

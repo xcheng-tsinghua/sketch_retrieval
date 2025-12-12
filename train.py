@@ -44,16 +44,15 @@ def main(args):
     pre_load = retrieval_datasets.DatasetPreload(
         sketch_root=os.path.join(root, sketch_subdir),
         image_root=os.path.join(root, image_subdir),
-        sketch_image_suffix=sketch_image_suffix,
+        sketch_suffix=sketch_image_suffix[0],
+        image_suffix=sketch_image_suffix[1],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
         is_full_train=eval(args.is_full_train)
     )
 
-    # b_info = pre_load.get_info()
-
     # 创建数据加载器
-    train_set, test_set, train_loader, test_loader, dataset_info = retrieval_datasets.create_sketch_image_dataloaders(
+    train_set, test_set, train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
@@ -63,12 +62,7 @@ def main(args):
         sketch_image_subdirs=sketch_info['subdirs'],
         is_back_dataset=True
     )
-    
-    # print(f" -> 数据集信息:")
-    # print(f" 训练集: {dataset_info['train_info']['total_pairs']} 对")
-    # print(f" 测试集: {dataset_info['test_info']['total_pairs']} 对")
-    # print(f" 类别数: {dataset_info['category_info']['num_categories']}")
-    
+
     # 创建模型
     print(" -> 创建草图-图像对齐模型...")
     model = sbir_model_wrapper.create_sbir_model_wrapper(
@@ -87,18 +81,6 @@ def main(args):
     print(f" 可训练参数: {param_counts['trainable']:,}")
     print(f" 冻结参数: {param_counts['frozen']:,}")
 
-    # if args.sketch_model == 'sdgraph':
-    #     stop_val = 0.76
-    #
-    # elif args.sketch_model == 'vit':
-    #     stop_val = 0.52
-    #
-    # elif args.sketch_model == 'lstm':
-    #     stop_val = 0.47
-    #
-    # else:
-    #     stop_val = 1.00
-
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)
     model_trainer = trainer.SBIRTrainer(
@@ -110,16 +92,11 @@ def main(args):
         device=device,
         check_point=check_point,
         logger=logger,
-        dataset_info=dataset_info,
         retrieval_mode=args.retrieval_mode,
         save_str=save_str,
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
-
-        # log_dir='log',
-
-        # stop_val=stop_val
     )
     
     # 恢复训练（如果指定）
