@@ -163,7 +163,6 @@ class SBIRModelWrapper(nn.Module):
         
         # L2归一化
         sketch_features = nn.functional.normalize(sketch_features, p=2, dim=1)
-        
         return sketch_features
     
     def encode_image(self, images):

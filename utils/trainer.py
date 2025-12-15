@@ -298,7 +298,6 @@ class SBIRTrainer:
             'train_losses': self.train_losses,
             'test_losses': self.test_losses
         }
-
         torch.save(checkpoint, self.check_point)
 
         if is_best:

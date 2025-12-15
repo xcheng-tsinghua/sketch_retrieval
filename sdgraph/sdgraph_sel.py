@@ -21,7 +21,7 @@ from sdgraph.sdgraph_ablation_dg_ps import Ablation_DG_PS_Embedding
 
 
 class SDGraphEmbedding(nn.Module):
-    def __init__(self, embed_dim=512, channel_in=2, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4):
+    def __init__(self, channel_out=512, channel_in=2, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4):
         """
         :param embed_dim: 总类别数
         """
@@ -49,8 +49,8 @@ class SDGraphEmbedding(nn.Module):
         dense_glo = dense_l0 + dense_l1 + dense_l2
 
         out_l0 = sparse_glo + dense_glo
-        out_l1 = int((out_l0 * embed_dim) ** 0.5)
-        out_l2 = embed_dim
+        out_l1 = int((out_l0 * channel_out) ** 0.5)
+        out_l2 = channel_out
 
         self.linear = eu.MLP(dimension=0,
                              channels=(out_l0, out_l1, out_l2),

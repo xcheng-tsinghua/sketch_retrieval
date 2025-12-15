@@ -879,6 +879,87 @@ class SDGraphUNet(nn.Module):
         return noise
 
 
+class SDGraphEmbedding(nn.Module):
+    """
+    对于每个子模块的输入和输出
+    sparse graph 统一使用 [bs, channel, n_stk]
+    dense graph 统一使用 [bs, channel, n_stk, n_stk_pnt]
+    """
+    def __init__(self, channel_out, n_stk, n_stk_pnt, channel_in=2, dropout: float = 0.4):
+        super().__init__()
+        print('sdgraph endsnap')
+
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+
+        # 各层特征维度
+        sparse_l0 = 32 + 16
+        sparse_l1 = 128 + 64
+        sparse_l2 = 512 + 256
+
+        dense_l0 = 32
+        dense_l1 = 128
+        dense_l2 = 512
+
+        # 生成初始 sdgraph
+        self.point_to_sparse = PointToSparse(channel_in, sparse_l0)
+        self.point_to_dense = PointToDense(channel_in, dense_l0)
+
+        # 利用 sdgraph 更新特征
+        self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
+                                  dropout=dropout
+                                  )
+
+        self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
+                                  dropout=dropout
+                                  )
+
+        # 利用输出特征进行分类
+        sparse_glo = sparse_l0 + sparse_l1 + sparse_l2
+        dense_glo = dense_l0 + dense_l1 + dense_l2
+
+        out_l0 = sparse_glo + dense_glo
+        out_l1 = int((out_l0 * channel_out) ** 0.5)
+        out_l2 = channel_out
+
+        self.linear = eu.MLP(0, (out_l0, out_l1, out_l2), True, dropout, False)
+
+    def forward(self, xy, mask=None):
+        """
+        :param xy: [bs, n_stk, n_stk_pnt, 2]
+        :param mask: 占位用
+        :return: [bs, n_classes]
+        """
+        bs, n_stk, n_stk_pnt, channel = xy.size()
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel == 2
+
+        # 生成初始 sparse graph
+        sparse_graph0 = self.point_to_sparse(xy)
+        assert sparse_graph0.size()[2] == self.n_stk
+
+        # 生成初始 dense graph
+        dense_graph0 = self.point_to_dense(xy)
+        assert dense_graph0.size()[2] == n_stk and dense_graph0.size()[3] == n_stk_pnt
+
+        # 交叉更新数据
+        sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)
+        sparse_graph2, dense_graph2 = self.sd2(sparse_graph1, dense_graph1)
+
+        # 提取全局特征
+        sparse_glo0 = sparse_graph0.max(2)[0]
+        sparse_glo1 = sparse_graph1.max(2)[0]
+        sparse_glo2 = sparse_graph2.max(2)[0]
+
+        dense_glo0 = dense_graph0.amax((2, 3))
+        dense_glo1 = dense_graph1.amax((2, 3))
+        dense_glo2 = dense_graph2.amax((2, 3))
+
+        all_fea = torch.cat([sparse_glo0, sparse_glo1, sparse_glo2, dense_glo0, dense_glo1, dense_glo2], dim=1)
+
+        emb_out = self.linear(all_fea)
+        return emb_out
+
+
 def test():
 #     bs = 3
 #     atensor = torch.rand([bs, 2, global_defs.n_skh_pnt]).cuda()
