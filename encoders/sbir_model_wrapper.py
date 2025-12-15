@@ -33,7 +33,8 @@ class SBIRModelWrapper(nn.Module):
                  freeze_image_encoder=True,
                  freeze_sketch_backbone=False,
                  dropout_rate=0.1,
-                 temperature=0.07
+                 temperature=0.07,
+                 attr_dict=None,
                  ):
         super().__init__()
         
@@ -45,7 +46,7 @@ class SBIRModelWrapper(nn.Module):
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / temperature))
         
         # 初始化编码器
-        self._init_encoders(sketch_model_name, image_model_name, dropout_rate)
+        self._init_encoders(sketch_model_name, image_model_name, dropout_rate, attr_dict)
         
         # 获取编码器输出维度
         self._get_encoder_dims()
@@ -63,7 +64,7 @@ class SBIRModelWrapper(nn.Module):
         # print(f"  Freeze image encoder: {freeze_image_encoder}")
         # print(f"  Freeze sketch backbone: {freeze_sketch_backbone}")
     
-    def _init_encoders(self, sketch_model_name, image_model_name, dropout_rate):
+    def _init_encoders(self, sketch_model_name, image_model_name, dropout_rate, attr_dict):
         """初始化编码器"""
 
         # PNG草图编码器（可训练）
@@ -72,7 +73,8 @@ class SBIRModelWrapper(nn.Module):
             pretrained=True,
             freeze_backbone=self.freeze_sketch_backbone,
             output_dim=self.embed_dim,
-            dropout_rate=dropout_rate
+            dropout=dropout_rate,
+            attr_dict=attr_dict,
         )
         
         # 图像编码器（通常冻结）
@@ -257,13 +259,14 @@ class SBIRModelWrapper(nn.Module):
 
 
 def create_sbir_model_wrapper(embed_dim,
-                                  sketch_model_name,
-                                  image_model_name,
-                                  freeze_image_encoder=True,
-                                  freeze_sketch_backbone=False,
-                                  dropout_rate=0.1,
-                                  temperature=0.07,
-                                  ):
+                              sketch_model_name,
+                              image_model_name,
+                              freeze_image_encoder=True,
+                              freeze_sketch_backbone=False,
+                              dropout_rate=0.1,
+                              temperature=0.07,
+                              attr_dict=None,
+                              ):
     """
     创建PNG草图-图像对齐模型
     
@@ -275,6 +278,7 @@ def create_sbir_model_wrapper(embed_dim,
         freeze_sketch_backbone: 是否冻结草图编码器主干网络
         dropout_rate: Dropout率
         temperature: 初始温度参数
+        attr_dict: 草图Encoder的参数
         
     Returns:
         model: PNG草图-图像对齐模型
@@ -286,7 +290,8 @@ def create_sbir_model_wrapper(embed_dim,
         freeze_image_encoder=freeze_image_encoder,
         freeze_sketch_backbone=freeze_sketch_backbone,
         dropout_rate=dropout_rate,
-        temperature=temperature
+        temperature=temperature,
+        attr_dict=attr_dict,
     )
     
     return model

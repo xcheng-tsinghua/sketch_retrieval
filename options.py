@@ -7,10 +7,10 @@ def parse_args():
     # training & visualizing
     parser.add_argument('--bs', type=int, default=20, help='批次大小')  # 200
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
-    parser.add_argument('--num_workers', type=int, default=4, help='数据加载进程数')
+    parser.add_argument('--num_workers', type=int, default=1, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
-    parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
+    parser.add_argument('--sketch_model', type=str, default='gru', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='使用矢量草图还是图片草图')
     parser.add_argument('--retrieval_mode', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
@@ -48,15 +48,17 @@ supported_encoders = {
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
+        'attr_dict': None,
     },
 
     'sdgraph': {
         'format': 'vector',
-        'rep': 'STK_11_32',
-        'sketch_subdir': 'sketch_stk11_stkpnt32',
+        'rep': 'sketch_stk12_stkpnt32_autospace',
+        'sketch_subdir': 'sketch_stk12_stkpnt32_autospace',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
+        'attr_dict': {'n_stk': 12, 'n_stk_pnt': 32},
     },
 
     'lstm': {
@@ -66,6 +68,7 @@ supported_encoders = {
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
+        'attr_dict': None,
     },
 
     'bidir_lstm': {
@@ -75,6 +78,7 @@ supported_encoders = {
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
+        'attr_dict': None,
     },
 
     'gru': {
@@ -84,6 +88,7 @@ supported_encoders = {
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
+        'attr_dict': None,
     },
 
     'bidir_gru': {
@@ -93,6 +98,7 @@ supported_encoders = {
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
+        'attr_dict': None,
     },
 
     'sketch_transformer': {
@@ -102,12 +108,13 @@ supported_encoders = {
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
+        'attr_dict': {'max_length': 11 * 32},
     }
 
 }
 
 
-def get_sketch_info(sketch_model: str):
+def get_encoder_info(sketch_model: str):
     """
     根据草图模型名获取其使用的草图类别及其他信息
     """

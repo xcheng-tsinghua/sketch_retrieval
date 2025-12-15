@@ -40,7 +40,7 @@ class CachedVisionModel(nn.Module):
         cached_weights = _load_pretrained_weights(model_name)
         self.model.load_state_dict(cached_weights)
         
-        print(f"使用缓存权重创建确定性模型：{model_name}")
+        # print(f"使用缓存权重创建确定性模型：{model_name}")
     
     def forward(self, x):
         return self.model(x)

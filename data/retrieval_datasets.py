@@ -82,7 +82,7 @@ class SketchImageDataset(Dataset):
                     coor_mode='ABS',
                     save_path=None
                 )
-            elif 'STK' in vec_sketch_rep:
+            elif 'stk' in vec_sketch_rep and 'stkpnt' in vec_sketch_rep:
                 self.sketch_loader = partial(
                     utils.load_stk_sketch,
                     stk_name=vec_sketch_rep
@@ -128,8 +128,8 @@ class SketchImageDataset(Dataset):
     def __getitem__(self, idx):
         """
         获取一个数据样本
-        
         Returns:
+            (sketch_tensor, image_tensor, category_idx, category_name)
             sketch: 预处理后的草图张量 [3, 224, 224]
             image: 预处理后的图像张量 [3, 224, 224]  
             category_idx: 类别索引
@@ -149,24 +149,24 @@ class SketchImageDataset(Dataset):
 
         else:
             sketch_path, image_path, category = self.data_pairs[idx]
-            try:
-                # 加载草图
-                sketch = self.sketch_loader(sketch_path)
+            # try:
+            # 加载草图
+            sketch = self.sketch_loader(sketch_path)
 
-                # 加载JPG图像
-                image = utils.image_loader(image_path, self.image_transform)
+            # 加载JPG图像
+            image = utils.image_loader(image_path, self.image_transform)
 
-                # 获取类别索引
-                category_idx = self.category_to_idx[category]
+            # 获取类别索引
+            category_idx = self.category_to_idx[category]
 
-                return sketch, image, category_idx, category
-                # return idx, sketch, image
+            return sketch, image, category_idx, category
+            # return idx, sketch, image
 
-            except Exception as e:
-                print(f"Error loading data at index {idx}: {e}")
-                print(f"Sketch path: {sketch_path}")
-                print(f"Image path: {image_path}")
-                raise e
+            # except Exception as e:
+            #     print(f"Error loading data at index {idx}: {e}")
+            #     print(f"Sketch path: {sketch_path}")
+            #     print(f"Image path: {image_path}")
+            #     raise e
     
     def get_data_info(self):
         """获取数据集信息"""
@@ -329,20 +329,6 @@ class DatasetPreload(object):
                        is_full_train,
                        multi_sketch_split
                        )
-
-    def get_info(self):
-        dataset_info = {
-            'train_pairs': self.train_pairs,
-            'test_pairs': self.test_pairs,
-            'images_set': self.images_set,
-            'category_stats': self.category_stats,
-            'train_stats': self.train_stats,
-            'test_stats': self.test_stats,
-            'train_split': self.train_split,
-            'random_seed': self.random_seed,
-            'data_type': 'png_sketch'  # 标识这是PNG草图数据集
-        }
-        return dataset_info
 
     def load_data(self,
                   sketch_root,

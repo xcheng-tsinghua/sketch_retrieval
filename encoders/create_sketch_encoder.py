@@ -32,6 +32,7 @@ class PNGSketchEncoder(nn.Module):
             dropout_rate: Dropout率
         """
         super(PNGSketchEncoder, self).__init__()
+        print('create vit_base_patch16_224 encoder')
         
         self.model_name = model_name
         self.output_dim = output_dim
@@ -172,6 +173,7 @@ class PNGSketchEncoderWithAttention(PNGSketchEncoder):
                  dropout_rate=0.1,
                  use_cross_attention=False):
         super().__init__(model_name, pretrained, freeze_backbone, output_dim, dropout_rate)
+        print('create vit_base_patch16_224 with attention encoder')
         
         self.use_cross_attention = use_cross_attention
         
@@ -251,8 +253,9 @@ def create_sketch_encoder(model_name,
                           output_dim=512,
                           pretrained=False,
                           freeze_backbone=False,
-                          dropout_rate=0.1,
-                          use_attention=False
+                          dropout=0.1,
+                          use_attention=False,
+                          attr_dict=None,
                           ):
     """
     创建PNG草图编码器
@@ -262,58 +265,75 @@ def create_sketch_encoder(model_name,
         pretrained: 是否使用预训练权重
         freeze_backbone: 是否冻结主干网络
         output_dim: 输出特征维度
-        dropout_rate: Dropout率
+        dropout: Dropout率
         use_attention: 是否使用注意力机制
+        attr_dict: 额外参数表
         
     Returns:
         encoder: PNG草图编码器
     """
 
     if model_name == 'vit':
-        print('---- create IMAGE sketch encoder ----')
-        real_name = 'vit_base_patch16_224'
-
         if use_attention:
             encoder = PNGSketchEncoderWithAttention(
-                model_name=real_name,
+                model_name='vit_base_patch16_224',
                 pretrained=pretrained,
                 freeze_backbone=freeze_backbone,
                 output_dim=output_dim,
-                dropout_rate=dropout_rate,
+                dropout_rate=dropout,
                 use_cross_attention=True
             )
         else:
             encoder = PNGSketchEncoder(
-                model_name=real_name,
+                model_name='vit_base_patch16_224',
                 pretrained=pretrained,
                 freeze_backbone=freeze_backbone,
                 output_dim=output_dim,
-                dropout_rate=dropout_rate
+                dropout_rate=dropout
             )
 
     elif model_name == 'lstm':
-        print('---- create VECTOR sketch encoder ----')
-        encoder = lstm.BiLSTMEncoder(embed_dim=output_dim, bidirectional=False)
+        encoder = lstm.BiLSTMEncoder(
+            embed_dim=output_dim,
+            bidirectional=False,
+            dropout=dropout
+        )
 
     elif model_name == 'bidir_lstm':
-        print('---- create VECTOR sketch encoder ----')
-        encoder = lstm.BiLSTMEncoder(embed_dim=output_dim, bidirectional=True)
+        encoder = lstm.BiLSTMEncoder(
+            embed_dim=output_dim,
+            bidirectional=True,
+            dropout=dropout
+        )
 
     elif model_name == 'sdgraph':
-        print('---- create VECTOR sketch encoder ----')
-        encoder = sdgraph_sel.SDGraphEmbedding(embed_dim=output_dim)
+        encoder = sdgraph_sel.SDGraphEmbedding(
+            embed_dim=output_dim,
+            n_stk=attr_dict['n_stk'],
+            n_stk_pnt=attr_dict['n_stk_pnt'],
+            dropout=dropout
+        )
 
     elif model_name == 'sketch_transformer':
-        print('---- create VECTOR sketch encoder ----')
-        encoder = sketch_transformer.SketchTransformer(11*32, output_dim)
+        encoder = sketch_transformer.SketchTransformer(
+            max_length=attr_dict['max_length'],
+            embed_dim=output_dim,
+            dropout=dropout
+        )
 
     elif model_name == 'gru':
-        print('---- create VECTOR sketch encoder ----')
-        encoder = gru.GRUEncoder(embed_dim=output_dim, bidirectional=False)
+        encoder = gru.GRUEncoder(
+            embed_dim=output_dim,
+            bidirectional=False,
+            dropout=dropout
+        )
 
     elif model_name == 'bidir_gru':
-        print('---- create VECTOR sketch encoder ----')
-        encoder = gru.GRUEncoder(embed_dim=output_dim, bidirectional=True)
+        encoder = gru.GRUEncoder(
+            embed_dim=output_dim,
+            bidirectional=True,
+            dropout=dropout
+        )
 
     else:
         raise TypeError('unsupported encoder name')

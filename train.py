@@ -16,7 +16,7 @@ import options
 def main(args):
     save_str = utils.get_save_str(args)
     print('-----> model save name: ' + save_str + ' <-----')
-    sketch_info = options.get_sketch_info(args.sketch_model)
+    encoder_info = options.get_encoder_info(args.sketch_model)
 
     # 设置日志
     os.makedirs('log', exist_ok=True)
@@ -29,10 +29,10 @@ def main(args):
     root = args.root_local if eval(args.local) else args.root_sever
 
     pre_load = retrieval_datasets.DatasetPreload(
-        sketch_root=os.path.join(root, sketch_info['sketch_subdir']),
-        image_root=os.path.join(root, sketch_info['image_subdir']),
-        sketch_suffix=sketch_info['sketch_suffix'],
-        image_suffix=sketch_info['image_suffix'],
+        sketch_root=os.path.join(root, encoder_info['sketch_subdir']),
+        image_root=os.path.join(root, encoder_info['image_subdir']),
+        sketch_suffix=encoder_info['sketch_suffix'],
+        image_suffix=encoder_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode=args.task,
         is_full_train=eval(args.is_full_train)
@@ -43,28 +43,21 @@ def main(args):
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
-        sketch_format=sketch_info['format'],
-        vec_sketch_rep=sketch_info['rep'],
+        sketch_format=encoder_info['format'],
+        vec_sketch_rep=encoder_info['rep'],
         is_back_dataset=True
     )
 
     # 创建模型
-    print(" -> 创建草图-图像对齐模型...")
     model = sbir_model_wrapper.create_sbir_model_wrapper(
         embed_dim=args.embed_dim,
         freeze_image_encoder=eval(args.is_freeze_image_encoder),
         freeze_sketch_backbone=eval(args.is_freeze_sketch_backbone),
         sketch_model_name=args.sketch_model,
-        image_model_name=args.image_model
+        image_model_name=args.image_model,
+        attr_dict=encoder_info['attr_dict'],
     )
     model.to(device)
-    
-    # 参数统计
-    param_counts = model.get_parameter_count()
-    print(f" -> 模型参数统计:")
-    print(f" 总参数: {param_counts['total']:,}")
-    print(f" 可训练参数: {param_counts['trainable']:,}")
-    print(f" 冻结参数: {param_counts['frozen']:,}")
 
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)

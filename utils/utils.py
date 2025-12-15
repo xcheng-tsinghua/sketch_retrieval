@@ -10,6 +10,7 @@ from functools import partial
 import os
 import torchvision.transforms as transforms
 import einops
+import re
 
 
 class MLP(nn.Module):
@@ -218,18 +219,19 @@ def stk_to_tensor_image(stk_tensor, save_path=None):
     return tensor_img
 
 
-def s3_file_to_s5(root, max_length=11*32, pen_up=1, coor_mode='REL', is_shuffle_stroke=False, is_back_mask=True):
+def s3_file_to_s5(root, max_length, pen_up=1, coor_mode='REL', is_shuffle_stroke=False, is_back_mask=True):
     """
     将草S3图转换为 S5 格式，(x, y, s1, s2, s3)
     默认存储绝对坐标
     :param root:
     :param max_length:
+    :param pen_up: S3 格式中，表示笔划结束的标志位，
     :param coor_mode: 返回的坐标格式，输入默认绝对坐标 ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
     :param is_shuffle_stroke: 是否打乱笔划
     :param is_back_mask:
     :return:
     """
-    data_raw = np.loadtxt(root, delimiter=',')
+    data_raw = np.loadtxt(root)
 
     # 打乱笔划
     if is_shuffle_stroke:
@@ -274,16 +276,17 @@ def s3_file_to_s5(root, max_length=11*32, pen_up=1, coor_mode='REL', is_shuffle_
         return data_cube
 
 
-def load_stk_sketch(s3_file, stk_name, delimiter=','):
-    s3_data = np.loadtxt(s3_file, delimiter=delimiter, dtype=np.float32)
-    _, n_stk, n_stk_pnt = stk_name.split('_')
+def load_stk_sketch(s3_file, stk_name):
+    s3_data = np.loadtxt(s3_file, dtype=np.float32)
+    n_stk = re.findall(r'stk(\d+)', stk_name)[0]
+    n_stk_pnt = re.findall(r'stkpnt(\d+)', stk_name)[0]
     stk_data = s3_data.reshape(int(n_stk), int(n_stk_pnt), 2)
     stk_data = torch.from_numpy(stk_data)
 
     return stk_data
 
 
-def vis_s3(s3_file, delimiter=','):
+def vis_s3(s3_file, delimiter=' '):
     if isinstance(s3_file, str):
         data = np.loadtxt(s3_file, delimiter=delimiter)
     else:
@@ -397,9 +400,17 @@ if __name__ == '__main__':
     # plt.axis('off')  # 去掉坐标轴
     # plt.show()
 
-    res = s3_to_tensor_img(r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_s3_352\test\class\9910-02-carbon_1.txt', pen_up=1, save_path=r'C:\Users\ChengXi\Desktop\cstnet2\gen2.png')
+    # res = s3_to_tensor_img(r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_s3_352\test\class\9910-02-carbon_1.txt', pen_up=1, save_path=r'C:\Users\ChengXi\Desktop\cstnet2\gen2.png')
+    #
+    # res2 = image_loader(r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\photo\test\class\123-din-s.png')
+    # stk_name = 'sketch_stk12_stkpnt32_autospace'
+    # n_stk = re.findall(r'stk(\d+)', stk_name)
+    # n_stk_pnt = re.findall(r'stkpnt(\d+)', stk_name)
+    # print(n_stk, n_stk_pnt)
 
-    res2 = image_loader(r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\photo\test\class\123-din-s.png')
+    file_nale = r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_s3_352\train\class\2kn308a2ca10_1.txt'
+    data = np.loadtxt(file_nale)
+    print(data.shape)
 
     pass
 
