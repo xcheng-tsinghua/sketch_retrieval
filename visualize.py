@@ -225,8 +225,7 @@ def main(args, eval_sketches):
     # 设置路径
     save_str = utils.get_save_str(args)
     checkpoint_path = utils.get_check_point(args.weight_dir, save_str)
-    sketch_info = create_sketch_encoder.get_sketch_info(args.sketch_model)
-    # split_file = retrieval_datasets.get_split_file_name(sketch_info['format'], args.pair_mode, args.task)
+    encoder_info = options.get_encoder_info(args.sketch_model)
 
     # 创建输出目录
     current_vis_dir = os.path.join(args.output_dir, save_str + '_' + datetime.now().strftime("%Y-%m-%d %H-%M-%S"))
@@ -240,57 +239,38 @@ def main(args, eval_sketches):
     if not os.path.exists(checkpoint_path):
         print(f"检查点文件不存在: {checkpoint_path}")
         return
-    
-    # if not os.path.exists(split_file):
-    #     print(f"数据集划分文件不存在: {split_file}")
-    #     return
 
     # 创建数据加载器
     print("加载测试数据集...")
-    # root = args.root_local if eval(args.local) else args.root_sever
-
     root = args.root_local if eval(args.local) else args.root_sever
 
-    if sketch_info['format'] == 'vector':
-        sketch_subdir = sketch_info['subdirs'][0]
-        sketch_image_suffix = ('txt', 'jpg')
-    else:
-        sketch_subdir = sketch_info['subdirs'][1]
-        sketch_image_suffix = ('png', 'jpg')
-
-    image_subdir = sketch_info['subdirs'][2]
-
     pre_load = retrieval_datasets.DatasetPreload(
-        sketch_root=os.path.join(root, sketch_subdir),
-        image_root=os.path.join(root, image_subdir),
-        sketch_image_suffix=sketch_image_suffix,
+        sketch_root=os.path.join(root, encoder_info['sketch_subdir']),
+        image_root=os.path.join(root, encoder_info['image_subdir']),
+        sketch_suffix=encoder_info['sketch_suffix'],
+        image_suffix=encoder_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-        split_mode='ZS-SBIR' if args.task == 'zs_sbir' else 'SBIR',
+        split_mode=args.task,
         is_full_train=eval(args.is_full_train)
     )
 
-    _, test_set, _, test_loader, dataset_info = retrieval_datasets.create_sketch_image_dataloaders(
+    train_set, test_set, train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
-        root=root,
-        sketch_format=sketch_info['format'],
-        vec_sketch_rep=sketch_info['rep'],
-        sketch_image_subdirs=sketch_info['subdirs'],
+        sketch_format=encoder_info['format'],
+        vec_sketch_rep=encoder_info['rep'],
         is_back_dataset=True
     )
-    test_set.eval()
-    print(f"测试集大小: {dataset_info['test_info']['total_pairs']}")
-    print(f"共有 {dataset_info['category_info']['num_categories']} 个类别")
-    
+
     # 创建并加载模型
-    print(f"从 {checkpoint_path} 加载模型...")
     model = sbir_model_wrapper.create_sbir_model_wrapper(
         embed_dim=args.embed_dim,
         freeze_image_encoder=True,
         freeze_sketch_backbone=True,
         sketch_model_name=args.sketch_model,
-        image_model_name=args.image_model
+        image_model_name=args.image_model,
+        attr_dict=encoder_info['attr_dict'],
     )
     
     checkpoint = torch.load(checkpoint_path, map_location=device)

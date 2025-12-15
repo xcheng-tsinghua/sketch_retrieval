@@ -41,7 +41,7 @@ class SketchImageDataset(Dataset):
             is_back_image_only: 是否仅返回图像，用于一张图片对应多个草图时，进行测试时不返回重复的图片
 
         """
-        assert mode in ('train', 'test')
+        assert mode in ('train', 'test', 'vis')  # vis: 用于可视化检索结果
 
         print(f"SketchImageDataset initialized with:")
         print(f"Mode: {mode}")

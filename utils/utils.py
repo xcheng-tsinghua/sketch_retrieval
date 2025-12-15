@@ -130,7 +130,7 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=2, pen_up=1, 
     width, height = image_size
 
     if isinstance(sketch, str):
-        points_with_state = np.loadtxt(sketch, delimiter=',')
+        points_with_state = np.loadtxt(sketch)
     else:
         points_with_state = sketch
 
