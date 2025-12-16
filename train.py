@@ -35,17 +35,18 @@ def main(args):
         image_suffix=encoder_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode=args.task,
-        is_full_train=eval(args.is_full_train)
+        is_full_train=eval(args.is_full_train),
+        multi_sketch_split=args.multi_sketch_split
     )
 
     # 创建数据加载器
-    train_set, test_set, train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
+    train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['format'],
         vec_sketch_rep=encoder_info['rep'],
-        is_back_dataset=True
+        back_mode='train'
     )
 
     # 创建模型
@@ -63,8 +64,6 @@ def main(args):
     check_point = utils.get_check_point(args.weight_dir, save_str)
     model_trainer = trainer.SBIRTrainer(
         model=model,
-        train_set=train_set,
-        test_set=test_set,
         train_loader=train_loader,
         test_loader=test_loader,
         device=device,

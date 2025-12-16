@@ -15,57 +15,31 @@ from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import utils
 import options
-from encoders import create_sketch_encoder
 
 
-def sketch_file_list_to_tensor(sketch_file_list, sketch_dataset: retrieval_datasets.SketchImageDataset):
+def find_topk_matching_images(skh_fea, img_fea, img_tensor, k) -> [torch.Tensor, torch.Tensor]:
     """
-    将文件列表转化为 tensor
-    注意每个文件表达方式为 类别@文件名，例如 'pear@n12651611_7402-2'
-    """
-    sketch_format = sketch_dataset.sketch_format
-    sketch_suffix = '.txt' if sketch_format == 'vector' else '.png'
-
-    sketch_tensor_list = []
-    pair_image_idx = []
-    for c_sketch_file in sketch_file_list:
-        category, base_name = c_sketch_file.split('@')
-        base_name = base_name + sketch_suffix
-
-        c_path = sketch_dataset.get_sketch_path(category, base_name)
-        c_pair_image_idx = sketch_dataset.find_image_idx(category, base_name)
-        c_sketch_tensor = sketch_dataset.sketch_loader(c_path)
-
-        pair_image_idx.append(c_pair_image_idx)
-        sketch_tensor_list.append(c_sketch_tensor)
-
-    sketch_tensor = torch.stack(sketch_tensor_list, dim=0)
-    pair_image_idx = torch.tensor(pair_image_idx)
-    return sketch_tensor, pair_image_idx
-
-
-def find_topk_matching_images(
-    sketch_features: torch.Tensor,      # [m, c]
-    image_features: torch.Tensor,       # [n, c]
-    image_file_tensor: torch.Tensor,    # [n, c, h, w]
-    k: int = 5
-) -> [torch.Tensor, torch.Tensor]:
-    """
-    使用余弦相似度，在 image_file_tensor 中找出与 sketch_features 最相似的 k 张图像。
+    使用余弦相似度，在 img_tensor 中找出与 skh_fea 最相似的 k 张图像。
+    Args:
+        skh_fea: [m, c]
+        img_fea: [n, c]
+        img_tensor: [n, c, h, w]
+        k:
 
     Returns:
         matched_images: [m, k, c, h, w]
+        matched_indices: [m, k]
     """
     # 计算余弦相似度（假设已经归一化过）
-    sim_matrix = torch.matmul(sketch_features, image_features.T)  # [m, n]
+    sim_matrix = torch.matmul(skh_fea, img_fea.T)  # [m, n]
 
     # 取每个 sketch 对应 top-k 最相似的 image 索引
     topk_indices = torch.topk(sim_matrix, k=k, dim=1, largest=True).indices  # [m, k]
 
     # 按索引收集图像
     matched_images = []
-    for i in range(sketch_features.size(0)):
-        matched = image_file_tensor[topk_indices[i]]  # [k, c, h, w]
+    for i in range(skh_fea.size(0)):
+        matched = img_tensor[topk_indices[i]]  # [k, c, h, w]
         matched_images.append(matched)
 
     # [m, k, c, h, w]
@@ -73,16 +47,19 @@ def find_topk_matching_images(
     return matched_images, topk_indices
 
 
-def visualize_sketch_retrieval_results(
-    sketch_file_tensor: torch.Tensor,        # [m, c, h, w]
-    topk_images: torch.Tensor,               # [m, k, c, h, w]
-    topk_indices: torch.Tensor,              # [m, k]，每个图像在 image_features 中的索引
-    pair_image_idx: torch.Tensor,            # [m]，草图对应的配对图像的全局索引
-    image_idx: torch.Tensor,                 # [n]，image_features 中每个图像的全局索引
-    gt_images,  # list
-    save_dir: str
-):
-    m, k, c, h, w = topk_images.shape
+def visualize_sketch_retrieval_results(skh_pixel, gt_imgs,gt_img_idx, topk_imgs, topk_img_idx, save_dir):
+    """
+    将检索结果按规则排列
+    Args:
+        skh_pixel: [m, c, h, w]
+        gt_imgs: [m, c, h, w]
+        gt_img_idx: [m]
+        topk_imgs: [m, k, c, h, w]
+        topk_img_idx: [m, k]
+        save_dir:
+
+    """
+    m, k, c, h, w = topk_imgs.shape
     fig, axes = plt.subplots(m, k + 2, figsize=(1.5 * (k + 2), 1.5 * m))
 
     if m == 1:
@@ -90,31 +67,29 @@ def visualize_sketch_retrieval_results(
 
     for i in range(m):
         # 第 0 列显示草图
-        sketch_np = tensor_to_image(sketch_file_tensor[i])
+        sketch_np = tensor_to_image(skh_pixel[i])
         axes[i][0].imshow(sketch_np, cmap='gray' if sketch_np.ndim == 2 else None)
         axes[i][0].axis("off")
 
         c_sketch_path = os.path.join(save_dir, f'sketch_{i}.png')
         plt.imsave(c_sketch_path, sketch_np, cmap='gray' if sketch_np.ndim == 2 else None)
 
-        sketch_gt = gt_images[i]
+        sketch_gt = tensor_to_image(gt_imgs[i])
         axes[i][1].imshow(sketch_gt, cmap='gray' if sketch_np.ndim == 2 else None)
         axes[i][1].axis("off")
 
         c_sketch_path = os.path.join(save_dir, f'gt_{i}.png')
         plt.imsave(c_sketch_path, sketch_gt, cmap='gray' if sketch_gt.ndim == 2 else None)
 
-        pair_global_idx = pair_image_idx[i].item()
+        gt_idx = gt_img_idx[i].item()
 
         for j in range(k):
-            retrieved_local_idx = topk_indices[i][j].item()
-            retrieved_global_idx = image_idx[retrieved_local_idx].item()
-
-            img = topk_images[i][j]
+            img = topk_imgs[i][j]
             img_np = tensor_to_image(img)
 
-            # if retrieved_global_idx != pair_global_idx:
-            #     img_np = add_red_border(img_np)
+            topk_idx = topk_img_idx[i][j].item()
+            if topk_idx != gt_idx:
+                img_np = add_red_border(img_np)
 
             axes[i][j + 2].imshow(img_np, cmap='gray' if img_np.ndim == 2 else None)
             axes[i][j + 2].axis("off")
@@ -143,7 +118,7 @@ def tensor_to_image(tensor):
         return img
 
 
-def add_red_border(img, border=5):
+def add_red_border(img, border_width=5):
     """
     img   : ndarray, shape (H, W, 3), dtype float or uint8, range [0,1] or [0,255]
     border: int, 边框厚度（像素）
@@ -156,41 +131,13 @@ def add_red_border(img, border=5):
 
     H, W = img.shape[:2]
     # 上、下
-    img[:border, :, :] = [1, 0, 0]
-    img[H-border:, :, :] = [1, 0, 0]
+    img[:border_width, :, :] = [1, 0, 0]
+    img[H-border_width:, :, :] = [1, 0, 0]
     # 左、右（注意避开已涂过的角）
-    img[:, :border, :] = [1, 0, 0]
-    img[:, W-border:, :] = [1, 0, 0]
+    img[:, :border_width, :] = [1, 0, 0]
+    img[:, W-border_width:, :] = [1, 0, 0]
 
     return img
-
-
-def get_ground_truth_images(image_file_tensor, pair_image_idx, image_idx):
-    """
-    保存每个草图对应的 Ground Truth 图像。
-
-    参数：
-        - sketch_file_tensor: (m, C, H, W) 草图图像张量
-        - image_file_tensor: (n, C, H, W) 图像张量
-        - pair_image_idx: (m,) 对应草图的匹配图像索引（基于 image_idx 的原始值）
-        - image_idx: (n,) 表示 image_file_tensor 中每个图像的索引编号
-
-    """
-    # 从 image_idx 中找出 pair_image_idx 的位置
-    image_idx_map = {idx: i for i, idx in enumerate(image_idx.tolist())}
-
-    gt_images = []
-    for i in range(len(pair_image_idx)):
-        gt_idx = pair_image_idx[i].item()
-        gt_pos = image_idx_map.get(gt_idx, None)
-        if gt_pos is None:
-            print(f"[Warning] Cannot find GT image for sketch {i}, index {gt_idx} not found.")
-            continue
-
-        gt_img = tensor_to_image(image_file_tensor[gt_pos])
-        gt_images.append(gt_img)
-
-    return gt_images
 
 
 def sketch_tensor_to_pixel_image(sketch_tensor, sketch_rep):
@@ -233,7 +180,6 @@ def main(args, eval_sketches):
     
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"使用设备: {device}")
     
     # 检查文件是否存在
     if not os.path.exists(checkpoint_path):
@@ -241,26 +187,27 @@ def main(args, eval_sketches):
         return
 
     # 创建数据加载器
-    print("加载测试数据集...")
     root = args.root_local if eval(args.local) else args.root_sever
-
+    sketch_root = os.path.join(root, encoder_info['sketch_subdir'])
+    image_root = os.path.join(root, encoder_info['image_subdir'])
     pre_load = retrieval_datasets.DatasetPreload(
-        sketch_root=os.path.join(root, encoder_info['sketch_subdir']),
-        image_root=os.path.join(root, encoder_info['image_subdir']),
+        sketch_root=sketch_root,
+        image_root=image_root,
         sketch_suffix=encoder_info['sketch_suffix'],
         image_suffix=encoder_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode=args.task,
-        is_full_train=eval(args.is_full_train)
+        is_full_train=eval(args.is_full_train),
+        multi_sketch_split=args.multi_sketch_split
     )
 
-    train_set, test_set, train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
+    vis_dataset, vis_loader = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['format'],
         vec_sketch_rep=encoder_info['rep'],
-        is_back_dataset=True
+        back_mode='vis'
     )
 
     # 创建并加载模型
@@ -279,101 +226,69 @@ def main(args, eval_sketches):
     
     model.to(device)
     model.eval()
-    
-    # 提取特征
-    print("提取特征...")
-    sketch_file_tensor, pair_image_idx = sketch_file_list_to_tensor(eval_sketches, test_set)
-    sketch_features = model.encode_sketch(sketch_file_tensor.to(device)).cpu()
 
-    image_file_tensor = []
-    image_features = []
-    image_idx = []
+    # 获取全部的图片路径列表
+    img_path_list = []
+    for c_pair in vis_dataset.data_pairs:
+        img_path_list.append(c_pair[1])
+
+    # 找到查询草图对应的图片在图片列表中的索引
+    gt_img_idx = []
+    for c_skh_path in eval_sketches:
+        # 根据草图路径找到对应的图片路径
+        c_img_path = c_skh_path.replace(sketch_root, image_root).rsplit(args.multi_sketch_split, 1)[0] + '.' + encoder_info['image_suffix']
+
+        # 找到草图对应的图片在图片列表中的索引
+        c_paired_img_idx = img_path_list.index(c_img_path)
+        gt_img_idx.append(c_paired_img_idx)
+
+    # 提取草图特征
+    sketch_tensor_list = []
+    for c_skh_path in eval_sketches:
+        c_skh_tensor = vis_dataset.sketch_loader(c_skh_path)
+        sketch_tensor_list.append(c_skh_tensor)
+    skh_tensor = torch.stack(sketch_tensor_list, dim=0)
+    skh_fea = model.encode_sketch(skh_tensor.to(device)).cpu()
+
+    image_tensor_list = []
+    image_fea_list = []
     with torch.no_grad():
-        for idx, images, category_indices, category_names in tqdm(test_loader):
-            images = images.to(device)
-            image_file_tensor.append(images.cpu())
-            image_idx.append(idx.cpu())
-            
-            # 编码草图和图像
-            image_feat = model.encode_image(images)
-            image_features.append(image_feat.cpu())
+        for _, img_tensor, category_indices in tqdm(vis_loader):
+            # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
+            image_tensor_list.append(img_tensor.cpu())
+
+            # 编码图像
+            img_tensor = img_tensor.to(device)
+            img_fea = model.encode_image(img_tensor)
+            image_fea_list.append(img_fea.cpu())
 
     # 合并特征
-    image_features = torch.cat(image_features, dim=0)
-    image_file_tensor = torch.cat(image_file_tensor, dim=0)
-    image_idx = torch.cat(image_idx, dim=0)
-    print(f"提取特征完成: sketch {sketch_features.shape}, image {image_features.shape}")
-    
-    # 找到最近的图片索引
-    topk_images, topk_indices = find_topk_matching_images(sketch_features, image_features, image_file_tensor, args.n_vis_images)
+    img_fea = torch.cat(image_fea_list, dim=0)
+    img_tensor = torch.cat(image_tensor_list, dim=0)
+    print(f"提取特征完成: sketch {skh_fea.shape}, image {img_fea.shape}")
+
+    # 找到最近的图片及索引，索引用于确认是否检索准确
+    topk_imgs, topk_img_idx = find_topk_matching_images(skh_fea, img_fea, img_tensor, args.n_vis_images)
 
     # 获取gt 图片
-    gt_images = get_ground_truth_images(image_file_tensor, pair_image_idx, image_idx)
+    gt_img_tensor = img_tensor[gt_img_idx]
 
-    # 可视化图片 tensor
-    sketch_pixel_tensor = sketch_tensor_to_pixel_image(sketch_file_tensor, sketch_info['rep'])
-    visualize_sketch_retrieval_results(sketch_pixel_tensor, topk_images, topk_indices, pair_image_idx, image_idx, gt_images, current_vis_dir)
+    # 将草图转化为可视化图片，有些草图是矢量形式，需要转化为图片
+    skh_pixel_tensor = sketch_tensor_to_pixel_image(skh_tensor, encoder_info['rep'])
+
+    # 将查询草图、gt图片、检索图片（gt有红框）进行排列
+    visualize_sketch_retrieval_results(skh_pixel_tensor, gt_img_tensor, gt_img_idx, topk_imgs, topk_img_idx, current_vis_dir)
 
 
 if __name__ == '__main__':
-    # 用于设置需要进行可视化的草图
-    # 以类别 @ 文件名为格式
-    # setting_sketches = [
-    #     'pear@n12651611_7402-2',
-    #     'helicopter@n03512147_6004-1',
-    #     'rhinoceros@n02391994_11273-1',
-    #     'wheelchair@n04576002_5349-2',
-    #     'dolphin@n02068974_2208-4'
-    # ]
 
     setting_sketches = [
-        # 'tree@n11759853_24427-2',
-        # 'seagull@n02041246_20823-3',
-        'rhinoceros@n02391994_8585-6',
-        # 'helicopter@n03512147_1414-3',
-        'dolphin@n02068974_4779-3',
-        'windmill@n04587559_11917-5',
-        # 'songbird@n01532829_2619-1',
-        # 'sword@n04373894_59060-3',
-        # 'door@n03222318_7012-1',
-        # 'scissors@n04148054_3393-3',
-        # 'saw@n02770585_4664-1',
-        # 'songbird@n01527347_17110-3',
-        'bat@n02139199_11772-5',
-
-        # 'bat@n02139199_10978-1',
-        # 'bat@n02139199_11031-2',
-        # 'bat@n02139199_11187-1',
-
-        # 'cabin@n02932400_10327-2',
-        # 'cow@n01887787_10513-2',
-        # 'dolphin@n02068974_10564-1',
-        # 'dolphin@n02068974_1146-2',
-        # 'door@n03222176_6155-1',
-        # 'giraffe@n02439033_10491-3',
-        # 'helicopter@n03512147_1191-5',
-        # 'mouse@n02330245_1044-3',
-        'raccoon@n02508021_10708-3',
-        # 'raccoon@n02508021_15891-10',
-        # 'wheelchair@n04576002_10456-2',
-
-        # 'tree@n12523475_9706-4',
-        # 'pear@n07768230_1040-4',
-        # 'sword@n04373894_31746-2',
-        # 'songbird@n01530575_10073-3',
-        # 'skyscraper@n04233124_14086-4',
-        # 'helicopter@n03512147_1318-6'
-
-
+        r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_stk12_stkpnt32_autospace\test\class\9910-02-carbon_1.txt',
+        r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_stk12_stkpnt32_autospace\test\class\aff-no-fa-in_3.txt',
+        r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_stk12_stkpnt32_autospace\test\class\CHADIN001PNK-UK_v1_ScarletPink_1.txt',
 
     ]
 
-    setting_sketches2 = [
-        'ant@n02219486_526-1',
-        'ant@n02219486_526-2'
-
-    ]
-
-    main(options.parse_args(), setting_sketches2)
+    main(options.parse_args(), setting_sketches)
 
 

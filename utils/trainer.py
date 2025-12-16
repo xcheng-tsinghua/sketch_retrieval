@@ -1,7 +1,6 @@
 import os
 import torch
 import torch.optim as optim
-import json
 from tqdm import tqdm
 from sklearn.metrics import average_precision_score
 import numpy as np
@@ -16,8 +15,6 @@ class SBIRTrainer:
     """PNG草图-图像对齐训练器"""
     def __init__(self,
                  model,
-                 train_set,
-                 test_set,
                  train_loader,
                  test_loader,
                  device,
@@ -34,8 +31,6 @@ class SBIRTrainer:
         assert retrieval_mode in ('cl', 'fg')
 
         self.model = model
-        self.train_set = train_set
-        self.test_set = test_set
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.device = device
@@ -87,9 +82,9 @@ class SBIRTrainer:
         self.model.train()
         total_loss = 0.0
         num_batches = len(self.train_loader)
-        progress_bar = tqdm(self.train_loader, desc=f'{self.save_str}: {self.current_epoch + 1}/{self.max_epochs}')
+        progress_bar = tqdm(self.train_loader, desc=f'{self.current_epoch + 1}/{self.max_epochs}')
 
-        for batch_idx, (sketches, images, category_indices, category_names) in enumerate(progress_bar):
+        for sketches, images, category_indices in progress_bar:
             # 移动数据到设备
             sketches = sketches.to(self.device)
             images = images.to(self.device)
@@ -103,9 +98,6 @@ class SBIRTrainer:
 
             # 计算损失
             loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
-
-            # 计算分类损失
-            # loss_cls = F.nll_loss(pred, target) pred: [bs, channel], target: [bs, ]
 
             # 反向传播
             loss.backward()
@@ -139,12 +131,11 @@ class SBIRTrainer:
         sketch_features = []
         image_features = []
         class_labels = []
-        sketch_categories = []
 
         total_loss = 0.0
         with torch.no_grad():
             # 提取草图特征
-            for sketches, images, category_indices, category_names in tqdm(self.test_loader, desc="Validating"):
+            for sketches, images, category_indices in tqdm(self.test_loader, desc=f'{self.save_str}: Validating'):
                 sketches = sketches.to(self.device)
                 images = images.to(self.device)
                 category_indices = category_indices.to(self.device)
@@ -156,74 +147,22 @@ class SBIRTrainer:
                 sketch_features.append(sketch_feat.cpu())
                 image_features.append(image_feat.cpu())
                 class_labels.extend(category_indices.cpu().numpy())
-                sketch_categories.extend(category_names)
 
         # 合并特征
         sketch_features = torch.cat(sketch_features, dim=0)
         image_features = torch.cat(image_features, dim=0)
         class_labels = torch.tensor(class_labels)
 
-        # 计算相似度矩阵, 数值越大表示越相似
-        # 因为 (a1, b1), (a2, b2), cosθ = a1 * b1 + a2 * b2，余弦值越大表示夹角越小，也就是越相似
-        # 注意计算余弦距离需要单位向量
-        # skh_fea_norm = F.normalize(sketch_features, dim=1)
-        # img_fea_norm = F.normalize(image_features, dim=1)
-
-        # similarity_matrix = torch.matmul(sketch_features, image_features.t())
-        #
-        # # 计算检索指标
-        # metrics = compute_retrieval_metrics(similarity_matrix, class_labels)
-        #
-        # print(f"=== 检索性能评估结果 ===")
-        # print(f"Top-1 准确率: {metrics['top1_accuracy']:.4f}")
-        # print(f"Top-5 准确率: {metrics['top5_accuracy']:.4f}")
-        # print(f"Top-10 准确率: {metrics['top10_accuracy']:.4f}")
-        # print(f"mAP_all: {metrics['mAP_all']:.4f}")
-        #
-        # # 按类别评估
-        # categories = self.dataset_info['category_info']['categories']
-        # category_metrics = evaluate_by_category(
-        #     similarity_matrix, class_labels, sketch_categories, categories
-        # )
-        #
-        # print(f"评估 {len(categories)} 个类别的性能...")
-        #
-        # # 显示部分类别结果
-        # sorted_categories = sorted(category_metrics.items(),
-        #                            key=lambda x: x[1]['accuracy'], reverse=True)
-        #
-        # for i, (category, cat_metrics) in enumerate(sorted_categories[:10]):
-        #     accuracy = cat_metrics['accuracy']
-        #     num_samples = cat_metrics['num_samples']
-        #     correct = cat_metrics['correct']
-        #     print(f"  {category}: {correct}/{num_samples} = {accuracy:.4f}")
-        #
-        # # 找到最佳和最差类别
-        # if category_metrics:
-        #     best_category = max(category_metrics.items(), key=lambda x: x[1]['accuracy'])
-        #     worst_category = min(category_metrics.items(), key=lambda x: x[1]['accuracy'])
-        #
-        #     print(f"最佳类别: {best_category[0]} ({best_category[1]['accuracy']:.4f})")
-        #     print(f"最差类别: {worst_category[0]} ({worst_category[1]['accuracy']:.4f})")
-        #
-        #     # 统计类别分布
-        #     num_good = sum(1 for cat_metrics in category_metrics.values()
-        #                    if cat_metrics['accuracy'] > 0)
-        #     num_zero = sum(1 for cat_metrics in category_metrics.values()
-        #                    if cat_metrics['accuracy'] == 0)
-        #
-        #     print(f"类别统计: 总数={len(category_metrics)}, 准确率>0={num_good}, 准确率=0={num_zero}")
-
         map_at = 200
         map_val, prec_val = map_and_precision_at_k(sketch_features, image_features, class_labels, map_at)
         acc_1, acc_5 = compute_topk_accuracy_fg(sketch_features, image_features)
 
-        print(f'---mAP@{map_at}: {map_val:.4f}, Precision@{map_at}: {prec_val:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
+        print(f'mAP@{map_at}: {map_val:.4f}, Precision@{map_at}: {prec_val:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
 
         test_loss = total_loss / len(self.test_loader)
         return test_loss, map_val, prec_val, acc_1, acc_5
 
-    def get_acc_files_epoch(self):
+    def get_revl_success(self):
         """
         验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
         """
@@ -366,22 +305,6 @@ class SBIRTrainer:
         # self.save_training_history()
         print("训练完成!")
 
-    # def save_training_history(self):
-    #     """保存训练历史"""
-    #     history = {
-    #         'train_losses': self.train_losses,
-    #         'test_losses': self.test_losses,
-    #         'best_loss': self.best_loss,
-    #         'epochs_trained': len(self.train_losses),
-    #         'final_lr': self.optimizer.param_groups[0]['lr']
-    #     }
-    #
-    #     history_path = os.path.join(os.path.dirname(self.check_point), 'training_history.json')
-    #     with open(history_path, 'w') as f:
-    #         json.dump(history, f, indent=2)
-    #
-    #     print(f"训练历史已保存: {history_path}")
-
 
 def compute_retrieval_metrics(similarity_matrix, labels):
     """
@@ -442,47 +365,6 @@ def compute_retrieval_metrics(similarity_matrix, labels):
     }
 
     return metrics
-
-
-def evaluate_by_category(similarity_matrix, labels, category_names, categories):
-    """
-    按类别评估检索性能
-
-    Args:
-        similarity_matrix: 相似度矩阵
-        labels: 标签数组
-        category_names: 类别名称列表
-        categories: 所有类别列表
-
-    Returns:
-        category_metrics: 各类别的检索指标
-    """
-    category_metrics = {}
-
-    for cat_idx, category in enumerate(categories):
-        # 找到该类别的草图索引
-        cat_sketch_indices = [i for i, cat in enumerate(category_names) if cat == category]
-
-        if len(cat_sketch_indices) == 0:
-            continue
-
-        # 计算该类别的Top-1准确率
-        cat_correct = 0
-        for sketch_idx in cat_sketch_indices:
-            similarities = similarity_matrix[sketch_idx]
-            best_match_idx = torch.argmax(similarities).item()
-
-            if labels[best_match_idx] == labels[sketch_idx]:
-                cat_correct += 1
-
-        cat_accuracy = cat_correct / len(cat_sketch_indices)
-        category_metrics[category] = {
-            'accuracy': cat_accuracy,
-            'num_samples': len(cat_sketch_indices),
-            'correct': cat_correct
-        }
-
-    return category_metrics
 
 
 def map_and_precision_at_k(sketch_fea, image_fea, class_id, k=200):
