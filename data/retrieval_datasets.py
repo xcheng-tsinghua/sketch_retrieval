@@ -249,6 +249,8 @@ class DatasetPreload(object):
                  is_full_train=False,
                  multi_sketch_split='_'  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
                  ):
+        print(f'preload sketch from: {sketch_root}')
+        print(f'preload image from: {image_root}')
 
         self.train_pairs = []  # (sketch_root, image_root, class_name)
         self.test_pairs = []
