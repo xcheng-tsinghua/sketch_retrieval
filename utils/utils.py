@@ -370,6 +370,7 @@ def get_save_str(args):
                 args.image_model + '_' +
                 args.retrieval_mode + '_' +
                 args.task + '_' +
+                'full_' if eval(args.is_full_train) else '' +
                 args.pair_mode + args.add_str)
     return save_str
 
