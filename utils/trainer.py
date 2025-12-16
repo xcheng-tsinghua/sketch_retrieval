@@ -322,6 +322,16 @@ class SBIRTrainer:
         # self.save_training_history()
         print("训练完成!")
 
+    def start(self, mode):
+        if mode == 'train':
+            self.train()
+        elif mode == 'vis_cluster':
+            self.vis_fea_cluster()
+        elif mode == 'get_success':
+            self.get_revl_success()
+        else:
+            raise TypeError('unsupported running mode')
+
 
 def compute_retrieval_metrics(similarity_matrix, labels):
     """

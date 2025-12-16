@@ -362,13 +362,13 @@ def get_save_str(args):
     """
     统一的获取保存名的方式
     """
-    # is_full_train = 'full_' if eval(args.is_full_train) else ''
+    is_full_train = 'full_' if eval(args.is_full_train) else ''
 
     save_str = (args.sketch_model + '_' +
                 args.image_model + '_' +
                 args.retrieval_mode + '_' +
                 args.task + '_' +
-                # is_full_train +
+                is_full_train +
                 args.pair_mode +
                 args.add_str)
 
