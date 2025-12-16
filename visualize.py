@@ -197,7 +197,6 @@ def main(args, eval_sketches):
         image_suffix=encoder_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode=args.task,
-        is_full_train=eval(args.is_full_train),
         multi_sketch_split=args.multi_sketch_split
     )
 
@@ -206,7 +205,8 @@ def main(args, eval_sketches):
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
-        back_mode='vis'
+        back_mode='vis',
+        is_full_train=eval(args.is_full_train)
     )
 
     # 创建并加载模型
@@ -334,19 +334,69 @@ if __name__ == '__main__':
         # 'class/gubi9-blkhirek-chrome_1',  # --
         # 'class/ocs04gr_10'  # --
 
-        # 'class/ge_11',  # --
-        # 'class/mgup-_1',  # ----
-        "class/mc3-smalls_12",  # --
-        # "class/cm87101-542_2",  # --
-        # "class/saku231-vi30_2",  # --
-        "class/nin0-3a-noir_1",  # --
-        # "class/mosmkedb_1",  # --
-        "class/saku231-vi30_10",  # --
-        # "class/fau_2",  # --
-        "class/cm87201-2445_1",  # --
-        # 'class/CHAPIC004GRY-UK_v1_ShadowSlateGrey_1',
-        'class/gubi9-blkhirek-chrome_1',  # --
-        # 'class/ocs04gr_10'  # --
+        # 真实使用的
+        # "class/mc3-smalls_12",  # --
+        # "class/nin0-3a-noir_1",  # --
+        # "class/saku231-vi30_10",  # --
+        # "class/cm87201-2445_1",  # --
+        # 'class/gubi9-blkhirek-chrome_1',  # --
+
+        ##### shoe
+        "class/2550685198_1",
+        "class/7223050344_1",
+        "class/2544020990_2",
+        "class/2524500000_3",
+        "class/2700230450_3",
+        "class/2529700078_60",
+        "class/2522901760_2",
+        "class/4764050012_3",
+        "class/2550821622_2",
+        "class/2548875894_2",
+        "class/2450845009_3",
+        "class/4732075797_40",
+        "class/2546010060_2",
+        "class/2458961400_3",
+        "class/4770100618_10",
+        "class/2522831300_2",
+        "class/4104045897_2",
+        "class/2544811599_10",
+        "class/2548694437_2",
+        "class/2429245009_1",
+        "class/2465921927_4",
+        "class/2548694437_1",
+        "class/4751550012_2",
+        "class/2572290035_10",
+        "class/2552860271_10",
+        "class/2750130450_41",
+        "class/2443085206_2",
+        "class/2535745008_2",
+        "class/2552860271_2",
+        "class/2522134228_20",
+        "class/2527590035_3",
+        "class/2490505513_3",
+        "class/4767160033_1",
+        "class/2534123173_3",
+        "class/2521090008_3",
+        "class/2535450015_2",
+        "class/4756633009_3",
+        "class/4726985835_2",
+        "class/2507705526_1",
+        "class/2534600078_3",
+        "class/2812520053_3",
+        "class/4761100079_3",
+        "class/2527385216_2",
+        "class/2530845183_3",
+        "class/3085030468_2",
+        "class/2566485214_2",
+        "class/2507420408_2",
+        "class/4741285256_3",
+        "class/4756500618_1",
+        "class/2509520408_60",
+        "class/7021150015_2",
+        "class/2495323065_3",
+        "class/4725932481_3",
+        "class/2534965087_1",
+        "class/2544390175_1",
 
 
     ]
