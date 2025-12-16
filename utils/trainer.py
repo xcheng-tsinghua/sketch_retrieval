@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import torch.nn.functional as F
 import json
+from pathlib import Path
 
 from utils import loss_func
 
@@ -83,7 +84,7 @@ class SBIRTrainer:
         self.model.train()
         total_loss = 0.0
         num_batches = len(self.train_loader)
-        progress_bar = tqdm(self.train_loader, desc=f'{self.current_epoch + 1}/{self.max_epochs}')
+        progress_bar = tqdm(self.train_loader, desc=f'{self.current_epoch}/{self.max_epochs}')
 
         for sketches, images, category_indices in progress_bar:
             # 移动数据到设备
@@ -199,7 +200,11 @@ class SBIRTrainer:
             c_revl_files = []
             for c_idx in c_idx_list:
                 skh_path = self.test_loader.dataset.data_pairs[c_idx][0]
-                c_revl_files.append(skh_path)
+
+                # 将路径转化为 class/basename 的格式
+                path = Path(skh_path)
+                skh_path_fmt = f'{path.parent.name}/{path.stem}'
+                c_revl_files.append(skh_path_fmt)
 
             save_dict[f'top_{c_topk}'] = c_revl_files
 

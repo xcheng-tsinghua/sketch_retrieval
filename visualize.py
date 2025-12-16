@@ -81,15 +81,15 @@ def visualize_sketch_retrieval_results(skh_pixel, gt_imgs,gt_img_idx, topk_imgs,
         c_sketch_path = os.path.join(save_dir, f'gt_{i}.png')
         plt.imsave(c_sketch_path, sketch_gt, cmap='gray' if sketch_gt.ndim == 2 else None)
 
-        gt_idx = gt_img_idx[i].item()
+        gt_idx = gt_img_idx[i]
 
         for j in range(k):
             img = topk_imgs[i][j]
             img_np = tensor_to_image(img)
 
-            topk_idx = topk_img_idx[i][j].item()
-            if topk_idx != gt_idx:
-                img_np = add_red_border(img_np)
+            # topk_idx = topk_img_idx[i][j]
+            # if topk_idx != gt_idx:
+            #     img_np = add_red_border(img_np)
 
             axes[i][j + 2].imshow(img_np, cmap='gray' if img_np.ndim == 2 else None)
             axes[i][j + 2].axis("off")
@@ -145,13 +145,13 @@ def sketch_tensor_to_pixel_image(sketch_tensor, sketch_rep):
     sketch_tensor: 直接输入到模型的 tensor
     sketch_rep: 草图表达形式
     """
-    if sketch_rep == 'S5':
+    if sketch_rep == 's5':
         trans_func = utils.s5_to_tensor_img
 
-    elif 'STK' in sketch_rep:
+    elif 'stk' in sketch_rep:
         trans_func = utils.stk_to_tensor_image
 
-    elif sketch_rep == 'IMG':
+    elif '-> img' in sketch_rep:
         return sketch_tensor
 
     else:
@@ -226,6 +226,13 @@ def main(args, eval_sketches):
     model.to(device)
     model.eval()
 
+    # 将输入的草图信息转化为绝对路径
+    eval_sketch_path = []
+    for c_eval_skh in eval_sketches:
+        c_class, c_base_name = c_eval_skh.split('/')
+        c_real_path = os.path.join(sketch_root, 'test', c_class, c_base_name + '.' + encoder_info['sketch_suffix'])
+        eval_sketch_path.append(c_real_path)
+
     # 获取全部的图片路径列表
     img_path_list = []
     for c_pair in vis_loader.dataset.data_pairs:
@@ -233,9 +240,11 @@ def main(args, eval_sketches):
 
     # 找到查询草图对应的图片在图片列表中的索引
     gt_img_idx = []
-    for c_skh_path in eval_sketches:
+    for c_skh_path in eval_sketch_path:
         # 根据草图路径找到对应的图片路径
-        c_img_path = c_skh_path.replace(sketch_root, image_root).rsplit(args.multi_sketch_split, 1)[0] + '.' + encoder_info['image_suffix']
+        c_img_path = c_skh_path.replace(sketch_root, image_root)
+        c_img_path = c_img_path.rsplit(args.multi_sketch_split, 1)[0]
+        c_img_path = c_img_path + '.' + encoder_info['image_suffix']
 
         # 找到草图对应的图片在图片列表中的索引
         c_paired_img_idx = img_path_list.index(c_img_path)
@@ -243,7 +252,7 @@ def main(args, eval_sketches):
 
     # 提取草图特征
     sketch_tensor_list = []
-    for c_skh_path in eval_sketches:
+    for c_skh_path in eval_sketch_path:
         c_skh_tensor = vis_loader.dataset.sketch_loader(c_skh_path)
         sketch_tensor_list.append(c_skh_tensor)
     skh_tensor = torch.stack(sketch_tensor_list, dim=0)
@@ -273,18 +282,54 @@ def main(args, eval_sketches):
     gt_img_tensor = img_tensor[gt_img_idx]
 
     # 将草图转化为可视化图片，有些草图是矢量形式，需要转化为图片
-    skh_pixel_tensor = sketch_tensor_to_pixel_image(skh_tensor, encoder_info['rep'])
+    skh_info_dict = options.parse_sketch_format(encoder_info['sketch_format'])
+    skh_pixel_tensor = sketch_tensor_to_pixel_image(skh_tensor, skh_info_dict['fmt'])
 
     # 将查询草图、gt图片、检索图片（gt有红框）进行排列
     visualize_sketch_retrieval_results(skh_pixel_tensor, gt_img_tensor, gt_img_idx, topk_imgs, topk_img_idx, current_vis_dir)
 
 
 if __name__ == '__main__':
-
+    # 因为不同的草图Encoder的草图文件不同，因此直接以绝对路径wi输入需要多次调整，改为 类别/文件名（不带后缀）
     setting_sketches = [
-        r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_stk12_stkpnt32_autospace\test\class\9910-02-carbon_1.txt',
-        r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_stk12_stkpnt32_autospace\test\class\aff-no-fa-in_3.txt',
-        r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_stk12_stkpnt32_autospace\test\class\CHADIN001PNK-UK_v1_ScarletPink_1.txt',
+
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\SOFHDX002BRO-UK_v1_SaddleBrownPremiumLeather_1.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\cm87101-542_2.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\nin0-3a-noir_1.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\ge_11.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\cm87101-542_1.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\mgup-_1.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\mosmkedb_1.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\mgup-_12.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\CHABRA003GRY-UK_v1_PearlGrey_1.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\gubi9-blkhirek-chrome_2.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\CHAPIC004GRY-UK_v1_ShadowSlateGrey_1.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\gubi9-blkhirek-chrome_1.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\ocs04gr_10.txt",
+        # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\fau_2.txt"
+
+        "class/SOFHDX002BRO-UK_v1_SaddleBrownPremiumLeather_1",
+        'class/gubi9-blkhirek-chrome_2',
+        'class/ge_11',
+        'class/mgup-_1',
+        'class/mgup-_12',
+        'class/cm87101-542_1',
+        "class/mc3-smalls_12",
+        "class/cm87101-542_2",
+        "class/mgankara_1",
+        "class/saku231-vi30_2",
+        "class/SOFMLI002GRY-UK_v1_Gra_2",
+        "class/nin0-3a-noir_1",
+        "class/mosmkedb_2",
+        "class/mgankara_3",
+        "class/mosmkedb_1",
+        "class/saku231-vi30_10",
+        "class/CHABRA003GRY-UK_v1_PearlGrey_1",
+        "class/fau_2",
+        "class/cm87201-2445_1",
+        'class/CHAPIC004GRY-UK_v1_ShadowSlateGrey_1',
+        'class/gubi9-blkhirek-chrome_1',
+        'class/ocs04gr_10'
 
     ]
 

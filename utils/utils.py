@@ -124,7 +124,7 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=2, pen_up=1, 
     :param line_thickness:
     :param pen_up: 下一个点抬笔的标志位，对于 S3 而言应该是1，但之前弄成了 0，需要注意
     :param coor_mode: 输入坐标是相对坐标还是绝对坐标
-    :return: list(image_size), 224, 224 为预训练的 vit 的图片大小
+    :return: [3, h, w]
     """
     assert coor_mode in ['REL', 'ABS']
     width, height = image_size
@@ -179,6 +179,7 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=2, pen_up=1, 
     if save_path is not None:
         cv2.imwrite(save_path, img)
 
+    # 将 [h, w] 的图片转化为 [3, h, w] 的
     tensor_img = einops.repeat(tensor_img, '... -> 3 ...')
     return tensor_img
 
@@ -195,8 +196,6 @@ def s5_to_tensor_img(s5_tensor, coor_mode='REL', save_path=None):
         recov_s3[:, :2] = np.cumsum(recov_s3[:, :2], 0)
 
     tensor_img = s3_to_tensor_img(recov_s3, save_path=save_path)
-    tensor_img.unsqueeze_(0)
-    tensor_img = tensor_img.repeat(3, 1, 1)
     return tensor_img
 
 
@@ -207,15 +206,13 @@ def stk_to_tensor_image(stk_tensor, save_path=None):
     """
     # 先将stk_tensor转化为s3
     n_stk, n_stk_pnt, _ = stk_tensor.size()
-    new_x = torch.cat([stk_tensor, torch.ones(n_stk, n_stk_pnt, 1)], dim=2)
+    new_x = torch.cat([stk_tensor, torch.zeros(n_stk, n_stk_pnt, 1)], dim=2)
 
     for i in range(n_stk):
-        new_x[i, -1, -1] = 0
+        new_x[i, -1, -1] = 1
 
     new_x = new_x.view(-1, 3)
     tensor_img = s3_to_tensor_img(new_x, save_path=save_path)
-    tensor_img.unsqueeze_(0)
-    tensor_img = tensor_img.repeat(3, 1, 1)
     return tensor_img
 
 
