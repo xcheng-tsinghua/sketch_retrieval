@@ -10,6 +10,7 @@ from pathlib import Path
 from functools import partial
 import numpy as np
 import random
+from torchvision.transforms.functional import to_pil_image
 
 from utils import utils
 from data import sketchy_configs as scfg
@@ -135,6 +136,7 @@ class SketchImageDataset(Dataset):
 
         # 加载草图
         sketch = self.sketch_loader(sketch_path) if sketch_path is not None else 0
+        # to_pil_image(sketch[0]).show()
 
         # 加载JPG图像
         image = utils.image_loader(image_path, self.image_transform)

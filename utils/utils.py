@@ -10,7 +10,6 @@ from functools import partial
 import os
 import torchvision.transforms as transforms
 import einops
-import re
 
 
 class MLP(nn.Module):
