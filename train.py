@@ -35,7 +35,6 @@ def main(args):
         image_suffix=encoder_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         split_mode=args.task,
-        is_full_train=eval(args.is_full_train),
         multi_sketch_split=args.multi_sketch_split
     )
 
@@ -45,7 +44,8 @@ def main(args):
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
-        back_mode='train'
+        back_mode='train',
+        is_full_train=eval(args.is_full_train)
     )
 
     # 创建模型

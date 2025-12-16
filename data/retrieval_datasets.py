@@ -27,6 +27,7 @@ class SketchImageDataset(Dataset):
                  sketch_transform,
                  image_transform,
                  sketch_format,
+                 is_full_train
                  ):
         """
         初始化数据集
@@ -39,12 +40,7 @@ class SketchImageDataset(Dataset):
 
         """
         assert mode in ('train', 'test', 'vis')  # vis: 用于可视化检索结果
-
-        print(f"SketchImageDataset initialized with:")
-        print(f"Mode: {mode}")
-        # print(f"  Fixed split path: {fixed_split_path}")
-        
-        self.mode = mode
+        print(f"SketchImageDataset initialized with: {mode}.")
 
         # 默认变换
         self.sketch_transform = sketch_transform or transforms.Compose([
@@ -91,33 +87,33 @@ class SketchImageDataset(Dataset):
         else:
             raise TypeError('unsupported sketch format')
 
-        self._load_fixed_split(pre_load)
+        self._load_fixed_split(pre_load, mode, is_full_train)
         
-    def _load_fixed_split(self, pre_load):
+    def _load_fixed_split(self, pre_load, mode, is_full_train):
         """
         加载固定的数据集划分
         """
         # 根据模式选择数据
-        if self.mode == 'train':
+        if mode == 'train':
             self.data_pairs = pre_load.train_pairs
+            if is_full_train:
+                self.data_pairs.extend(pre_load.test_pairs)
 
-        elif self.mode == 'test':
+        elif mode == 'test':
             self.data_pairs = pre_load.test_pairs
 
-        elif self.mode == 'vis':  # 只取测试集的图片
+        elif mode == 'vis':  # 只取测试集的图片
             self.data_pairs = set()
             for skh_path, img_path, class_name in pre_load.test_pairs:
                 self.data_pairs.add((None, img_path, class_name))
 
         else:
-            raise ValueError(f"不支持的模式: {self.mode}")
+            raise ValueError(f"不支持的模式: {mode}")
 
         self.data_pairs = tuple(self.data_pairs)  # 防止数据被改
         self.categories = tuple(pre_load.common_categories)
         self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
-        
-        print(f"All data pairs: {len(self.data_pairs)} pairs")
-        print(f"Total categories: {len(self.categories)}")
+        print(f'data pairs: {len(self.data_pairs)} pairs, categories: {len(self.categories)}')
         
     def __len__(self):
         return len(self.data_pairs)
@@ -248,7 +244,6 @@ class DatasetPreload(object):
                  random_seed=42,
                  is_multi_pair=False,
                  split_mode='zs-sbir',  # ['sbir', 'zs-sbir']
-                 is_full_train=False,
                  multi_sketch_split='_'  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
                  ):
         print(f'preload sketch from: {sketch_root}')
@@ -271,7 +266,6 @@ class DatasetPreload(object):
                        random_seed,
                        is_multi_pair,
                        split_mode,  # ['sbir', 'zs-sbir']
-                       is_full_train,
                        multi_sketch_split
                        )
 
@@ -284,7 +278,6 @@ class DatasetPreload(object):
                   random_seed,
                   is_multi_pair,
                   split_mode,
-                  full_train,
                   multi_sketch_split
                   ):
         assert split_mode in ['sbir', 'zs-sbir'], TypeError(f'error solit mode: {split_mode}')
@@ -375,8 +368,7 @@ class DatasetPreload(object):
 
                     if class_name in scfg.sketchy_test_classes:
                         self.test_pairs.extend(class_pair_list)
-                        if full_train:
-                            self.train_pairs.extend(class_pair_list)
+
                     else:
                         self.train_pairs.extend(class_pair_list)
 
@@ -391,7 +383,7 @@ class DatasetPreload(object):
                     if split_idx == len(class_pair_list):
                         split_idx = len(class_pair_list) - 1
 
-                    category_train = class_pair_list if full_train else class_pair_list[:split_idx]
+                    category_train = class_pair_list[:split_idx]
                     category_test = class_pair_list[split_idx:]
 
                     self.train_pairs.extend(category_train)
@@ -523,6 +515,7 @@ def create_sketch_image_dataloaders(batch_size,
                                     pre_load,
                                     sketch_format,
                                     back_mode,  # ['train', 'vis']
+                                    is_full_train,
                                     ):
     """
     创建训练和测试数据加载器
@@ -536,6 +529,7 @@ def create_sketch_image_dataloaders(batch_size,
         vec_sketch_rep: 矢量草图格式 [S5, STK_11_32]
         sketch_image_subdirs:
         back_mode:
+        is_full_train:
         
     Returns:
         train_loader, test_loader, dataset_info
@@ -574,6 +568,7 @@ def create_sketch_image_dataloaders(batch_size,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
         sketch_format=sketch_format,
+        is_full_train=is_full_train,
     )
 
     test_dataset = SketchImageDataset(
@@ -582,6 +577,7 @@ def create_sketch_image_dataloaders(batch_size,
         sketch_transform=test_transform,
         image_transform=test_transform,
         sketch_format=sketch_format,
+        is_full_train=False,
     )
 
     vis_dataset = SketchImageDataset(
@@ -590,6 +586,7 @@ def create_sketch_image_dataloaders(batch_size,
         sketch_transform=test_transform,
         image_transform=test_transform,
         sketch_format=sketch_format,
+        is_full_train=False,
     )
     
     # 创建数据加载器
