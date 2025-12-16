@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import torch.nn.functional as F
+import json
 
 from utils import loss_func
 
@@ -162,7 +163,7 @@ class SBIRTrainer:
         test_loss = total_loss / len(self.test_loader)
         return test_loss, map_val, prec_val, acc_1, acc_5
 
-    def get_revl_success(self):
+    def get_revl_success(self, save_path, topk=(1, 5)):
         """
         验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
         """
@@ -171,30 +172,40 @@ class SBIRTrainer:
         # 提取特征
         sketch_features = []
         image_features = []
-        indexes = []
 
         with torch.no_grad():
             # 提取草图特征
-            for idx, sketches, images in tqdm(self.test_loader, desc="Validating"):
+            for sketches, images, cat in tqdm(self.test_loader, desc="Validating"):
+                # 由于在创建测试集加载器时设置了 shuffle=False，因此不用担心顺序被打乱
+
                 sketches = sketches.to(self.device)
                 images = images.to(self.device)
-                idx = idx.long().to(self.device)
 
                 sketch_feat, image_feat, logit_scale = self.model(sketches, images)
 
                 sketch_features.append(sketch_feat.cpu())
                 image_features.append(image_feat.cpu())
-                indexes.append(idx.cpu())
 
         # 合并特征
         sketch_features = torch.cat(sketch_features, dim=0)
         image_features = torch.cat(image_features, dim=0)
-        indexes = torch.cat(indexes, dim=0)
 
-        accs, acc_1_idxes, acc_5_idxes = compute_topk_accuracy_with_file(sketch_features, image_features, indexes)
-        print(f'--- Acc@1: {accs[0]:.4f}, Acc@5: {accs[1]:.4f}')
+        acc_topk, revl_idx_topk = compute_topk_accuracy_with_file(sketch_features, image_features, topk)
+        print(f'Acc@1: {acc_topk[0]:.4f}, Acc@5: {acc_topk[1]:.4f}')
 
-        return acc_1_idxes, acc_5_idxes
+        # 找到对应的字符串并保存到对应的文件
+        save_dict = {}
+        for c_topk, c_idx_list in zip(topk, revl_idx_topk):
+            c_revl_files = []
+            for c_idx in c_idx_list:
+                skh_path = self.test_loader.dataset.data_pairs[c_idx][0]
+                c_revl_files.append(skh_path)
+
+            save_dict[f'top_{c_topk}'] = c_revl_files
+
+        # 保存到文件
+        with open(save_path, 'w', encoding='utf-8') as f:
+            json.dump(save_dict, f, ensure_ascii=False, indent=4)  # 中文正常、带缩进
 
     def vis_fea_cluster(self):
         """
@@ -496,7 +507,7 @@ def compute_topk_accuracy_cl(sketch_feat, sketch_label, image_feat, image_label,
     return results
 
 
-def compute_topk_accuracy_with_file(sketch_fea, image_fea, data_indices, topk=(1, 5)):
+def compute_topk_accuracy_with_file(sketch_fea, image_fea, topk=(1, 5)):
     """
     计算 Acc@1 和 Acc@5，同时返回匹配正确的 image 全局索引列表
 
@@ -514,37 +525,34 @@ def compute_topk_accuracy_with_file(sketch_fea, image_fea, data_indices, topk=(1
 
     # 欧氏距离（也可换成余弦）
     dist_matrix = torch.cdist(sketch_fea, image_fea)  # [bs, bs]
-    batch_size = dist_matrix.size(0)
+    n_skh = dist_matrix.size(0)
     device = sketch_fea.device
 
     # 距离升序排序，最近的排前面
     sorted_indices = dist_matrix.argsort(dim=1, descending=False)  # [bs, bs]
 
     # 正确的 image 匹配是与自身同位置的样本（即第 i 个 sketch 对应第 i 个 image）
-    ground_truth = torch.arange(batch_size, device=device).unsqueeze(1)  # [bs, 1]
+    ground_truth = torch.arange(n_skh, device=device).unsqueeze(1)  # [bs, 1]
     correct_matrix = (sorted_indices[:, :max(topk)] == ground_truth)  # [bs, max_k]
 
     accs = []
-    acc1_matched_indices = []
-    acc5_matched_indices = []
-
-    for k in topk:
+    idxes = []
+    for i, k in enumerate(topk):
+        # 计算准确率
         correct_k = correct_matrix[:, :k].any(dim=1)  # [bs]，是否在 top-k 中命中
         acc = correct_k.float().mean().item()
         accs.append(acc)
 
         # 提取命中的 sketch 索引
         matched_sketch_indices = torch.nonzero(correct_k, as_tuple=False).squeeze(1)  # [num_matched]
-        # 转换为对应匹配到的 image 的“全局索引”
-        # matched_data_indices = data_indices[matched_sketch_indices].tolist()
-        matched_data_indices = [data_indices[i.item()] for i in matched_sketch_indices]
 
-        if k == 1:
-            acc1_matched_indices = matched_data_indices
-        elif k == 5:
-            acc5_matched_indices = list(set(matched_data_indices) - set(acc1_matched_indices))
+        if i == 0:
+            idxes.append(matched_sketch_indices)
+        else:
+            ex_former_idx = list(set(matched_sketch_indices) - set(idxes[-1]))
+            idxes.append(ex_former_idx)
 
-    return accs, acc1_matched_indices, acc5_matched_indices
+    return accs, idxes
 
 
 def visualize_embeddings(embeddings: torch.Tensor,
