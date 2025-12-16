@@ -218,7 +218,8 @@ def main(args, eval_sketches):
         image_model_name=args.image_model,
         sketch_format=encoder_info['sketch_format'],
     )
-    
+
+    print(f'从如下路径加载检查点: {checkpoint_path}.')
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     print(f"成功加载检查点 (epoch {checkpoint.get('epoch', 'unknown')})")
@@ -293,6 +294,8 @@ if __name__ == '__main__':
     # 因为不同的草图Encoder的草图文件不同，因此直接以绝对路径wi输入需要多次调整，改为 类别/文件名（不带后缀）
     setting_sketches = [
 
+        ##### chair
+
         # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\SOFHDX002BRO-UK_v1_SaddleBrownPremiumLeather_1.txt",
         # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\cm87101-542_2.txt",
         # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\nin0-3a-noir_1.txt",
@@ -308,28 +311,43 @@ if __name__ == '__main__':
         # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\ocs04gr_10.txt",
         # "D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\qmul_v2_fit\\chair\\sketch_stk12_stkpnt32\\test\\class\\fau_2.txt"
 
-        "class/SOFHDX002BRO-UK_v1_SaddleBrownPremiumLeather_1",
-        'class/gubi9-blkhirek-chrome_2',
-        'class/ge_11',
-        'class/mgup-_1',
-        'class/mgup-_12',
-        'class/cm87101-542_1',
-        "class/mc3-smalls_12",
-        "class/cm87101-542_2",
-        "class/mgankara_1",
-        "class/saku231-vi30_2",
-        "class/SOFMLI002GRY-UK_v1_Gra_2",
-        "class/nin0-3a-noir_1",
-        "class/mosmkedb_2",
-        "class/mgankara_3",
-        "class/mosmkedb_1",
-        "class/saku231-vi30_10",
-        "class/CHABRA003GRY-UK_v1_PearlGrey_1",
-        "class/fau_2",
-        "class/cm87201-2445_1",
-        'class/CHAPIC004GRY-UK_v1_ShadowSlateGrey_1',
-        'class/gubi9-blkhirek-chrome_1',
-        'class/ocs04gr_10'
+        # "class/SOFHDX002BRO-UK_v1_SaddleBrownPremiumLeather_1",
+        # 'class/gubi9-blkhirek-chrome_2',
+        # 'class/ge_11',  # --
+        # 'class/mgup-_1',  # --
+        # 'class/mgup-_12',
+        # 'class/cm87101-542_1',
+        # "class/mc3-smalls_12",  # --
+        # "class/cm87101-542_2",  # --
+        # "class/mgankara_1",  # xx
+        # "class/saku231-vi30_2",  # --
+        # "class/SOFMLI002GRY-UK_v1_Gra_2",  # xx
+        # "class/nin0-3a-noir_1",  # --
+        # "class/mosmkedb_2",  # xx
+        # "class/mgankara_3",  # xx
+        # "class/mosmkedb_1",  # --
+        # "class/saku231-vi30_10",  # --
+        # "class/CHABRA003GRY-UK_v1_PearlGrey_1",  # xx
+        # "class/fau_2",  # --
+        # "class/cm87201-2445_1",  # --
+        # 'class/CHAPIC004GRY-UK_v1_ShadowSlateGrey_1',
+        # 'class/gubi9-blkhirek-chrome_1',  # --
+        # 'class/ocs04gr_10'  # --
+
+        # 'class/ge_11',  # --
+        # 'class/mgup-_1',  # ----
+        "class/mc3-smalls_12",  # --
+        # "class/cm87101-542_2",  # --
+        # "class/saku231-vi30_2",  # --
+        "class/nin0-3a-noir_1",  # --
+        # "class/mosmkedb_1",  # --
+        "class/saku231-vi30_10",  # --
+        # "class/fau_2",  # --
+        "class/cm87201-2445_1",  # --
+        # 'class/CHAPIC004GRY-UK_v1_ShadowSlateGrey_1',
+        'class/gubi9-blkhirek-chrome_1',  # --
+        # 'class/ocs04gr_10'  # --
+
 
     ]
 

@@ -78,7 +78,7 @@ class SketchImageDataset(Dataset):
             self.sketch_loader = partial(
                 utils.s3_to_tensor_img,
                 image_size=(224, 224),
-                line_thickness=2,
+                line_thickness=1,
                 pen_up=1,
                 coor_mode='ABS',
                 save_path=None
