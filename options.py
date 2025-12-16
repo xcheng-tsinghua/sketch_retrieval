@@ -19,8 +19,8 @@ def parse_args():
     parser.add_argument('--multi_sketch_split', type=str, default='_', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-'
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
-    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\shoe')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
 
     # training
     parser.add_argument('--epoch', type=int, default=200, help='最大训练轮数')
@@ -28,9 +28,9 @@ def parse_args():
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
     parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
-    parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='False', help='是否加载检查点')
+    parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
 
-    parser.add_argument('--add_str', type=str, default='_chair', help='附带的字符串')
+    parser.add_argument('--add_str', type=str, default='_shoe', help='附带的字符串')
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
     parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
 
@@ -53,7 +53,7 @@ supported_encoders = {
 
     'sdgraph': {
         'sketch_format': 'fmt: stk, n_stk: 12, n_stk_pnt: 32',
-        'sketch_subdir': 'sketch_stk12_stkpnt32_autospace',
+        'sketch_subdir': 'sketch_stk12_stkpnt32',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',

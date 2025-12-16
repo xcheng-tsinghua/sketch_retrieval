@@ -201,12 +201,11 @@ def main(args, eval_sketches):
         multi_sketch_split=args.multi_sketch_split
     )
 
-    vis_dataset, vis_loader = retrieval_datasets.create_sketch_image_dataloaders(
+    vis_loader = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
-        sketch_format=encoder_info['format'],
-        vec_sketch_rep=encoder_info['rep'],
+        sketch_format=encoder_info['sketch_format'],
         back_mode='vis'
     )
 
@@ -217,7 +216,7 @@ def main(args, eval_sketches):
         freeze_sketch_backbone=True,
         sketch_model_name=args.sketch_model,
         image_model_name=args.image_model,
-        attr_dict=encoder_info['attr_dict'],
+        sketch_format=encoder_info['sketch_format'],
     )
     
     checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -229,7 +228,7 @@ def main(args, eval_sketches):
 
     # 获取全部的图片路径列表
     img_path_list = []
-    for c_pair in vis_dataset.data_pairs:
+    for c_pair in vis_loader.dataset.data_pairs:
         img_path_list.append(c_pair[1])
 
     # 找到查询草图对应的图片在图片列表中的索引
@@ -245,7 +244,7 @@ def main(args, eval_sketches):
     # 提取草图特征
     sketch_tensor_list = []
     for c_skh_path in eval_sketches:
-        c_skh_tensor = vis_dataset.sketch_loader(c_skh_path)
+        c_skh_tensor = vis_loader.dataset.sketch_loader(c_skh_path)
         sketch_tensor_list.append(c_skh_tensor)
     skh_tensor = torch.stack(sketch_tensor_list, dim=0)
     skh_fea = model.encode_sketch(skh_tensor.to(device)).cpu()

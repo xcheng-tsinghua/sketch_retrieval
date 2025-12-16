@@ -163,7 +163,7 @@ class SBIRTrainer:
         test_loss = total_loss / len(self.test_loader)
         return test_loss, map_val, prec_val, acc_1, acc_5
 
-    def get_revl_success(self, save_path, topk=(1, 5)):
+    def get_revl_success(self, save_path='./log/revl_ins.json', topk=(1, 5)):
         """
         验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
         """
@@ -206,6 +206,7 @@ class SBIRTrainer:
         # 保存到文件
         with open(save_path, 'w', encoding='utf-8') as f:
             json.dump(save_dict, f, ensure_ascii=False, indent=4)  # 中文正常、带缩进
+        print(f'file save to: {os.path.abspath(save_path)}')
 
     def vis_fea_cluster(self):
         """

@@ -619,7 +619,7 @@ def create_sketch_image_dataloaders(batch_size,
     if back_mode == 'train':
         return train_loader, test_loader
     elif back_mode == 'vis':
-        return vis_dataset, vis_loader
+        return vis_loader
     else:
         pass
 

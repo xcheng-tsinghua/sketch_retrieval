@@ -308,7 +308,7 @@ def create_sketch_encoder(model_name,
         )
 
     elif model_name == 'sdgraph':
-        encoder = sdgraph_endsnap.SDGraphEmbedding(
+        encoder = sdgraph_sel.SDGraphEmbedding(
             channel_out=output_dim,
             n_stk=sketch_format['n_stk'],
             n_stk_pnt=sketch_format['n_stk_pnt'],
