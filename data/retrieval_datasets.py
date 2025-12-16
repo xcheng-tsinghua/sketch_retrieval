@@ -3,7 +3,6 @@ PNG草图-图像数据集加载器
 用于加载PNG格式的草图和对应的图片进行训练
 """
 import os
-import pickle
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
@@ -14,6 +13,7 @@ import random
 
 from utils import utils
 from data import sketchy_configs as scfg
+import options
 
 
 class SketchImageDataset(Dataset):
@@ -23,12 +23,9 @@ class SketchImageDataset(Dataset):
     def __init__(self,
                  mode,
                  pre_load,
-                 vec_sketch_rep,  # [S5, STK_11_32]
-                 sketch_transform=None,
-                 image_transform=None,
-                 sketch_format='vector',  # ['vector', 'image']
-                 vec_seq_length=11*32,
-                 is_back_image_only=False
+                 sketch_transform,
+                 image_transform,
+                 sketch_format,
                  ):
         """
         初始化数据集
@@ -38,7 +35,6 @@ class SketchImageDataset(Dataset):
             pre_load: 固定数据集划分
             sketch_transform: 草图变换
             image_transform: 图像变换
-            is_back_image_only: 是否仅返回图像，用于一张图片对应多个草图时，进行测试时不返回重复的图片
 
         """
         assert mode in ('train', 'test', 'vis')  # vis: 用于可视化检索结果
@@ -48,8 +44,6 @@ class SketchImageDataset(Dataset):
         # print(f"  Fixed split path: {fixed_split_path}")
         
         self.mode = mode
-        self.sketch_format = sketch_format
-        self.is_back_image_only = is_back_image_only
 
         # 默认变换
         self.sketch_transform = sketch_transform or transforms.Compose([
@@ -64,37 +58,37 @@ class SketchImageDataset(Dataset):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        if self.sketch_format == 'vector':
-            if vec_sketch_rep == 'S5':
-                self.sketch_loader = partial(
-                    utils.s3_file_to_s5,
-                    max_length=vec_seq_length,
-                    coor_mode='REL',
-                    is_shuffle_stroke=False,
-                    is_back_mask=False
-                )
-            elif vec_sketch_rep == 'IMG':
-                self.sketch_loader = partial(
-                    utils.s3_to_tensor_img,
-                    image_size=(224, 224),
-                    line_thickness=2,
-                    pen_up=1,
-                    coor_mode='ABS',
-                    save_path=None
-                )
-            elif 'stk' in vec_sketch_rep and 'stkpnt' in vec_sketch_rep:
-                self.sketch_loader = partial(
-                    utils.load_stk_sketch,
-                    stk_name=vec_sketch_rep
-                )
-            else:
-                raise TypeError('error vector sketch type')
-
-        else:
+        sketch_format = options.parse_sketch_format(sketch_format)
+        if sketch_format['fmt'] == 's5':
+            self.sketch_loader = partial(
+                utils.s3_file_to_s5,
+                max_length=sketch_format['max_length'],
+                coor_mode='REL',
+                is_shuffle_stroke=False,
+                is_back_mask=False
+            )
+        elif sketch_format['fmt'] == 'stk':
+            self.sketch_loader = partial(
+                utils.load_stk_sketch,
+                n_stk=sketch_format['n_stk'],
+                n_stk_pnt=sketch_format['n_stk_pnt'],
+            )
+        elif sketch_format['fmt'] == 's3 -> img':
+            self.sketch_loader = partial(
+                utils.s3_to_tensor_img,
+                image_size=(224, 224),
+                line_thickness=2,
+                pen_up=1,
+                coor_mode='ABS',
+                save_path=None
+            )
+        elif sketch_format['fmt'] == 'img':
             self.sketch_loader = partial(
                 utils.image_loader,
                 image_transform=self.sketch_transform
             )
+        else:
+            raise TypeError('unsupported sketch format')
 
         self._load_fixed_split(pre_load)
         
@@ -524,7 +518,6 @@ def create_sketch_image_dataloaders(batch_size,
                                     num_workers,
                                     pre_load,
                                     sketch_format,
-                                    vec_sketch_rep,
                                     back_mode,  # ['train', 'vis']
                                     ):
     """
@@ -577,7 +570,6 @@ def create_sketch_image_dataloaders(batch_size,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
         sketch_format=sketch_format,
-        vec_sketch_rep=vec_sketch_rep,
     )
 
     test_dataset = SketchImageDataset(
@@ -586,7 +578,6 @@ def create_sketch_image_dataloaders(batch_size,
         sketch_transform=test_transform,
         image_transform=test_transform,
         sketch_format=sketch_format,
-        vec_sketch_rep=vec_sketch_rep,
     )
 
     vis_dataset = SketchImageDataset(
@@ -595,7 +586,6 @@ def create_sketch_image_dataloaders(batch_size,
         sketch_transform=test_transform,
         image_transform=test_transform,
         sketch_format=sketch_format,
-        vec_sketch_rep=vec_sketch_rep,
     )
     
     # 创建数据加载器

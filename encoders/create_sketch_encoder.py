@@ -8,6 +8,7 @@ from encoders import lstm
 from sdgraph import sdgraph_sel, sdgraph_endsnap
 from encoders import gru
 from encoders import sketch_transformer
+import options
 
 
 class PNGSketchEncoder(nn.Module):
@@ -254,7 +255,7 @@ def create_sketch_encoder(model_name,
                           freeze_backbone=False,
                           dropout=0.1,
                           use_attention=False,
-                          attr_dict=None,
+                          sketch_format=None,
                           ):
     """
     创建PNG草图编码器
@@ -266,11 +267,12 @@ def create_sketch_encoder(model_name,
         output_dim: 输出特征维度
         dropout: Dropout率
         use_attention: 是否使用注意力机制
-        attr_dict: 额外参数表
+        sketch_format: 额外参数表
         
     Returns:
         encoder: PNG草图编码器
     """
+    sketch_format = options.parse_sketch_format(sketch_format)
 
     if model_name == 'vit':
         if use_attention:
@@ -308,14 +310,14 @@ def create_sketch_encoder(model_name,
     elif model_name == 'sdgraph':
         encoder = sdgraph_endsnap.SDGraphEmbedding(
             channel_out=output_dim,
-            n_stk=attr_dict['n_stk'],
-            n_stk_pnt=attr_dict['n_stk_pnt'],
+            n_stk=sketch_format['n_stk'],
+            n_stk_pnt=sketch_format['n_stk_pnt'],
             dropout=dropout
         )
 
     elif model_name == 'sketch_transformer':
         encoder = sketch_transformer.SketchTransformer(
-            max_length=attr_dict['max_length'],
+            max_length=sketch_format['max_length'],
             embed_dim=output_dim,
             dropout=dropout
         )

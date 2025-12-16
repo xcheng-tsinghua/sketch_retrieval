@@ -1,4 +1,5 @@
 import argparse
+import re
 
 
 def parse_args():
@@ -43,73 +44,59 @@ def parse_args():
 
 supported_encoders = {
     'vit': {
-        'format': 'vector',
-        'rep': 'IMG',
+        'sketch_format': 'fmt: s3 -> img',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
-        'attr_dict': None,
     },
 
     'sdgraph': {
-        'format': 'vector',
-        'rep': 'sketch_stk12_stkpnt32_autospace',
+        'sketch_format': 'fmt: stk, n_stk: 12, n_stk_pnt: 32',
         'sketch_subdir': 'sketch_stk12_stkpnt32_autospace',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
-        'attr_dict': {'n_stk': 12, 'n_stk_pnt': 32},
     },
 
     'lstm': {
-        'format': 'vector',
-        'rep': 'S5',
+        'sketch_format': 'fmt: s5',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
-        'attr_dict': None,
     },
 
     'bidir_lstm': {
-        'format': 'vector',
-        'rep': 'S5',
+        'sketch_format': 'fmt: s5',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
-        'attr_dict': None,
     },
 
     'gru': {
-        'format': 'vector',
-        'rep': 'S5',
+        'sketch_format': 'fmt: s5',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
-        'attr_dict': None,
     },
 
     'bidir_gru': {
-        'format': 'vector',
-        'rep': 'S5',
+        'sketch_format': 'fmt: s5',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
-        'attr_dict': None,
     },
 
     'sketch_transformer': {
-        'format': 'vector',
-        'rep': 'S5',
+        'sketch_format': f'fmt: s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
-        'attr_dict': {'max_length': 11 * 32},
     }
 
 }
@@ -121,6 +108,29 @@ def get_encoder_info(sketch_model: str):
     """
     sketch_format = supported_encoders[sketch_model]
     return sketch_format
+
+
+def parse_sketch_format(format_str):
+    def parse_value(v: str):
+        """
+        将整形转化为 int，浮点数转化为 float
+        """
+        v = v.strip()
+
+        # int（必须放在 float 之前）
+        if re.fullmatch(r'[+-]?\d+', v):
+            return int(v)
+
+        # float
+        if re.fullmatch(r'[+-]?(\d+\.\d*|\.\d+|\d+)([eE][+-]?\d+)?', v):
+            return float(v)
+
+        # 其它保持字符串
+        return v
+
+    pairs = re.findall(r'(\w+)\s*:\s*([^,]+)', format_str)
+    format_dict = {k: parse_value(v) for k, v in pairs}
+    return format_dict
 
 
 if __name__ == '__main__':

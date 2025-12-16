@@ -44,8 +44,7 @@ def main(args):
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
-        sketch_format=encoder_info['format'],
-        vec_sketch_rep=encoder_info['rep'],
+        sketch_format=encoder_info['sketch_format'],
         back_mode='train'
     )
 
@@ -56,7 +55,7 @@ def main(args):
         freeze_sketch_backbone=eval(args.is_freeze_sketch_backbone),
         sketch_model_name=args.sketch_model,
         image_model_name=args.image_model,
-        attr_dict=encoder_info['attr_dict'],
+        sketch_format=encoder_info['sketch_format'],
     )
     model.to(device)
 
