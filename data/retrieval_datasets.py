@@ -49,13 +49,13 @@ class SketchImageDataset(Dataset):
         self.sketch_transform = sketch_transform or transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         
         self.image_transform = image_transform or transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
         # 创建草图加载器
@@ -98,7 +98,7 @@ class SketchImageDataset(Dataset):
 
         self._load_fixed_split(pre_load, is_full_train)
         print(f'-> SketchImageDataset initialized with: {self.data_mode}.')
-        print(f'data pairs: {len(self.data_pairs)} pairs, categories: {len(self.categories)}')
+        print(f'   sketch: {len(self.sketch_list_with_id)}, image: {len(self.image_list)}, categories: {len(self.categories)}')
         
     def _load_fixed_split(self, pre_load, is_full_train):
         """
@@ -403,10 +403,10 @@ class DatasetPreload(object):
                        )
 
         print(f'-> preload data info: ')
-        print(f'preload sketch from: {sketch_root}')
-        print(f'preload image from: {image_root}')
-        print(f'training set: {len(self.train_pairs)} pairs')
-        print(f'testing set: {len(self.test_pairs)} pairs')
+        print(f'   preload sketch from: {sketch_root}')
+        print(f'   preload image from: {image_root}')
+        print(f'   training set: {len(self.train_pairs)} pairs')
+        print(f'   testing set: {len(self.test_pairs)} pairs')
 
     def load_data(self,
                   sketch_root,
