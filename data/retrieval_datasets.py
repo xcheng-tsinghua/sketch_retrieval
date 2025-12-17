@@ -132,10 +132,10 @@ class SketchImageDataset(Dataset):
 
         # 加载草图
         sketch = self.sketch_loader(sketch_path) if sketch_path is not None else 0
-        # to_pil_image(sketch[0]).show()
 
         # 加载JPG图像
         image = utils.image_loader(image_path, self.image_transform)
+        # to_pil_image(image[0]).show()
 
         # 获取类别索引
         category_idx = self.category_to_idx[category]
@@ -539,26 +539,26 @@ def create_sketch_image_dataloaders(batch_size,
     # 数据增强变换
     train_sketch_transform = transforms.Compose([
         transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomRotation(degrees=10),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2),
+        # transforms.RandomHorizontalFlip(p=0.5),
+        # transforms.RandomRotation(degrees=10),
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
     train_image_transform = transforms.Compose([
         transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomRotation(degrees=10),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        # transforms.RandomHorizontalFlip(p=0.5),
+        # transforms.RandomRotation(degrees=10),
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
     test_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
     # 创建数据集

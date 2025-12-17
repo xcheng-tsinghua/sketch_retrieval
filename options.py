@@ -1,5 +1,6 @@
 import argparse
 import re
+import json
 
 
 def parse_args():
@@ -12,7 +13,7 @@ def parse_args():
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
     parser.add_argument('--running_mode', type=str, default='train', choices=['train', 'vis_cluster', 'get_success'], help='--')
 
-    parser.add_argument('--sketch_model', type=str, default='sdgraph', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
+    parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='--')
     parser.add_argument('--retrieval_mode', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
@@ -136,23 +137,47 @@ def parse_sketch_format(format_str):
 
 if __name__ == '__main__':
 
-    f1, f2, fout = r'C:\Users\ChengXi\Desktop\60mm20250708\acc-1.txt', r'C:\Users\ChengXi\Desktop\60mm20250708\acc-5.txt', r'C:\Users\ChengXi\Desktop\60mm20250708\acc-5-filter.txt'
+    # f1, f2, fout = r'C:\Users\ChengXi\Desktop\60mm20250708\acc-1.txt', r'C:\Users\ChengXi\Desktop\60mm20250708\acc-5.txt', r'C:\Users\ChengXi\Desktop\60mm20250708\acc-5-filter.txt'
+    #
+    # with open(f1, 'r', encoding='utf-8') as fp:
+    #     set1 = set(line.rstrip('\n') for line in fp)
+    #
+    # with open(f2, 'r', encoding='utf-8') as fp:
+    #     set2 = set(line.rstrip('\n') for line in fp)
+    #
+    # # 并集 - 交集 ＝ 对称差
+    # sym_diff = sorted((set1 | set2) - (set1 & set2))
+    #
+    # with open(fout, 'w', encoding='utf-8') as fp:
+    #     for line in sym_diff:
+    #         fp.write(line + '\n')
+    #
+    # print(f"对称差已写入 {fout}，共 {len(sym_diff)} 行。")
 
-    with open(f1, 'r', encoding='utf-8') as fp:
-        set1 = set(line.rstrip('\n') for line in fp)
+    sdgraph_path = './log/revl_ins_sdgraph_vit_fg_sbir_full_multi_pair_chair.json'
+    vit_path = './log/revl_ins_vit_vit_fg_sbir_full_multi_pair_chair.json'
+    lstm_path = './log/revl_ins_bidir_lstm_vit_fg_sbir_full_multi_pair_chair.json'
 
-    with open(f2, 'r', encoding='utf-8') as fp:
-        set2 = set(line.rstrip('\n') for line in fp)
+    with open(sdgraph_path, encoding='utf-8') as f:
+        sdgraph_dict_chair: dict = json.load(f)
 
-    # 并集 - 交集 ＝ 对称差
-    sym_diff = sorted((set1 | set2) - (set1 & set2))
+    with open(vit_path, encoding='utf-8') as f:
+        vit_dict_chair: dict = json.load(f)
 
-    with open(fout, 'w', encoding='utf-8') as fp:
-        for line in sym_diff:
-            fp.write(line + '\n')
+    with open(lstm_path, encoding='utf-8') as f:
+        lstm_dict_chair: dict = json.load(f)
 
-    print(f"对称差已写入 {fout}，共 {len(sym_diff)} 行。")
+    # result = [x for x in arr1 if x not in set(arr2)]
 
+    sdgraph_dict_chair = sdgraph_dict_chair["top_1"]
+    vit_dict_chair = vit_dict_chair["top_1"]
+    lstm_dict_chair = lstm_dict_chair["top_1"]
 
+    other_all = vit_dict_chair + lstm_dict_chair
 
+    sdgraph_dict_chair_filter = [x for x in sdgraph_dict_chair if x not in other_all]
 
+    for c_val in sdgraph_dict_chair_filter:
+        print(f'\'{c_val}\',')
+
+    pass

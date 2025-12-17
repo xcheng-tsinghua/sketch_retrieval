@@ -168,6 +168,8 @@ class SBIRTrainer:
         """
         验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
         """
+        topk = (list(topk))
+        topk.sort()
         self.model.eval()
         save_path = f'./log/revl_ins_{self.save_str}.json'
 
@@ -193,10 +195,14 @@ class SBIRTrainer:
         image_features = torch.cat(image_features, dim=0)
 
         acc_topk, revl_idx_topk = compute_topk_accuracy_with_file(sketch_features, image_features, topk)
-        print(f'Acc@1: {acc_topk[0]:.4f}, Acc@5: {acc_topk[1]:.4f}')
+        acc_str = ''
+        for k, acc in zip(topk, acc_topk):
+            acc_str += f'Acc@{k}: {acc:.4f} '
+        print(acc_str)
 
         # 找到对应的字符串并保存到对应的文件
         save_dict = {}
+        prev_file = []
         for c_topk, c_idx_list in zip(topk, revl_idx_topk):
             c_revl_files = []
             for c_idx in c_idx_list:
@@ -207,7 +213,9 @@ class SBIRTrainer:
                 skh_path_fmt = f'{path.parent.name}/{path.stem}'
                 c_revl_files.append(skh_path_fmt)
 
+            c_revl_files = [x for x in c_revl_files if x not in prev_file]
             save_dict[f'top_{c_topk}'] = c_revl_files
+            prev_file.extend(c_revl_files)
 
         # 保存到文件
         with open(save_path, 'w', encoding='utf-8') as f:
@@ -542,12 +550,25 @@ def compute_topk_accuracy_with_file(sketch_fea, image_fea, topk=(1, 5)):
     """
 
     # 欧氏距离（也可换成余弦）
-    dist_matrix = torch.cdist(sketch_fea, image_fea)  # [bs, bs]
-    n_skh = dist_matrix.size(0)
+    # dist_matrix = torch.cdist(sketch_fea, image_fea)  # [bs, bs]
+    # n_skh = dist_matrix.size(0)
+    # device = sketch_fea.device
+    #
+    # # 距离升序排序，最近的排前面
+    # sorted_indices = dist_matrix.argsort(dim=1, descending=False)  # [bs, bs]
+
+    n_skh = sketch_fea.size(0)
     device = sketch_fea.device
 
-    # 距离升序排序，最近的排前面
-    sorted_indices = dist_matrix.argsort(dim=1, descending=False)  # [bs, bs]
+    # 1. L2 归一化
+    sketch_fea = F.normalize(sketch_fea, p=2, dim=1)
+    image_fea = F.normalize(image_fea,  p=2, dim=1)
+
+    # 2. 余弦相似度矩阵 [bs, bs]
+    sim_matrix = torch.matmul(sketch_fea, image_fea.t())
+
+    # 距离升序排序
+    sorted_indices = sim_matrix.argsort(dim=1, descending=True)
 
     # 正确的 image 匹配是与自身同位置的样本（即第 i 个 sketch 对应第 i 个 image）
     ground_truth = torch.arange(n_skh, device=device).unsqueeze(1)  # [bs, 1]
@@ -563,12 +584,7 @@ def compute_topk_accuracy_with_file(sketch_fea, image_fea, topk=(1, 5)):
 
         # 提取命中的 sketch 索引
         matched_sketch_indices = torch.nonzero(correct_k, as_tuple=False).squeeze(1)  # [num_matched]
-
-        if i == 0:
-            idxes.append(matched_sketch_indices)
-        else:
-            ex_former_idx = list(set(matched_sketch_indices) - set(idxes[-1]))
-            idxes.append(ex_former_idx)
+        idxes.append(matched_sketch_indices)
 
     return accs, idxes
 
