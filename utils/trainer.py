@@ -164,11 +164,12 @@ class SBIRTrainer:
         test_loss = total_loss / len(self.test_loader)
         return test_loss, map_val, prec_val, acc_1, acc_5
 
-    def get_revl_success(self, save_path='./log/revl_ins_vit.json', topk=(1, 5)):
+    def get_revl_success(self, topk=(1, 5)):
         """
         验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
         """
         self.model.eval()
+        save_path = f'./log/revl_ins_{self.save_str}.json'
 
         # 提取特征
         sketch_features = []
