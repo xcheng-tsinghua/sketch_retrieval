@@ -9,6 +9,7 @@ from sklearn.manifold import TSNE
 import torch.nn.functional as F
 import json
 from pathlib import Path
+from typing import Tuple, Dict
 
 from utils import loss_func
 
@@ -28,6 +29,7 @@ class SBIRTrainer:
                  weight_decay,
                  max_epochs,
                  ckpt_save_interval=20,  # 检查点保存的 epoch 间隔
+                 topk=(1, 5),
                  # stop_val=100
                  ):
         assert retrieval_mode in ('cl', 'fg')
@@ -41,6 +43,7 @@ class SBIRTrainer:
         self.logger = logger
         self.ckpt_save_interval = ckpt_save_interval
         self.save_str = save_str
+        self.topk = topk
         # self.stop_val = stop_val
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
@@ -68,9 +71,9 @@ class SBIRTrainer:
 
         # 训练状态
         self.current_epoch = 0
-        self.best_loss = float('inf')
+        self.best_acc = -1.
         self.train_losses = []
-        self.test_losses = []
+        # self.test_losses = []
 
         print(f'-> initiate trainer successful:')
         print(f'check point save: {self.check_point}')
@@ -86,20 +89,31 @@ class SBIRTrainer:
         num_batches = len(self.train_loader)
         progress_bar = tqdm(self.train_loader, desc=f'{self.current_epoch}/{self.max_epochs}')
 
-        for sketches, images, category_indices in progress_bar:
+        for sketches, images_pos, images_neg in progress_bar:
             # 移动数据到设备
             sketches = sketches.to(self.device)
-            images = images.to(self.device)
-            category_indices = category_indices.long().to(self.device)
+            images_pos = images_pos.to(self.device)
+            images_neg = images_neg.to(self.device)
+
+            # category_indices = category_indices.long().to(self.device)
 
             # 清零梯度
             self.optimizer.zero_grad()
 
             # 前向传播
-            sketch_features, image_features, logit_scale = self.model(sketches, images)
+            sketch_features = self.model.encode_sketch(sketches)
+            pos_features = self.model.encode_image(images_pos)
+
+            c_bs, n_neg, c, h, w = images_neg.size()
+            images_neg = images_neg.view(c_bs * n_neg, c, h, w)
+            neg_features = self.model.encode_image(images_neg)
+            neg_features = neg_features.view(c_bs, n_neg, -1)
+
+            # sketch_features, image_features, logit_scale = self.model(sketches, images)
 
             # 计算损失
-            loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
+            loss = loss_func.info_nce_multi_neg(sketch_features, pos_features, neg_features)
+            # loss = self.criterion(sketch_features, image_features, category_indices, logit_scale)
 
             # 反向传播
             loss.backward()
@@ -123,6 +137,21 @@ class SBIRTrainer:
         avg_loss = total_loss / num_batches
         return avg_loss
 
+    @staticmethod
+    def get_fea(encoder, data_loader, device):
+        fea_list = []
+        with torch.no_grad():
+            for sketch_tensor in tqdm(data_loader, desc="loading data"):
+                # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
+                sketch_tensor = sketch_tensor.to(device)
+
+                sketch_fea = encoder(sketch_tensor)
+                fea_list.append(sketch_fea.cpu())
+
+        # 合并特征
+        fea_list = torch.cat(fea_list, dim=0)
+        return fea_list
+
     def validate_epoch(self):
         """
         验证一个epoch
@@ -130,11 +159,18 @@ class SBIRTrainer:
         self.model.eval()
 
         # 提取特征
-        sketch_features = []
-        image_features = []
-        class_labels = []
+        self.test_loader.dataset.back_sketch()
+        sketch_features = self.get_fea(self.model.encode_sketch, self.test_loader, self.device)
 
-        total_loss = 0.0
+        self.test_loader.dataset.back_image()
+        image_features = self.get_fea(self.model.encode_image, self.test_loader, self.device)
+
+        # 计算准确率及匹配的样例
+        acc_topk, revl_idx_topk = compute_acc_at_k_with_indices(sketch_features, image_features, self.test_loader.dataset.sketch_paired_id, self.topk)
+
+        return acc_topk
+
+
         with torch.no_grad():
             # 提取草图特征
             for sketches, images, category_indices in tqdm(self.test_loader, desc=f'{self.save_str}: Validating'):
@@ -259,9 +295,9 @@ class SBIRTrainer:
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
-            'best_loss': self.best_loss,
+            'best_loss': self.best_acc,
             'train_losses': self.train_losses,
-            'test_losses': self.test_losses
+            # 'test_losses': self.test_losses
         }
         torch.save(checkpoint, self.check_point)
 
@@ -281,11 +317,11 @@ class SBIRTrainer:
                 self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
                 self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
                 self.current_epoch = checkpoint['epoch']
-                self.best_loss = checkpoint['best_loss']
+                self.best_acc = checkpoint['best_acc']
                 self.train_losses = checkpoint['train_losses']
-                self.test_losses = checkpoint['test_losses']
+                # self.test_losses = checkpoint['test_losses']
 
-            print(f"从检查点恢复训练: {checkpoint_path}")
+            print(f"成功加载检查点:{checkpoint_path}, (epoch {checkpoint.get('epoch', 'unknown')})")
             return True
 
         except Exception as e:
@@ -304,23 +340,30 @@ class SBIRTrainer:
             self.train_losses.append(train_loss)
 
             # 验证一个epoch
-            test_loss, map_200, prec_200, acc_1, acc_5 = self.validate_epoch()
-            self.test_losses.append(test_loss)
+            # test_loss, map_200, prec_200, acc_1, acc_5 = self.validate_epoch()
+            acc_topk = self.validate_epoch()
+            # self.test_losses.append(test_loss)
 
             current_lr = self.optimizer.param_groups[0]['lr']
-            print(f'epoch {epoch}/{self.max_epochs}: train_loss: {train_loss:.4f}, test_loss: {test_loss:.4f}, lr: {current_lr:.6f}')
+            # print(f'epoch {epoch}/{self.max_epochs}: train_loss: {train_loss:.4f}, test_loss: {test_loss:.4f}, lr: {current_lr:.6f}')
+            # print(f'epoch {epoch}/{self.max_epochs}: train_loss: {train_loss:.4f}, lr: {current_lr:.6f}')
 
             if (epoch + 1) % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
                 # 检查是否是最佳模型
-                is_best = test_loss < self.best_loss
+                is_best = acc_topk[0] > self.best_acc
                 if is_best:
-                    self.best_loss = test_loss
-                    print(f"新的最佳测试损失: {test_loss:.4f}")
+                    self.best_acc = acc_topk[0]
+                    print(f"新的最佳预测准确率: {acc_topk[0]:.4f}")
 
                 # 保存检查点
                 self.save_checkpoint(is_best=is_best)
 
-            log_str = f'epoch {epoch}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
+            log_str = f'epoch {epoch}/{self.max_epochs}: train_loss: {train_loss:.4f}, lr: {current_lr:.6f}'
+            for k, acc in zip(self.topk, acc_topk):
+                log_str += f'Acc@{k}: {acc:.4f} '
+
+            # log_str = f'epoch {epoch}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
+            print(log_str)
             log_str = log_str.replace(' ', '\t')
             self.logger.info(log_str)
 
@@ -589,6 +632,102 @@ def compute_topk_accuracy_with_file(sketch_fea, image_fea, topk=(1, 5)):
     return accs, idxes
 
 
+def compute_topk_accuracy(
+    sketch_fea: torch.Tensor,
+    image_fea: torch.Tensor,
+    topk: Tuple[int, ...] = (1, 5),
+):
+    """
+    Sketch → Image retrieval Acc@k with image feature deduplication.
+
+    Args:
+        sketch_fea: Tensor [N, C]
+        image_fea:  Tensor [N, C], may contain duplicates
+        topk:       tuple of int, e.g. (1, 5)
+
+    Returns:
+        acc_dict: {k: float}
+        success_indices: {k: Tensor of sketch indices}
+    """
+
+    assert sketch_fea.shape == image_fea.shape
+    device = sketch_fea.device
+    N = sketch_fea.shape[0]
+
+    # --------------------------------------------------
+    # 1. 去重 image_fea，并建立 GT 映射
+    # --------------------------------------------------
+    unique_image_fea, inverse_idx = unique_float_tensor(
+        image_fea, eps=1e-6
+    )
+    # inverse_idx[i] = GT image index for sketch i
+
+    # --------------------------------------------------
+    # 2. 归一化（余弦相似度）
+    # --------------------------------------------------
+    sketch_fea = F.normalize(sketch_fea, dim=1)
+    unique_image_fea = F.normalize(unique_image_fea, dim=1)
+
+    # --------------------------------------------------
+    # 3. 相似度矩阵 [N, N_unique]
+    # --------------------------------------------------
+    sim_matrix = sketch_fea @ unique_image_fea.t()
+
+    # --------------------------------------------------
+    # 4. 排序（相似度降序）
+    # --------------------------------------------------
+    sorted_indices = sim_matrix.argsort(dim=1, descending=True)
+
+    # --------------------------------------------------
+    # 5. 计算 Acc@k
+    # --------------------------------------------------
+    acc_dict = []
+    success_indices= []
+
+    for k in topk:
+        topk_indices = sorted_indices[:, :k]           # [N, k]
+        gt = inverse_idx.view(-1, 1)                    # [N, 1]
+
+        correct = (topk_indices == gt).any(dim=1)       # [N]
+        acc_dict.append(correct.float().mean().item())
+        success_indices.append(torch.nonzero(correct, as_tuple=False).squeeze(1))
+
+    return acc_dict, success_indices
+
+
+def unique_float_tensor(
+    x: torch.Tensor,
+    eps: float = 1e-6
+):
+    """
+    Float-safe unique for [N, C] tensor.
+
+    Returns:
+        unique_x: Tensor [M, C]
+        inverse_idx: Tensor [N]
+    """
+    # 1. 量化到整数空间
+    x_q = torch.round(x / eps).to(torch.int64)
+
+    # 2. unique on quantized tensor
+    _, inverse_idx = torch.unique(
+        x_q, dim=0, return_inverse=True
+    )
+
+    # 3. 用 inverse_idx 聚合真实 float 值
+    unique_indices = torch.unique(inverse_idx, sorted=True)
+    unique_x = torch.zeros(
+        (len(unique_indices), x.shape[1]),
+        device=x.device,
+        dtype=x.dtype
+    )
+
+    for new_i, old_i in enumerate(unique_indices):
+        unique_x[new_i] = x[inverse_idx == old_i][0]
+
+    return unique_x, inverse_idx
+
+
 def visualize_embeddings(embeddings: torch.Tensor,
                          labels: torch.Tensor,
                          target_classes,
@@ -641,4 +780,52 @@ def visualize_embeddings(embeddings: torch.Tensor,
     plt.axis('off')
     plt.show()
 
+
+@torch.no_grad()
+def compute_acc_at_k_with_indices(
+    sketch_features: torch.Tensor,   # [m, fea]
+    image_features: torch.Tensor,    # [n, fea]
+    paired_idx: torch.Tensor,        # [m]
+    topk_tuple=(1, 5)
+):
+    """
+    Returns:
+        dict[k] = {
+            'acc': float,
+            'correct_indices': LongTensor
+        }
+    """
+
+    # 2. similarity matrix [m, n]
+    sim_matrix = sketch_features @ image_features.t()
+
+    max_k = max(topk_tuple)
+
+    # 3. top-k retrieval
+    _, topk_indices = sim_matrix.topk(
+        k=max_k,
+        dim=1,
+        largest=True,
+        sorted=True
+    )  # [m, max_k]
+
+    # 4. GT index
+    gt_idx = torch.tensor(paired_idx).view(-1, 1)  # [m, 1]
+
+    accs = []
+    indices = []
+    for k in topk_tuple:
+        # [m] bool
+        correct_k = (topk_indices[:, :k] == gt_idx).any(dim=1)
+
+        # Acc@k
+        acc_k = correct_k.float().mean().item()
+
+        # 命中的草图索引
+        correct_indices = torch.nonzero(correct_k, as_tuple=False).squeeze(1)
+
+        accs.append(acc_k)
+        indices.append(correct_indices)
+
+    return accs, indices
 

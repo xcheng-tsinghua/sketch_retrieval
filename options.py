@@ -11,7 +11,6 @@ def parse_args():
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
     parser.add_argument('--num_workers', type=int, default=8, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
-    parser.add_argument('--running_mode', type=str, default='train', choices=['train', 'vis_cluster', 'get_success'], help='--')
 
     parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='--')
@@ -27,14 +26,14 @@ def parse_args():
 
     # training
     parser.add_argument('--epoch', type=int, default=200, help='最大训练轮数')
-    parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
+    parser.add_argument('--lr', type=float, default=2e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
     parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
 
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
-    parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
+    parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='False', help='使用全部数据训练')
 
     # visualizing
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')

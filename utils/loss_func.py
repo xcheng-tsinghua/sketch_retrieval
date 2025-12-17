@@ -315,3 +315,94 @@ class ContrastiveLoss(nn.Module):
         
         return loss
 
+
+def triplet_loss(x, args):
+    """
+
+    :param x: 4*batch -> sk_p, sk_n, im_p, im_n
+    :param args:
+    :return:
+    """
+    triplet = nn.TripletMarginLoss(margin=1.0, p=2).cuda()
+    sk_p = x[0:args.batch]
+    im_p = x[2 * args.batch:3 * args.batch]
+    im_n = x[3 * args.batch:]
+    loss = triplet(sk_p, im_p, im_n)
+
+    return loss
+
+
+def rn_loss(predict, target):
+    mse_loss = nn.MSELoss().cuda()
+    loss = mse_loss(predict, target)
+
+    return loss
+
+
+def info_nce_loss(
+    sketch_fea,
+    pos_img_fea,
+    neg_img_fea,
+    temperature=0.07
+):
+    """
+    sketch_fea:   [B, D]
+    pos_img_fea:  [B, D]
+    neg_img_fea:  [B, D]
+    """
+
+    # 1. L2 normalize（极其重要）
+    sketch_fea  = F.normalize(sketch_fea, dim=1)
+    pos_img_fea = F.normalize(pos_img_fea, dim=1)
+    neg_img_fea = F.normalize(neg_img_fea, dim=1)
+
+    # 2. cosine similarity
+    pos_sim = torch.sum(sketch_fea * pos_img_fea, dim=1) / temperature
+    neg_sim = torch.sum(sketch_fea * neg_img_fea, dim=1) / temperature
+
+    # 3. logits: [B, 2]，第 0 维是正样本
+    logits = torch.stack([pos_sim, neg_sim], dim=1)
+
+    # 4. label 永远是 0（正样本在第 0 位）
+    labels = torch.zeros(sketch_fea.size(0), dtype=torch.long, device=sketch_fea.device)
+
+    loss = F.cross_entropy(logits, labels)
+    return loss
+
+
+def info_nce_multi_neg(
+    sketch_fea,
+    pos_img_fea,
+    neg_img_fea,
+    temperature=0.07
+):
+    """
+    多负样本
+
+    sketch_fea:   [B, D]
+    pos_img_fea:  [B, D]
+    neg_img_fea:  [B, K, D]
+    """
+    B, K, D = neg_img_fea.shape
+
+    sketch_fea = F.normalize(sketch_fea, dim=1)
+    pos_img_fea = F.normalize(pos_img_fea, dim=1)
+    neg_img_fea = F.normalize(neg_img_fea, dim=2)
+
+    # 正样本相似度 [B, 1]
+    pos_sim = torch.sum(sketch_fea * pos_img_fea, dim=1, keepdim=True)
+
+    # 负样本相似度 [B, K]
+    neg_sim = torch.bmm(
+        neg_img_fea,                 # [B, K, D]
+        sketch_fea.unsqueeze(2)      # [B, D, 1]
+    ).squeeze(2)
+
+    logits = torch.cat([pos_sim, neg_sim], dim=1) / temperature
+
+    labels = torch.zeros(B, dtype=torch.long, device=sketch_fea.device)
+
+    loss = F.cross_entropy(logits, labels)
+    return loss
+
+

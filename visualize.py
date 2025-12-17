@@ -9,12 +9,155 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
+from torch.utils.data import Dataset
+from pathlib import Path
+import json
 
 # 导入数据集和模型
 from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import utils
 import options
+
+
+class SimpleDataset(Dataset):
+    def __init__(self, file_list, file_loader):
+        self.file_list = file_list
+        self.file_loader = file_loader
+
+    def __len__(self):
+        return len(self.file_list)
+
+    def __getitem__(self, idx):
+        file_path = self.file_list[idx]
+        file_tesor = self.file_loader(file_path)
+
+        return file_tesor
+
+
+def create_simple_dataloader(file_list, file_loader, batch_size, num_workers):
+    simple_set = SimpleDataset(file_list, file_loader)
+
+    simple_loader = torch.utils.data.DataLoader(
+        simple_set,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True,
+        drop_last=False
+    )
+    return simple_loader
+
+
+def get_fea(encoder, data_loader, device):
+    fea_list = []
+    with torch.no_grad():
+        for sketch_tensor in tqdm(data_loader, desc="loading data"):
+            # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
+            sketch_tensor = sketch_tensor.to(device)
+
+            sketch_fea = encoder(sketch_tensor)
+            fea_list.append(sketch_fea.cpu())
+
+    # 合并特征
+    fea_list = torch.cat(fea_list, dim=0)
+    return fea_list
+
+
+@torch.no_grad()
+def compute_acc_at_k_with_indices(
+    sketch_features: torch.Tensor,   # [m, fea]
+    image_features: torch.Tensor,    # [n, fea]
+    paired_idx: torch.Tensor,        # [m]
+    topk_tuple=(1, 5)
+):
+    """
+    Returns:
+        dict[k] = {
+            'acc': float,
+            'correct_indices': LongTensor
+        }
+    """
+
+    # 2. similarity matrix [m, n]
+    sim_matrix = sketch_features @ image_features.t()
+
+    max_k = max(topk_tuple)
+
+    # 3. top-k retrieval
+    _, topk_indices = sim_matrix.topk(
+        k=max_k,
+        dim=1,
+        largest=True,
+        sorted=True
+    )  # [m, max_k]
+
+    # 4. GT index
+    gt_idx = torch.tensor(paired_idx).view(-1, 1)  # [m, 1]
+
+    accs = []
+    indices = []
+    for k in topk_tuple:
+        # [m] bool
+        correct_k = (topk_indices[:, :k] == gt_idx).any(dim=1)
+
+        # Acc@k
+        acc_k = correct_k.float().mean().item()
+
+        # 命中的草图索引
+        correct_indices = torch.nonzero(correct_k, as_tuple=False).squeeze(1)
+
+        accs.append(acc_k)
+        indices.append(correct_indices)
+
+    return accs, indices
+
+
+def get_revl_success(vis_dataset, sbir_model, save_str, batch_size, num_workers, device, topk=(1, 5)):
+    """
+    验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
+    """
+    topk = (list(topk))
+    topk.sort()
+    sbir_model.eval()
+    save_path = f'./log/revl_ins_{save_str}.json'
+
+    # 构建加载器
+    sketch_loader = create_simple_dataloader(vis_dataset.sketch_list, vis_dataset.sketch_loader, batch_size, num_workers)
+    image_loader = create_simple_dataloader(vis_dataset.image_list, vis_dataset.image_loader, batch_size, num_workers)
+
+    # 提取特征
+    sketch_features = get_fea(sbir_model.encode_sketch, sketch_loader, device)
+    image_features = get_fea(sbir_model.encode_image, image_loader, device)
+
+    # 计算准确率
+    acc_topk, revl_idx_topk = compute_acc_at_k_with_indices(sketch_features, image_features, vis_dataset.paired_img_idx)
+    acc_str = ''
+    for k, acc in zip(topk, acc_topk):
+        acc_str += f'Acc@{k}: {acc:.4f} '
+    print(acc_str)
+
+    # 找到对应的字符串并保存到对应的文件
+    save_dict = {}
+    prev_file = []
+    for c_topk, c_idx_list in zip(topk, revl_idx_topk):
+        c_revl_files = []
+        for c_idx in c_idx_list:
+            skh_path = vis_dataset.sketch_list[c_idx]
+
+            # 将路径转化为 class/basename 的格式
+            path = Path(skh_path)
+            skh_path_fmt = f'{path.parent.name}/{path.stem}'
+            c_revl_files.append(skh_path_fmt)
+
+        c_revl_files = [x for x in c_revl_files if x not in prev_file]
+        save_dict[f'top_{c_topk}'] = c_revl_files
+        prev_file.extend(c_revl_files)
+
+    # 保存到文件
+    with open(save_path, 'w', encoding='utf-8') as f:
+        json.dump(save_dict, f, ensure_ascii=False, indent=4)  # 中文正常、带缩进
+    print(f'file save to: {os.path.abspath(save_path)}')
 
 
 def find_topk_matching_images(skh_fea, img_fea, img_tensor, k) -> [torch.Tensor, torch.Tensor]:
@@ -229,6 +372,10 @@ def main(args, eval_sketches):
     model.to(device)
     model.eval()
 
+    # 计算指标
+    # get_revl_success(vis_loader.dataset, model, save_str, args.bs, args.num_workers, device)
+    # exit(0)
+
     # 将输入的草图信息转化为绝对路径
     eval_sketch_path = []
     for c_eval_skh in eval_sketches:
@@ -367,238 +514,10 @@ if __name__ == '__main__':
         # 'class/CHASPT004GRY-UK_v1_ConcreteCottonVelvet_3',
         # 'class/sd12-o_2',
 
-        "class/mec_3",
-        "class/SOFHDX002BRO-UK_v1_SaddleBrownPremiumLeather_2",
-        "class/sde_60",
-        "class/b7213200_3",
-        "class/sdasg046-f5_1",
-        "class/sco_10",
-        "class/s49-04_12",
-        "class/mc3-smalls_1",
-        "class/sde_2",
-        "class/b7213200_1",
-        "class/p17-s-icew_1",
-        "class/moszi-d127-_1",
-        "class/saku231-vi30_1",
-        "class/CHABRA003GRY-UK_v1_PearlGrey_2",
-        "class/SOFCLU001CGN-UK_v1_Co_2",
-        "class/mgankara_2",
-        "class/aac10-black-black_3",
-        "class/SOFSTT003BRO-UK_v1_OxfordBrownPremiumLeather_3",
-        "class/sd286_1",
-        "class/ge_3",
-        "class/fb2602_3",
-        "class/SOFKUB009PNK-UK_v1_PlumPur_2",
-        "class/CHAWLS014BEI-UK_v1_MushroomBrownCorduroy_3",
-        "class/mosmkedb_3",
-        "class/OTOSCT007BRO-UK_v1_BrownPremiumLeather_2",
-        "class/sllwl073-laque-rouge_3",
-        "class/sdwch056-rouge_2",
-        "class/sd1854-1754c_1",
-        "class/fb2602_2",
-        "class/SOFRTC021PNK-UK_v1_CandyPinkwithRainbowButtons_1",
-        "class/gu-026495_1",
-        "class/mec_1",
-        "class/SOFMLI002GRY-UK_v1_Gra_3",
-        "class/mc3-smalls_12",
-        "class/sbaigepg_2",
-        "class/cm87201-2445_2",
-        "class/s_1",
-        "class/ge_10",
-        "class/sd580-1001c_2",
-        "class/CHADIN001PNK-UK_v1_ScarletPink_3",
-        "class/su061-blanc_1",
-        "class/ge_2",
-        "class/sllwl073-laque-rouge_2",
-        "class/CHABRA003GRY-UK_v1_PearlGrey_3",
-        "class/sdich070-laque-rouge_1",
-        "class/mc4-s_1",
-        "class/sezzsw-c_4",
-        "class/saku231-vi30_2",
-        "class/mc3-smalls_10",
-        "class/sllwl073-laque-rouge_1",
-        "class/aff-no-fa-in_2",
-        "class/p17-s-icew_2",
-        "class/SOFHAR003BLU-UK_v1_QuartzBlue_2",
-        "class/shoes_60",
-        "class/p1p1ka-p1-11_3",
-        "class/gouvy45-o_2",
-        "class/nin0-3a-noir_1",
-        "class/mec_2",
-        "class/mosvi-170_3",
-        "class/mc4-s_12",
-        "class/v4_1",
-        "class/sezzsw-c_1",
-        "class/SOFWLS045BLU-UK_v1_NavyVelvet_2",
-        "class/ks60-grey_1",
-        "class/ge_1",
-        "class/sd1770-gris_2",
-        "class/m_2",
-        "class/sd580-1001c_10",
-        "class/kongbar-30p_2",
-        "class/mosmc-b_3",
-        "class/ge_11",
-        "class/SOFVIN001GOL-UK_v1_Gold_2",
-        "class/gu-026495_3",
-        "class/p1p1ka-p1-11_2",
-        "class/CHARIC002RED-UK_v1_ScarletRed_3",
-        "class/SOFRTC021PNK-UK_v1_CandyPinkwithRainbowButtons_2",
-        "class/sd1770-gris_1",
-        "class/p1p1ka-p1-11_1",
-        "class/CHADIN001PNK-UK_v1_ScarletPink_1",
-        "class/cm87101-542_1",
-        "class/SOFYOK008BRO-UK_v1_EiderBrown_1",
-        "class/mgankara_3",
-        "class/una-709-cr-_1",
-        "class/sd1440_1",
-        "class/SOFVIN001GOL-UK_v1_Gold_3",
-        "class/ma3-050_2",
-        "class/mgup-_1",
-        "class/mc4-s_2",
-        "class/juju-_2",
-        "class/f056104-44bl-s042_1",
-        "class/mosmkedb_1",
-        "class/sd286_3",
-        "class/as131wh-hal390-in_3",
-        "class/shoes_1",
-        "class/f056104-44bl-s042_2",
-        "class/CHASPT004GRY-UK_v1_ConcreteCottonVelvet_2",
-        "class/CHARUF012YEL-UK_v1_MustardYellow_12",
-        "class/sd1770-gris_3",
-        "class/gu-026495_2",
-        "class/SOFMVK003GRY-UK_v1_RhinoGrey_1",
-        "class/SOFWLS045BLU-UK_v1_NavyVelvet_3",
-        "class/moszi-d127-_10",
-        "class/SOFJRS009BEI-UK_v1_BiscuitBei_1",
-        "class/aac10-black-black_1",
-        "class/nin0swv-3a-noir_2",
-        "class/sezz-lg_3",
-        "class/cm87201-2445_3",
-        "class/SOFSTT003BRO-UK_v1_OxfordBrownPremiumLeather_1",
-        "class/moszi-d127-_2",
-        "class/sdlau045fe-sdlau046fd_4",
-        "class/sdonge_3",
-        "class/SOFWLS045BLU-UK_v1_NavyVelvet_1",
-        "class/su18-cs_2",
-        "class/m_1",
-        "class/CHARUF012YEL-UK_v1_MustardYellow_11",
-        "class/sd742n_3",
-        "class/CHARUB003GRE-UK_v1_Kel_2",
-        "class/mgup-_12",
-        "class/slasg046-laque-noir_1",
-        "class/SOFRTC021PNK-UK_v1_CandyPinkwithRainbowButtons_3",
-        "class/s_10",
-        "class/CHARIC002RED-UK_v1_ScarletRed_1",
-        "class/sdonge_2",
-        "class/mc4-s_11",
-        "class/CHABRA003GRY-UK_v1_PearlGrey_1",
-        "class/lpcub041a-blanc_3",
-        "class/sd580-1001c_3",
-        "class/SOFCOS001GRY-UK_v1_Pe_3",
-        "class/f056103-022-41_2",
-        "class/s49-04_10",
-        "class/una-709-cr-_3",
-        "class/saku231-vi30_12",
-        "class/cm87101-542_3",
-        "class/una-709-cr-_70",
-        "class/cm87201-193-seamwh_2",
-        "class/b7213200_2",
-        "class/juju-_1",
-        "class/m_10",
-        "class/gu-026614_2",
-        "class/sezz-lg_1",
-        "class/SOFFLN007BEI-UK_v1_BiscuitBei_2",
-        "class/nin0-3a-noir_2",
-        "class/s51vs_2",
-        "class/SOFWLM006YEL-UK_v1_TexturedOchre_1",
-        "class/m0140101_1",
-        "class/s49-04_11",
-        "class/SOFLULU15ORA-UK_v1_ChateletOran_2",
-        "class/CHAPIC004GRY-UK_v1_ShadowSlateGrey_3",
-        "class/aff-no-fa-in_3",
-        "class/sbaigepg_1",
-        "class/slasg046-laque-noir_3",
-        "class/lpcub041a-blanc_2",
-        "class/gubi9-blkhirek-chrome_3",
-        "class/mc4-s_10",
-        "class/saku231-vi30_11",
-        "class/sd1440_70",
-        "class/fau_3",
-        "class/mgup-_10",
-        "class/mosnu_1",
-        "class/CHARUB003GRE-UK_v1_Kel_4",
-        "class/gubi9-blkhirek-chrome_2",
-        "class/sd742n_1",
-        "class/sd1804-noir_1",
-        "class/SOFGARS13PNT-UK_v1_Dee_3",
-        "class/SOFLULU15ORA-UK_v1_ChateletOran_1",
-        "class/su061-blanc_3",
-        "class/mc3-smalls_2",
-        "class/ma3-050_3",
-        "class/SOFHAR003BLU-UK_v1_QuartzBlue_1",
-        "class/s51vs_70",
-        "class/sd580-1001c_1",
-        "class/sco_70",
-        "class/s49-04_1",
-        "class/sdich070-laque-rouge_AI6TD8PM938FQ",
-        "class/CHAPIC004GRY-UK_v1_ShadowSlateGrey_2",
-        "class/SOFORS050PUR-UK_v1_PansyPur_3",
-        "class/SOFCOS001GRY-UK_v1_Pe_1",
-        "class/SOFSTT003BRO-UK_v1_OxfordBrownPremiumLeather_2",
-        "class/slblo075-laque-orange_1",
-        "class/shoes_3",
-        "class/CHAPIC004GRY-UK_v1_ShadowSlateGrey_1",
-        "class/su18-cs_3",
-        "class/ocs04gr_2",
-        "class/f056103-022-41_1",
-        "class/SOFMVK003GRY-UK_v1_RhinoGrey_3",
-        "class/mosnu_2",
-        "class/SOFORS050PUR-UK_v1_PansyPur_2",
-        "class/p1p1kn-58-90_1",
-        "class/CHAWLS014BEI-UK_v1_MushroomBrownCorduroy_2",
-        "class/gubi9-blkhirek-chrome_1",
-        "class/SOFHDX002BRO-UK_v1_SaddleBrownPremiumLeather_3",
-        "class/SOFKUB009PNK-UK_v1_PlumPur_1",
-        "class/s_12",
-        "class/sezz-lg_2",
-        "class/cm87201-193-seamwh_3",
-        "class/SOFMVK003GRY-UK_v1_RhinoGrey_2",
-        "class/ecin23-ya04-yi03_10",
-        "class/CHASPT004GRY-UK_v1_ConcreteCottonVelvet_3",
-        "class/mosvi-170_2",
-        "class/ocs04gr_10",
-        "class/gu-026614_3",
-        "class/SOFORS050PUR-UK_v1_PansyPur_1",
-        "class/ks60-grey_2",
-        "class/CHARIC002RED-UK_v1_ScarletRed_2",
-        "class/CHARUF012YEL-UK_v1_MustardYellow_10",
-        "class/SOFWLM006YEL-UK_v1_TexturedOchre_3",
-        "class/kongbar-30p_3",
-        "class/mosvi-170_1",
-        "class/SOFFLN007BEI-UK_v1_BiscuitBei_1",
-        "class/sd1804-noir_2",
-        "class/fau_2",
-        "class/SOFCLU001CGN-UK_v1_Co_1",
-        "class/SOFGARS13PNT-UK_v1_Dee_1",
-        "class/gu-026614_1",
-        "class/gouvy45-o_3",
-        "class/sd1440_3",
-        "class/CHARUB003GRE-UK_v1_Kel_3",
-        "class/juju-_3",
-        "class/sd1854-1754c_10",
-        "class/sdich070-laque-rouge_A2NWM33YRH533Q",
-        "class/SOFMLI002GRY-UK_v1_Gra_1",
-        "class/sd12-o_3",
-        "class/SOFVIN001GOL-UK_v1_Gold_1",
-        "class/sdich070-laque-rouge_A1YX741QQSMKPS",
-        "class/SOFGARS13PNT-UK_v1_Dee_2",
-        "class/as131wh-hal390-in_1",
-        "class/su061-blanc_2",
-        "class/SOFYOK008BRO-UK_v1_EiderBrown_3",
-        "class/sdwch056-rouge_3",
-        "class/cm87201-2445_1",
-        "class/sd12-o_2",
-        "class/sezz-lg_4"
+        "class/ge_12",
+        "class/nin0-3a-noir_10",
+        "class/CHADIN001PNK-UK_v1_ScarletPink_2",
+        "class/sd1770-gris_2"
 
 
 

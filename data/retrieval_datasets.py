@@ -22,24 +22,28 @@ class SketchImageDataset(Dataset):
     PNG草图-图像配对数据集
     """
     def __init__(self,
-                 mode,
+                 data_mode,
                  pre_load,
                  sketch_transform,
                  image_transform,
                  sketch_format,
-                 is_full_train
+                 is_full_train,
+                 n_neg=6,  # 每次返回的负样本数
                  ):
         """
         初始化数据集
         
         Args:
-            mode: 'train' 或 'test'
+            data_mode: 'train' 或 'test'
             pre_load: 固定数据集划分
             sketch_transform: 草图变换
             image_transform: 图像变换
 
         """
-        assert mode in ('train', 'test', 'vis')  # vis: 用于可视化检索结果
+        assert data_mode in ('train', 'test', 'vis')  # vis: 用于可视化检索结果
+        self.data_mode = data_mode
+        self.n_neg = n_neg
+        self.test_mode = 'image'
 
         # 默认变换
         self.sketch_transform = sketch_transform or transforms.Compose([
@@ -54,6 +58,7 @@ class SketchImageDataset(Dataset):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
+        # 创建草图加载器
         sketch_format = options.parse_sketch_format(sketch_format)
         if sketch_format['fmt'] == 's5':
             self.sketch_loader = partial(
@@ -86,37 +91,115 @@ class SketchImageDataset(Dataset):
         else:
             raise TypeError('unsupported sketch format')
 
-        self._load_fixed_split(pre_load, mode, is_full_train)
-        print(f'-> SketchImageDataset initialized with: {mode}.')
+        # 创建图片加载器
+        self.image_loader = partial(utils.image_loader,
+                                    image_transform=self.image_transform
+                                    )
+
+        self._load_fixed_split(pre_load, is_full_train)
+        print(f'-> SketchImageDataset initialized with: {self.data_mode}.')
         print(f'data pairs: {len(self.data_pairs)} pairs, categories: {len(self.categories)}')
         
-    def _load_fixed_split(self, pre_load, mode, is_full_train):
+    def _load_fixed_split(self, pre_load, is_full_train):
         """
         加载固定的数据集划分
         """
         # 根据模式选择数据
-        if mode == 'train':
+        if self.data_mode == 'train':
             self.data_pairs = pre_load.train_pairs
             if is_full_train:
                 self.data_pairs.extend(pre_load.test_pairs)
 
-        elif mode == 'test':
+        elif self.data_mode == 'test':
             self.data_pairs = pre_load.test_pairs
 
-        elif mode == 'vis':  # 只取测试集的图片
-            self.data_pairs = set()
-            for skh_path, img_path, class_name in pre_load.test_pairs:
-                self.data_pairs.add((None, img_path, class_name))
-
         else:
-            raise ValueError(f"不支持的模式: {mode}")
+            raise ValueError(f"不支持的模式: {self.data_mode}")
 
-        self.data_pairs = tuple(self.data_pairs)  # 防止数据被改
+        # 获取草图列表、图片列表、id 映射
+        self.image_list = []
+        for skh_path, img_path, class_name in self.data_pairs:
+            if img_path not in self.image_list:
+                self.image_list.append(img_path)
+
+        # 防止列表被修改
+        self.image_list = tuple(self.image_list)
+
+        # # 根据图片列表将样本id转化为映射，id对应为图片索引
+        # self.id_map = {}
+        # for idx, img_path in enumerate(self.image_list):
+        #     ins_id = utils.basename_without_ext(img_path)
+        #     self.id_map[ins_id] = idx
+
+        # 将sketch_list中的每个样本加上id，以表明其匹配的图片
+        self.sketch_list_with_id = []
+        self.sketch_paired_id = []
+        for skh_path, img_path, _ in self.data_pairs:
+            c_paired_img_idx = self.image_list.index(img_path)
+
+            self.sketch_paired_id.append(c_paired_img_idx)
+            self.sketch_list_with_id.append((skh_path, c_paired_img_idx))
+
+        self.sketch_paired_id = tuple(self.sketch_paired_id)
+        self.sketch_list_with_id = tuple(self.sketch_list_with_id)
+
+
+
+
+        # self.paired_img_idx = []
+        # for _, img_path, _ in pre_load.test_pairs:
+        #     c_paired_img_idx = self.image_list.index(img_path)
+        #     self.paired_img_idx.append(c_paired_img_idx)
+        # self.paired_img_idx = tuple(self.paired_img_idx)
+
+
+
+
+
+        # elif mode == 'vis':  # 只取测试集的图片
+        #     self.sketch_list = []
+        #     self.image_list = []
+        #
+        #     self.data_pairs = []
+        #     for skh_path, img_path, class_name in pre_load.test_pairs:
+        #         if skh_path not in self.sketch_list:
+        #             self.sketch_list.append(skh_path)
+        #
+        #         if img_path not in self.image_list:
+        #             self.image_list.append(img_path)
+        #
+        #         if (None, img_path, class_name) not in self.data_pairs:
+        #             self.data_pairs.append((None, img_path, class_name))
+        #
+        #     self.sketch_list = tuple(self.sketch_list)
+        #     self.image_list = tuple(self.image_list)
+        #
+        #     self.paired_img_idx = []
+        #     for _, img_path, _ in pre_load.test_pairs:
+        #         c_paired_img_idx = self.image_list.index(img_path)
+        #         self.paired_img_idx.append(c_paired_img_idx)
+        #     self.paired_img_idx = tuple(self.paired_img_idx)
+        #
+        # else:
+        #     raise ValueError(f"不支持的模式: {mode}")
+
+        # self.data_pairs = tuple(self.data_pairs)  # 防止数据被改
         self.categories = tuple(pre_load.common_categories)
         self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
         
     def __len__(self):
-        return len(self.data_pairs)
+        # return len(self.data_pairs)
+        if self.data_mode == 'train':
+            return len(self.sketch_list_with_id)
+
+        elif self.test_mode == 'image':
+            return len(self.image_list)
+
+        elif self.test_mode == 'sketch':
+            return len(self.sketch_list_with_id)
+
+        else:
+            raise ValueError('unsupported back mode')
     
     def __getitem__(self, idx):
         """
@@ -124,23 +207,75 @@ class SketchImageDataset(Dataset):
         Returns:
             (sketch_tensor, image_tensor, category_idx, category_name)
             sketch: 预处理后的草图张量 [3, 224, 224]
-            image: 预处理后的图像张量 [3, 224, 224]  
+            image: 预处理后的图像张量 [3, 224, 224]
             category_idx: 类别索引
             category_name: 类别名称
         """
-        sketch_path, image_path, category = self.data_pairs[idx]
+        # sketch_path, image_path, category = self.data_pairs[idx]
+        #
+        # # 加载草图
+        # sketch = self.sketch_loader(sketch_path) if sketch_path is not None else 0
+        #
+        # # 加载JPG图像
+        # image = self.image_loader(image_path)
+        # # to_pil_image(image[0]).show()
+        #
+        # # 获取类别索引
+        # category_idx = self.category_to_idx[category]
+        #
+        # return sketch, image, category_idx
 
-        # 加载草图
-        sketch = self.sketch_loader(sketch_path) if sketch_path is not None else 0
+        if self.data_mode == 'train':
+            # 选出草图样本
+            skh_path, ins_id = self.sketch_list_with_id[idx]
+            skh_tensor = self.sketch_loader(skh_path)
 
-        # 加载JPG图像
-        image = utils.image_loader(image_path, self.image_transform)
-        # to_pil_image(image[0]).show()
+            # 选出草图正样本
+            pos_img = self.image_list[ins_id]
+            pos_img_tensor = self.image_loader(pos_img)
 
-        # 获取类别索引
-        category_idx = self.category_to_idx[category]
+            # 选出指定个数负样本：
+            neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id, ))
+            neg_img_tensor_list = []
+            for c_neg in neg_img_list:
+                c_neg_tensor = self.image_loader(c_neg).unsqueeze(0)
+                neg_img_tensor_list.append(c_neg_tensor)
+            neg_img_tensor_all = torch.cat(neg_img_tensor_list, dim=0)
 
-        return sketch, image, category_idx
+            return skh_tensor, pos_img_tensor, neg_img_tensor_all
+
+        elif self.test_mode == 'image':
+            img_path = self.image_list[idx]
+            img_tensor = self.image_loader(img_path)
+            return img_tensor
+
+        elif self.test_mode == 'sketch':
+            skh_path, _ = self.sketch_list_with_id[idx]
+            skh_tensor = self.sketch_loader(skh_path)
+            return skh_tensor
+
+        else:
+            raise ValueError('unsupported back mode')
+
+    @staticmethod
+    def sample_exclude(lst, k, forbidden_idx):
+        # 把允许抽的索引先列出来
+        allowed_idx = [i for i in range(len(lst)) if i not in forbidden_idx]
+
+        if len(allowed_idx) < k:
+            raise ValueError('可选元素不足')
+
+        # 从 allowed_idx 里随机选 k 个索引
+        picked_idx = random.sample(allowed_idx, k)
+
+        # 返回对应的元素
+        return [lst[i] for i in picked_idx]
+
+    def back_image(self):
+        self.test_mode = 'image'
+
+    def back_sketch(self):
+        self.test_mode = 'sketch'
 
 
 class DatasetPreload(object):
@@ -406,8 +541,7 @@ class DatasetPreload(object):
         return is_train_in and is_test_in and is_len_2
 
     @staticmethod
-    def get_category_pairs(skh_root, img_root, skh_suffix, img_suffix, class_name, multi_sketch_split, is_multi_pair,
-                           random_seed):
+    def get_category_pairs(skh_root, img_root, skh_suffix, img_suffix, class_name, multi_sketch_split, is_multi_pair, random_seed):
         """
         将对应文件夹下的草图和图片文件进行配对
         配对依据为文件名 skh_file_name = img_file_name + multi_sketch_split + num
@@ -563,7 +697,7 @@ def create_sketch_image_dataloaders(batch_size,
     
     # 创建数据集
     train_dataset = SketchImageDataset(
-        mode='train',
+        data_mode='train',
         pre_load=pre_load,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
@@ -572,7 +706,7 @@ def create_sketch_image_dataloaders(batch_size,
     )
 
     test_dataset = SketchImageDataset(
-        mode='test',
+        data_mode='test',
         pre_load=pre_load,
         sketch_transform=test_transform,
         image_transform=test_transform,
@@ -580,14 +714,14 @@ def create_sketch_image_dataloaders(batch_size,
         is_full_train=False,
     )
 
-    vis_dataset = SketchImageDataset(
-        mode='vis',
-        pre_load=pre_load,
-        sketch_transform=test_transform,
-        image_transform=test_transform,
-        sketch_format=sketch_format,
-        is_full_train=False,
-    )
+    # vis_dataset = SketchImageDataset(
+    #     data_mode='vis',
+    #     pre_load=pre_load,
+    #     sketch_transform=test_transform,
+    #     image_transform=test_transform,
+    #     sketch_format=sketch_format,
+    #     is_full_train=False,
+    # )
     
     # 创建数据加载器
     train_loader = torch.utils.data.DataLoader(
@@ -608,14 +742,14 @@ def create_sketch_image_dataloaders(batch_size,
         drop_last=False
     )
 
-    vis_loader = torch.utils.data.DataLoader(
-        vis_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
-        drop_last=False
-    )
+    # vis_loader = torch.utils.data.DataLoader(
+    #     vis_dataset,
+    #     batch_size=batch_size,
+    #     shuffle=False,
+    #     num_workers=num_workers,
+    #     pin_memory=True,
+    #     drop_last=False
+    # )
 
     if back_mode == 'train':
         return train_loader, test_loader

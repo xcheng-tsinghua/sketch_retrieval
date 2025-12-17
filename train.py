@@ -84,9 +84,7 @@ def main(args):
         print('不加载权重，从零开始训练模型')
 
     # 开始训练
-    model_trainer.start(args.running_mode)
-    # model_trainer.train()
-    # model_trainer.vis_fea_cluster()
+    model_trainer.train()
     # model_trainer.get_revl_success()
 
     # if eval(args.is_vis):
