@@ -15,7 +15,9 @@ import options
 
 def main(args):
     save_str = utils.get_save_str(args)
+    print('###############################################')
     print('-----> model save name: ' + save_str + ' <-----')
+    print('###############################################')
     encoder_info = options.get_encoder_info(args.sketch_model)
 
     # 设置日志

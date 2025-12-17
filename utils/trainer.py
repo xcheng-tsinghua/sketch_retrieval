@@ -72,10 +72,10 @@ class SBIRTrainer:
         self.train_losses = []
         self.test_losses = []
 
-        print(f"  训练器初始化完成:")
-        print(f"  检查点保存: {self.check_point}")
-        print(f"  学习率: {learning_rate}")
-        print(f"  最大轮数: {max_epochs}")
+        print(f'-> initiate trainer successful:')
+        print(f'check point save: {self.check_point}')
+        print(f'learning rate: {learning_rate}')
+        print(f'max epoch: {max_epochs}')
 
     def train_epoch(self):
         """
@@ -299,9 +299,9 @@ class SBIRTrainer:
             self.test_losses.append(test_loss)
 
             current_lr = self.optimizer.param_groups[0]['lr']
-            print(f'epoch {epoch + 1}/{self.max_epochs}: train_loss: {train_loss:.4f}, test_loss: {test_loss:.4f}, lr: {current_lr:.6f}')
+            print(f'epoch {epoch}/{self.max_epochs}: train_loss: {train_loss:.4f}, test_loss: {test_loss:.4f}, lr: {current_lr:.6f}')
 
-            if epoch % self.ckpt_save_interval == 0:
+            if epoch % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
                 # 检查是否是最佳模型
                 is_best = test_loss < self.best_loss
                 if is_best:
@@ -311,24 +311,25 @@ class SBIRTrainer:
                 # 保存检查点
                 self.save_checkpoint(is_best=is_best)
 
-            log_str = f'epoch {epoch + 1}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
+            log_str = f'epoch {epoch}/{self.max_epochs} train_loss {train_loss} test_loss {test_loss} map_200 {map_200} prec_200 {prec_200} acc_1 {acc_1} acc_5 {acc_5}'
             log_str = log_str.replace(' ', '\t')
             self.logger.info(log_str)
 
             # if map_200 < self.stop_val:
             #     break
 
-        # 保存训练历史
-        # self.save_training_history()
         print("训练完成!")
 
     def start(self, mode):
         if mode == 'train':
             self.train()
+
         elif mode == 'vis_cluster':
             self.vis_fea_cluster()
+
         elif mode == 'get_success':
             self.get_revl_success()
+
         else:
             raise TypeError('unsupported running mode')
 

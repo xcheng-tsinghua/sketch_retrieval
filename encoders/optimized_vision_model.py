@@ -18,7 +18,7 @@ def _load_pretrained_weights(model_name):
     """
     缓存预训练权重，避免重复下载和加载
     """
-    print(f"首次加载预训练模型权重：{model_name}")
+    # print(f"首次加载预训练模型权重：{model_name}")
     model = timm.create_model(model_name, pretrained=True, num_classes=0)
     return model.state_dict()
 
@@ -28,7 +28,6 @@ class CachedVisionModel(nn.Module):
     使用缓存权重的确定性视觉模型
     避免重复加载预训练权重
     """
-    
     def __init__(self, model_name='vit_base_patch16_224'):
         super().__init__()
         self.model_name = model_name

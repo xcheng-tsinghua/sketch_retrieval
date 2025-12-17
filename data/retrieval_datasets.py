@@ -40,7 +40,6 @@ class SketchImageDataset(Dataset):
 
         """
         assert mode in ('train', 'test', 'vis')  # vis: 用于可视化检索结果
-        print(f"SketchImageDataset initialized with: {mode}.")
 
         # 默认变换
         self.sketch_transform = sketch_transform or transforms.Compose([
@@ -88,6 +87,8 @@ class SketchImageDataset(Dataset):
             raise TypeError('unsupported sketch format')
 
         self._load_fixed_split(pre_load, mode, is_full_train)
+        print(f'-> SketchImageDataset initialized with: {mode}.')
+        print(f'data pairs: {len(self.data_pairs)} pairs, categories: {len(self.categories)}')
         
     def _load_fixed_split(self, pre_load, mode, is_full_train):
         """
@@ -113,7 +114,6 @@ class SketchImageDataset(Dataset):
         self.data_pairs = tuple(self.data_pairs)  # 防止数据被改
         self.categories = tuple(pre_load.common_categories)
         self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
-        print(f'data pairs: {len(self.data_pairs)} pairs, categories: {len(self.categories)}')
         
     def __len__(self):
         return len(self.data_pairs)
@@ -246,8 +246,6 @@ class DatasetPreload(object):
                  split_mode='zs-sbir',  # ['sbir', 'zs-sbir']
                  multi_sketch_split='_'  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
                  ):
-        print(f'preload sketch from: {sketch_root}')
-        print(f'preload image from: {image_root}')
 
         self.train_pairs = []  # (sketch_root, image_root, class_name)
         self.test_pairs = []
@@ -268,6 +266,12 @@ class DatasetPreload(object):
                        split_mode,  # ['sbir', 'zs-sbir']
                        multi_sketch_split
                        )
+
+        print(f'-> preload data info: ')
+        print(f'preload sketch from: {sketch_root}')
+        print(f'preload image from: {image_root}')
+        print(f'training set: {len(self.train_pairs)} pairs')
+        print(f'testing set: {len(self.test_pairs)} pairs')
 
     def load_data(self,
                   sketch_root,
@@ -392,10 +396,6 @@ class DatasetPreload(object):
         # 最终打乱
         random.Random(random_seed).shuffle(self.train_pairs)
         random.Random(random_seed + 1).shuffle(self.test_pairs)
-
-        print(f'-> 预加载数据信息: ')
-        print(f"训练集: {len(self.train_pairs)} 对")
-        print(f"测试集: {len(self.test_pairs)} 对")
 
     @staticmethod
     def check_is_divided(sketch_categories: list, image_categories: list):
