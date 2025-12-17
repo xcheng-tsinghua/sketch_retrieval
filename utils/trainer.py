@@ -302,7 +302,7 @@ class SBIRTrainer:
             current_lr = self.optimizer.param_groups[0]['lr']
             print(f'epoch {epoch}/{self.max_epochs}: train_loss: {train_loss:.4f}, test_loss: {test_loss:.4f}, lr: {current_lr:.6f}')
 
-            if epoch % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
+            if (epoch + 1) % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
                 # 检查是否是最佳模型
                 is_best = test_loss < self.best_loss
                 if is_best:
