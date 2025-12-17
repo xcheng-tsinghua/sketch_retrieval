@@ -363,7 +363,7 @@ class SBIRTrainer:
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
-            'best_loss': self.best_acc,
+            'best_acc': self.best_acc,
             'train_losses': self.train_losses,
             # 'test_losses': self.test_losses
         }
