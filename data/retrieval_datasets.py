@@ -20,6 +20,7 @@ import options
 class SketchImageDataset(Dataset):
     """
     PNG草图-图像配对数据集
+    TODO: 未完善 category-level 数据加载
     """
     def __init__(self,
                  data_mode,
@@ -125,13 +126,7 @@ class SketchImageDataset(Dataset):
         # 防止列表被修改
         self.image_list = tuple(self.image_list)
 
-        # # 根据图片列表将样本id转化为映射，id对应为图片索引
-        # self.id_map = {}
-        # for idx, img_path in enumerate(self.image_list):
-        #     ins_id = utils.basename_without_ext(img_path)
-        #     self.id_map[ins_id] = idx
-
-        # 将sketch_list中的每个样本加上id，以表明其匹配的图片
+        # 将 sketch_list 中的每个样本加上 id，以表明其匹配的图片
         self.sketch_list_with_id = []
         self.sketch_paired_id = []
         for skh_path, img_path, _ in self.data_pairs:
@@ -143,47 +138,6 @@ class SketchImageDataset(Dataset):
         self.sketch_paired_id = tuple(self.sketch_paired_id)
         self.sketch_list_with_id = tuple(self.sketch_list_with_id)
 
-
-
-
-        # self.paired_img_idx = []
-        # for _, img_path, _ in pre_load.test_pairs:
-        #     c_paired_img_idx = self.image_list.index(img_path)
-        #     self.paired_img_idx.append(c_paired_img_idx)
-        # self.paired_img_idx = tuple(self.paired_img_idx)
-
-
-
-
-
-        # elif mode == 'vis':  # 只取测试集的图片
-        #     self.sketch_list = []
-        #     self.image_list = []
-        #
-        #     self.data_pairs = []
-        #     for skh_path, img_path, class_name in pre_load.test_pairs:
-        #         if skh_path not in self.sketch_list:
-        #             self.sketch_list.append(skh_path)
-        #
-        #         if img_path not in self.image_list:
-        #             self.image_list.append(img_path)
-        #
-        #         if (None, img_path, class_name) not in self.data_pairs:
-        #             self.data_pairs.append((None, img_path, class_name))
-        #
-        #     self.sketch_list = tuple(self.sketch_list)
-        #     self.image_list = tuple(self.image_list)
-        #
-        #     self.paired_img_idx = []
-        #     for _, img_path, _ in pre_load.test_pairs:
-        #         c_paired_img_idx = self.image_list.index(img_path)
-        #         self.paired_img_idx.append(c_paired_img_idx)
-        #     self.paired_img_idx = tuple(self.paired_img_idx)
-        #
-        # else:
-        #     raise ValueError(f"不支持的模式: {mode}")
-
-        # self.data_pairs = tuple(self.data_pairs)  # 防止数据被改
         self.categories = tuple(pre_load.common_categories)
         self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
         
@@ -211,19 +165,6 @@ class SketchImageDataset(Dataset):
             category_idx: 类别索引
             category_name: 类别名称
         """
-        # sketch_path, image_path, category = self.data_pairs[idx]
-        #
-        # # 加载草图
-        # sketch = self.sketch_loader(sketch_path) if sketch_path is not None else 0
-        #
-        # # 加载JPG图像
-        # image = self.image_loader(image_path)
-        # # to_pil_image(image[0]).show()
-        #
-        # # 获取类别索引
-        # category_idx = self.category_to_idx[category]
-        #
-        # return sketch, image, category_idx
 
         if self.data_mode == 'train':
             # 选出草图样本
@@ -648,7 +589,6 @@ def create_sketch_image_dataloaders(batch_size,
                                     num_workers,
                                     pre_load,
                                     sketch_format,
-                                    back_mode,  # ['train', 'vis']
                                     is_full_train,
                                     ):
     """
@@ -668,8 +608,7 @@ def create_sketch_image_dataloaders(batch_size,
     Returns:
         train_loader, test_loader, dataset_info
     """
-    assert back_mode in ['train', 'vis'], TypeError(f'back mode {back_mode} not in [\'train\', \'vis\']')
-    
+
     # 数据增强变换
     train_sketch_transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -751,12 +690,7 @@ def create_sketch_image_dataloaders(batch_size,
     #     drop_last=False
     # )
 
-    if back_mode == 'train':
-        return train_loader, test_loader
-    elif back_mode == 'vis':
-        return vis_loader
-    else:
-        pass
+    return train_loader, test_loader
 
 
 if __name__ == '__main__':

@@ -16,7 +16,7 @@ import json
 # 导入数据集和模型
 from data import retrieval_datasets
 from encoders import sbir_model_wrapper
-from utils import utils
+from utils import utils, trainer
 import options
 
 
@@ -345,12 +345,11 @@ def main(args, eval_sketches):
         multi_sketch_split=args.multi_sketch_split
     )
 
-    vis_loader = retrieval_datasets.create_sketch_image_dataloaders(
+    train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
-        back_mode='vis',
         is_full_train=eval(args.is_full_train)
     )
 
@@ -372,9 +371,23 @@ def main(args, eval_sketches):
     model.to(device)
     model.eval()
 
+    # 创建训练器
+    check_point = utils.get_check_point(args.weight_dir, save_str)
+    model_trainer = trainer.SBIRTrainer(
+        model=model,
+        train_loader=train_loader,
+        test_loader=test_loader,
+        device=device,
+        check_point=check_point,
+        logger=None,
+        save_str=save_str,
+        learning_rate=args.lr,
+        weight_decay=args.weight_decay,
+        max_epochs=args.epoch,
+    )
+
     # 计算指标
-    # get_revl_success(vis_loader.dataset, model, save_str, args.bs, args.num_workers, device)
-    # exit(0)
+    model_trainer.save_revl_success_ins()
 
     # 将输入的草图信息转化为绝对路径
     eval_sketch_path = []
@@ -383,35 +396,30 @@ def main(args, eval_sketches):
         c_real_path = os.path.join(sketch_root, 'test', c_class, c_base_name + '.' + encoder_info['sketch_suffix'])
         eval_sketch_path.append(c_real_path)
 
-    # 获取全部的图片路径列表
-    img_path_list = []
-    for c_pair in vis_loader.dataset.data_pairs:
-        img_path_list.append(c_pair[1])
-
     # 找到查询草图对应的图片在图片列表中的索引
     gt_img_idx = []
     for c_skh_path in eval_sketch_path:
-        # 根据草图路径找到对应的图片路径
-        c_img_path = c_skh_path.replace(sketch_root, image_root)
-        c_img_path = c_img_path.rsplit(args.multi_sketch_split, 1)[0]
-        c_img_path = c_img_path + '.' + encoder_info['image_suffix']
 
-        # 找到草图对应的图片在图片列表中的索引
-        c_paired_img_idx = img_path_list.index(c_img_path)
-        gt_img_idx.append(c_paired_img_idx)
+        for c_skh_path_ds, c_id_ds in test_loader.dataset.sketch_list_with_id:
+            if c_skh_path == c_skh_path_ds:
+                gt_img_idx.append(c_id_ds)
+                break
+
+    assert len(eval_sketch_path) == len(gt_img_idx), ValueError('unpaired data')
 
     # 提取草图特征
     sketch_tensor_list = []
     for c_skh_path in eval_sketch_path:
-        c_skh_tensor = vis_loader.dataset.sketch_loader(c_skh_path)
+        c_skh_tensor = test_loader.dataset.sketch_loader(c_skh_path)
         sketch_tensor_list.append(c_skh_tensor)
     skh_tensor = torch.stack(sketch_tensor_list, dim=0)
     skh_fea = model.encode_sketch(skh_tensor.to(device)).cpu()
 
     image_tensor_list = []
     image_fea_list = []
+    test_loader.dataset.back_image()
     with torch.no_grad():
-        for _, img_tensor, category_indices in tqdm(vis_loader):
+        for img_tensor in tqdm(test_loader):
             # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
             image_tensor_list.append(img_tensor.cpu())
 

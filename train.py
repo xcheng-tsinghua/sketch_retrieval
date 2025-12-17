@@ -5,6 +5,7 @@ PNG草图-图像对齐模型训练脚本
 import os
 import torch
 from datetime import datetime
+from colorama import Fore, Back, Style
 
 # 导入数据集和模型
 from data import retrieval_datasets
@@ -15,7 +16,7 @@ import options
 
 def main(args):
     save_str = utils.get_save_str(args)
-    print('-> model save name: ' + save_str + ' <-')
+    print(Fore.BLACK + Back.CYAN + '-> model save name: ' + save_str + ' <-' + Style.RESET_ALL)
     encoder_info = options.get_encoder_info(args.sketch_model)
 
     # 设置日志
@@ -44,7 +45,6 @@ def main(args):
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
-        back_mode='train',
         is_full_train=eval(args.is_full_train)
     )
 
@@ -68,7 +68,6 @@ def main(args):
         device=device,
         check_point=check_point,
         logger=logger,
-        retrieval_mode=args.retrieval_mode,
         save_str=save_str,
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
@@ -76,10 +75,7 @@ def main(args):
     )
     
     # 恢复训练（如果指定）
-    if eval(args.is_load_ckpt):
-        model_trainer.load_checkpoint(check_point)
-    else:
-        print('不加载权重，从零开始训练模型')
+    model_trainer.load_checkpoint(check_point, eval(args.is_load_ckpt))
 
     # 开始训练
     model_trainer.train()

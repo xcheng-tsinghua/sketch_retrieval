@@ -26,7 +26,7 @@ def parse_args():
 
     # training
     parser.add_argument('--epoch', type=int, default=200, help='最大训练轮数')
-    parser.add_argument('--lr', type=float, default=2e-4, help='学习率')
+    parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
     parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
