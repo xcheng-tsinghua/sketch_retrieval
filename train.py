@@ -75,7 +75,7 @@ def main(args):
     )
     
     # 恢复训练（如果指定）
-    model_trainer.load_checkpoint(check_point, eval(args.is_load_ckpt))
+    model_trainer.load_checkpoint(check_point, eval(args.is_load_ckpt), False)
 
     # 开始训练
     model_trainer.train()
