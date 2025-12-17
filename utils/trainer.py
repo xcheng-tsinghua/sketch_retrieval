@@ -426,11 +426,12 @@ class SBIRTrainer:
                 self.save_checkpoint(is_best=is_best)
 
             current_lr = self.optimizer.param_groups[0]['lr']
-            log_str = f'epoch {epoch}/{self.max_epochs}: train_loss: {train_loss:.4f}, lr: {current_lr:.6f} '
+            log_str = f'train_loss: {train_loss:.4f}, lr: {current_lr:.6f} '
             for k, acc in zip(self.topk, acc_topk):
                 log_str += f'Acc@{k}: {acc:.4f} '
 
-            print(log_str)
+            print(self.save_str + ': ' + log_str)
+            log_str = 'epoch {epoch}/{self.max_epochs}: ' + log_str
             log_str = log_str.replace(' ', '\t')
             self.logger.info(log_str)
 

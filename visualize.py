@@ -362,14 +362,15 @@ def main(args, eval_sketches):
         image_model_name=args.image_model,
         sketch_format=encoder_info['sketch_format'],
     )
-
-    print(f'从如下路径加载检查点: {checkpoint_path}.')
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    print(f"成功加载检查点 (epoch {checkpoint.get('epoch', 'unknown')})")
-    
     model.to(device)
-    model.eval()
+
+    # print(f'从如下路径加载检查点: {checkpoint_path}.')
+    # checkpoint = torch.load(checkpoint_path, map_location=device)
+    # model.load_state_dict(checkpoint['model_state_dict'])
+    # print(f"成功加载检查点 (epoch {checkpoint.get('epoch', 'unknown')})")
+    #
+    # model.to(device)
+    # model.eval()
 
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)
@@ -385,6 +386,8 @@ def main(args, eval_sketches):
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
     )
+    if not model_trainer.load_checkpoint(check_point, True, False):
+        exit(0)
 
     # 计算指标
     model_trainer.save_revl_success_ins()
@@ -408,12 +411,13 @@ def main(args, eval_sketches):
     assert len(eval_sketch_path) == len(gt_img_idx), ValueError('unpaired data')
 
     # 提取草图特征
+    model_trainer.model.eval()
     sketch_tensor_list = []
     for c_skh_path in eval_sketch_path:
         c_skh_tensor = test_loader.dataset.sketch_loader(c_skh_path)
         sketch_tensor_list.append(c_skh_tensor)
     skh_tensor = torch.stack(sketch_tensor_list, dim=0)
-    skh_fea = model.encode_sketch(skh_tensor.to(device)).cpu()
+    skh_fea = model_trainer.model.encode_sketch(skh_tensor.to(device)).cpu()
 
     image_tensor_list = []
     image_fea_list = []
@@ -425,7 +429,7 @@ def main(args, eval_sketches):
 
             # 编码图像
             img_tensor = img_tensor.to(device)
-            img_fea = model.encode_image(img_tensor)
+            img_fea = model_trainer.model.encode_image(img_tensor)
             image_fea_list.append(img_fea.cpu())
 
     # 合并特征
