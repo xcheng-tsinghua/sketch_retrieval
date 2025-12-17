@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
     parser.add_argument('--num_workers', type=int, default=8, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
-    parser.add_argument('--running_mode', type=str, default='get_success', choices=['train', 'vis_cluster', 'get_success'], help='--')
+    parser.add_argument('--running_mode', type=str, default='train', choices=['train', 'vis_cluster', 'get_success'], help='--')
 
     parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='--')
