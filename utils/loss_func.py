@@ -352,9 +352,9 @@ def info_nce_loss(
     """
 
     # 1. L2 normalize（极其重要）
-    sketch_fea  = F.normalize(sketch_fea, dim=1)
-    pos_img_fea = F.normalize(pos_img_fea, dim=1)
-    neg_img_fea = F.normalize(neg_img_fea, dim=1)
+    # sketch_fea = F.normalize(sketch_fea, dim=1)
+    # pos_img_fea = F.normalize(pos_img_fea, dim=1)
+    # neg_img_fea = F.normalize(neg_img_fea, dim=1)
 
     # 2. cosine similarity
     pos_sim = torch.sum(sketch_fea * pos_img_fea, dim=1) / temperature
@@ -385,9 +385,9 @@ def info_nce_multi_neg(
     """
     B, K, D = neg_img_fea.shape
 
-    sketch_fea = F.normalize(sketch_fea, dim=1)
-    pos_img_fea = F.normalize(pos_img_fea, dim=1)
-    neg_img_fea = F.normalize(neg_img_fea, dim=2)
+    # sketch_fea = F.normalize(sketch_fea, dim=1)
+    # pos_img_fea = F.normalize(pos_img_fea, dim=1)
+    # neg_img_fea = F.normalize(neg_img_fea, dim=2)
 
     # 正样本相似度 [B, 1]
     pos_sim = torch.sum(sketch_fea * pos_img_fea, dim=1, keepdim=True)
