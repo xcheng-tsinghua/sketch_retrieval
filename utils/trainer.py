@@ -330,7 +330,7 @@ class SBIRTrainer:
                 is_best = acc_topk[0] > self.best_acc
                 if is_best:
                     self.best_acc = acc_topk[0]
-                    print(Fore.BLUE + f'new best retrieval accuracy: {acc_topk[0]:.4f}' + Style.RESET_ALL)
+                    print(Fore.CYAN + f'new best retrieval accuracy: {acc_topk[0]:.4f}' + Style.RESET_ALL)
 
                 # 保存检查点
                 self.save_checkpoint(is_best=is_best)
