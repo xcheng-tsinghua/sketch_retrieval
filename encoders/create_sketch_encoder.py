@@ -315,6 +315,14 @@ def create_sketch_encoder(model_name,
             dropout=dropout
         )
 
+    elif model_name == 'sdgraph_attn':
+        encoder = sdgraph_endsnap_attn.SDGraphEmbedding(
+            channel_out=output_dim,
+            n_stk=sketch_format['n_stk'],
+            n_stk_pnt=sketch_format['n_stk_pnt'],
+            dropout=dropout
+        )
+
     elif model_name == 'sketch_transformer':
         encoder = sketch_transformer.SketchTransformer(
             max_length=sketch_format['max_length'],

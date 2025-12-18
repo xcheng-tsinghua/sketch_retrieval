@@ -12,7 +12,7 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=8, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
-    parser.add_argument('--sketch_model', type=str, default='sdgraph', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
+    parser.add_argument('--sketch_model', type=str, default='sdgraph_attn', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='--')
     parser.add_argument('--retrieval_mode', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
@@ -20,9 +20,9 @@ def parse_args():
     parser.add_argument('--multi_sketch_split', type=str, default='_', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-'
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
-    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
-    parser.add_argument('--add_str', type=str, default='chair', help='其它描述字符串')
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\shoe')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
+    parser.add_argument('--add_str', type=str, default='shoe', help='其它描述字符串')
 
     # training
     parser.add_argument('--epoch', type=int, default=300, help='最大训练轮数')
@@ -38,7 +38,7 @@ def parse_args():
     # visualizing
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')
     parser.add_argument('--n_vis_images', type=int, default=5, help='每张草图查询的图片数')
-    parser.add_argument('--vis_mode', type=str, default='example', choices=['summary', 'example', 'cluster', ], help='---')
+    parser.add_argument('--vis_mode', type=str, default='summary', choices=['summary', 'example', 'cluster', ], help='---')
 
     args = parser.parse_args()
     return args
@@ -56,6 +56,14 @@ supported_encoders = {
     'sdgraph': {
         'sketch_format': 'fmt: stk, n_stk: 12, n_stk_pnt: 32',
         'sketch_subdir': 'sketch_stk12_stkpnt32',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'sdgraph_attn': {
+        'sketch_format': 'fmt: stk, n_stk: 12, n_stk_pnt: 32',
+        'sketch_subdir': 'sketch_stk12_stkpnt32_autospace',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
