@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
     parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
-    parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='False', help='是否加载检查点')
+    parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
 
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
     parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='False', help='使用全部数据训练')
