@@ -73,29 +73,10 @@ def main(args):
     )
     
     # 恢复训练（如果指定）
-    model_trainer.load_checkpoint(check_point, eval(args.is_load_ckpt), False)
+    model_trainer.load_checkpoint(check_point, eval(args.is_load_ckpt))
 
     # 开始训练
     model_trainer.train()
-    # model_trainer.get_revl_success()
-
-    # if eval(args.is_vis):
-    #     model_trainer.vis_fea_cluster()
-    # else:
-    #     model_trainer.train()
-
-    # acc_1_idxes, acc_5_idxes = model_trainer.get_acc_files_epoch()
-    # logger.info('acc_1_sketches:')
-    #
-    # for c_idx in acc_1_idxes:
-    #     c_sketch_file, _ = test_set.get_file_pair_by_index(c_idx)
-    #     logger.info(c_sketch_file)
-    #
-    # logger.info('acc_5_sketches:')
-    #
-    # for c_idx in acc_5_idxes:
-    #     c_sketch_file, _ = test_set.get_file_pair_by_index(c_idx)
-    #     logger.info(c_sketch_file)
 
 
 if __name__ == '__main__':

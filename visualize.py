@@ -79,7 +79,7 @@ def visualize_sketch_retrieval_results(skh_pixel, gt_imgs,gt_img_idx, topk_imgs,
         plt.imsave(c_sketch_path, sketch_np, cmap='gray' if sketch_np.ndim == 2 else None)
 
         sketch_gt = tensor_to_image(gt_imgs[i])
-        sketch_gt = add_border(sketch_gt, 5, (0.5, 0.5, 0.5))
+        sketch_gt = add_border(sketch_gt, 5, (107,203,44))
         axes[i][1].imshow(sketch_gt, cmap='gray' if sketch_np.ndim == 2 else None)
         axes[i][1].axis("off")
 
@@ -92,11 +92,12 @@ def visualize_sketch_retrieval_results(skh_pixel, gt_imgs,gt_img_idx, topk_imgs,
             img = topk_imgs[i][j]
             img_np = tensor_to_image(img)
 
-            # topk_idx = topk_img_idx[i][j]
-            # if topk_idx != gt_idx:
-            #     img_np = add_border(img_np)
+            topk_idx = topk_img_idx[i][j]
+            if topk_idx == gt_idx:
+                img_np = add_border(img_np, 5, (107,203,44))
+            else:
+                img_np = add_border(img_np, 5, (182, 215, 254))
 
-            img_np = add_border(img_np, 5, (182, 215, 254))
             axes[i][j + 2].imshow(img_np, cmap='gray' if img_np.ndim == 2 else None)
             axes[i][j + 2].axis("off")
 
@@ -245,7 +246,7 @@ def main(args, eval_sketches):
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
     )
-    if not model_trainer.load_checkpoint(check_point, True, False):
+    if not model_trainer.load_checkpoint(check_point, True):
         exit(0)
 
     if args.vis_mode == 'summary':
@@ -264,12 +265,10 @@ def main(args, eval_sketches):
         # 找到查询草图对应的图片在图片列表中的索引
         gt_img_idx = []
         for c_skh_path in eval_sketch_path:
-
             for c_skh_path_ds, c_id_ds in test_loader.dataset.sketch_list_with_id:
                 if c_skh_path == c_skh_path_ds:
                     gt_img_idx.append(c_id_ds)
                     break
-
         assert len(eval_sketch_path) == len(gt_img_idx), ValueError('unpaired data')
 
         # 提取草图特征
@@ -392,23 +391,36 @@ if __name__ == '__main__':
         # 'class/CHASPT004GRY-UK_v1_ConcreteCottonVelvet_3',
         # 'class/sd12-o_2',
 
-        "class/s49-04_12",
-        "class/mc3-smalls_1",
-        "class/b7213200_1",
-        "class/saku231-vi30_1",
-        "class/SOFSTT003BRO-UK_v1_OxfordBrownPremiumLeather_3",
-        "class/ge_3",
-        "class/fb2602_3",
 
 
+        # # 'class/sllwl073-laque-rouge_3',
+        # 'class/mc4-s_1',
+        # 'class/mgankara_1',
+        # 'class/sezzsw-c_3',
+        # # 'class/sd1770-gris_1',
+        # # 'class/nin0swv-3a-noir_1',
+        # # 'class/SOFCOS001GRY-UK_v1_Pe_3',
+        # # 'class/gubi9-blkhirek-chrome_1',
+        # # 'class/sdlau045fe-sdlau046fd_1',
+        # # 'class/SOFKUB009PNK-UK_v1_PlumPur_1',
+        # 'class/ecin23-ya04-yi03_10',
+        # # 'class/CHASPT004GRY-UK_v1_ConcreteCottonVelvet_3',
+        # 'class/f056104-44bl-s042_3',
 
 
-        ##### shoe
-        # "class/2700230450_3",
-        # "class/4732075797_40",
-        # "class/2572290035_10",
-        # "class/4767160033_1",
-        # "class/2566521118_70",
+        # chair ✅️
+        'class/mc4-s_1',
+        'class/mgankara_1',
+        'class/sezzsw-c_3',
+        'class/f056104-44bl-s042_3',
+        'class/ecin23-ya04-yi03_10',
+
+        ##### shoe ✅️
+        # 'class/2529700078_60',
+        # 'class/2572290035_10',
+        # 'class/2537401678_10',
+        # 'class/2521600078_10',
+        # 'class/2534123173_60',
 
 
     ]

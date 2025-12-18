@@ -30,7 +30,6 @@ class SBIRTrainer:
                  max_epochs,
                  ckpt_save_interval=20,  # 检查点保存的 epoch 间隔
                  topk=(1, 5),
-                 # stop_val=100
                  ):
         self.model = model
         self.train_loader = train_loader
@@ -48,7 +47,6 @@ class SBIRTrainer:
         topk = list(topk)
         topk.sort()
         self.topk = topk
-        # self.stop_val = stop_val
 
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
 
@@ -64,21 +62,13 @@ class SBIRTrainer:
             eps=1e-6
         )
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.9)
-
-        # 损失函数
-        # if retrieval_mode == 'cl':
-        #     self.criterion = loss_func.contrastive_loss_cl_zs_sbir
-        #
-        # else:
-        #     self.criterion = loss_func.ContrastiveLoss(temperature=0.07)
-        #     # self.criterion = loss_func.contrastive_loss_fg_zs_sbir
-
         self.criterion = loss_func.info_nce_multi_neg
 
         # 训练状态
         self.current_epoch = 0
         self.best_acc = -1.
         self.train_losses = []
+        self.test_acc = []
 
         print(f'-> initiate trainer successful:')
         print(f'   check point save: {self.check_point}')
@@ -224,7 +214,9 @@ class SBIRTrainer:
                 skh_path_fmt = f'{path.parent.name}/{path.stem}'
                 c_revl_files.append(skh_path_fmt)
 
+            # 保证后一个精度的结果不包含前一个精度的结果
             c_revl_files = [x for x in c_revl_files if x not in prev_file]
+
             save_dict[f'top_{c_topk}'] = c_revl_files
             prev_file.extend(c_revl_files)
 
@@ -239,94 +231,6 @@ class SBIRTrainer:
         """
         acc_topk = self.get_acc_and_revl_success()[0]
         return acc_topk
-
-
-        with torch.no_grad():
-            # 提取草图特征
-            for sketches, images, category_indices in tqdm(self.test_loader, desc=f'{self.save_str}: Validating'):
-                sketches = sketches.to(self.device)
-                images = images.to(self.device)
-                category_indices = category_indices.to(self.device)
-
-                sketch_feat, image_feat, logit_scale = self.model(sketches, images)
-                loss = self.criterion(sketch_feat, image_feat, category_indices, logit_scale)
-                total_loss += loss.item()
-
-                sketch_features.append(sketch_feat.cpu())
-                image_features.append(image_feat.cpu())
-                class_labels.extend(category_indices.cpu().numpy())
-
-        # 合并特征
-        sketch_features = torch.cat(sketch_features, dim=0)
-        image_features = torch.cat(image_features, dim=0)
-        class_labels = torch.tensor(class_labels)
-
-        map_at = 200
-        map_val, prec_val = map_and_precision_at_k(sketch_features, image_features, class_labels, map_at)
-        acc_1, acc_5 = compute_topk_accuracy_fg(sketch_features, image_features)
-
-        print(f'mAP@{map_at}: {map_val:.4f}, Precision@{map_at}: {prec_val:.4f}, Acc@1: {acc_1:.4f}, Acc@5: {acc_5:.4f}')
-
-        test_loss = total_loss / len(self.test_loader)
-        return test_loss, map_val, prec_val, acc_1, acc_5
-
-    def get_revl_success(self, topk=(1, 5)):
-        """
-        验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
-        """
-        topk = (list(topk))
-        topk.sort()
-        self.model.eval()
-        save_path = f'./log/revl_ins_{self.save_str}.json'
-
-        # 提取特征
-        sketch_features = []
-        image_features = []
-
-        with torch.no_grad():
-            # 提取草图特征
-            for sketches, images, cat in tqdm(self.test_loader, desc="Validating"):
-                # 由于在创建测试集加载器时设置了 shuffle=False，因此不用担心顺序被打乱
-
-                sketches = sketches.to(self.device)
-                images = images.to(self.device)
-
-                sketch_feat, image_feat, logit_scale = self.model(sketches, images)
-
-                sketch_features.append(sketch_feat.cpu())
-                image_features.append(image_feat.cpu())
-
-        # 合并特征
-        sketch_features = torch.cat(sketch_features, dim=0)
-        image_features = torch.cat(image_features, dim=0)
-
-        acc_topk, revl_idx_topk = compute_topk_accuracy_with_file(sketch_features, image_features, topk)
-        acc_str = ''
-        for k, acc in zip(topk, acc_topk):
-            acc_str += f'Acc@{k}: {acc:.4f} '
-        print(acc_str)
-
-        # 找到对应的字符串并保存到对应的文件
-        save_dict = {}
-        prev_file = []
-        for c_topk, c_idx_list in zip(topk, revl_idx_topk):
-            c_revl_files = []
-            for c_idx in c_idx_list:
-                skh_path = self.test_loader.dataset.data_pairs[c_idx][0]
-
-                # 将路径转化为 class/basename 的格式
-                path = Path(skh_path)
-                skh_path_fmt = f'{path.parent.name}/{path.stem}'
-                c_revl_files.append(skh_path_fmt)
-
-            c_revl_files = [x for x in c_revl_files if x not in prev_file]
-            save_dict[f'top_{c_topk}'] = c_revl_files
-            prev_file.extend(c_revl_files)
-
-        # 保存到文件
-        with open(save_path, 'w', encoding='utf-8') as f:
-            json.dump(save_dict, f, ensure_ascii=False, indent=4)  # 中文正常、带缩进
-        print(f'file save to: {os.path.abspath(save_path)}')
 
     def vis_fea_cluster(self):
         """
@@ -359,7 +263,6 @@ class SBIRTrainer:
 
     def save_checkpoint(self, is_best=False):
         """保存模型检查点"""
-
         checkpoint = {
             'epoch': self.current_epoch + 1,
             'model_state_dict': self.model.state_dict(),
@@ -367,15 +270,15 @@ class SBIRTrainer:
             'scheduler_state_dict': self.scheduler.state_dict(),
             'best_acc': self.best_acc,
             'train_losses': self.train_losses,
-            # 'test_losses': self.test_losses
+            'test_acc': self.test_acc,
         }
         torch.save(checkpoint, self.check_point)
 
         if is_best:
             torch.save(checkpoint, self.check_point_best)
-            print(f"保存最佳模型: {self.check_point_best}")
+            print(Fore.BLUE + Back.GREEN + f'save best checkpoint: {self.check_point_best}' + Style.RESET_ALL)
 
-        print(f"保存检查点: {self.check_point}")
+        print(f'save checkpoint: {self.check_point}')
 
     def load_checkpoint(self, checkpoint_path, is_load, is_load_training_state=True):
         """加载模型检查点"""
@@ -383,28 +286,32 @@ class SBIRTrainer:
             try:
                 checkpoint = torch.load(checkpoint_path, map_location=self.device)
                 self.model.load_state_dict(checkpoint['model_state_dict'])
+                print(Fore.GREEN + f"checkpoint load finished: {checkpoint_path}, (epoch {checkpoint.get('epoch', 'unknown')})" + Style.RESET_ALL)
 
                 if is_load_training_state:
-                    self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                    self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-                    self.current_epoch = checkpoint['epoch']
-                    self.best_acc = checkpoint['best_acc']
-                    self.train_losses = checkpoint['train_losses']
-                    # self.test_losses = checkpoint['test_losses']
+                    try:
+                        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                        self.current_epoch = checkpoint['epoch']
+                        self.best_acc = checkpoint['best_acc']
+                        self.train_losses = checkpoint['train_losses']
+                        self.test_acc = checkpoint['test_acc']
 
-                print(Fore.GREEN + f"成功加载检查点:{checkpoint_path}, (epoch {checkpoint.get('epoch', 'unknown')})" + Style.RESET_ALL)
+                    except Exception as e:
+                        print(Fore.RED + f'load training status failed, error: {e}.' + Style.RESET_ALL)
+
                 return True
 
             except Exception as e:
-                print(Fore.RED + f'从如下文件加载检查点失败，从零开始训练：{checkpoint_path}, 错误: {e}' + Style.RESET_ALL)
+                print(Fore.RED + f'checkpoint load failed, training from scratch: {checkpoint_path}, error: {e}.' + Style.RESET_ALL)
                 return False
         else:
-            print('不加载权重，从零开始训练模型')
+            print('does not load weight, training from scratch.')
             return False
 
     def train(self):
         """开始训练"""
-        print("开始训练PNG草图-图像对齐模型...")
+        print(Fore.CYAN + 'start training SBIR model' + Style.RESET_ALL)
 
         for epoch in range(self.current_epoch, self.max_epochs):
             self.current_epoch = epoch
@@ -415,6 +322,7 @@ class SBIRTrainer:
 
             # 验证一个epoch
             acc_topk = self.validate_epoch()
+            self.test_acc.append(acc_topk)
 
             # 保存检查点
             if (epoch + 1) % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
@@ -422,7 +330,7 @@ class SBIRTrainer:
                 is_best = acc_topk[0] > self.best_acc
                 if is_best:
                     self.best_acc = acc_topk[0]
-                    print(f"新的最佳预测准确率: {acc_topk[0]:.4f}")
+                    print(Fore.BLUE + f'new best retrieval accuracy: {acc_topk[0]:.4f}' + Style.RESET_ALL)
 
                 # 保存检查点
                 self.save_checkpoint(is_best=is_best)
@@ -437,23 +345,7 @@ class SBIRTrainer:
             log_str = log_str.replace(' ', '\t')
             self.logger.info(log_str)
 
-            # if map_200 < self.stop_val:
-            #     break
-
-        print("训练完成!")
-
-    def start(self, mode):
-        if mode == 'train':
-            self.train()
-
-        elif mode == 'vis_cluster':
-            self.vis_fea_cluster()
-
-        elif mode == 'get_success':
-            self.get_revl_success()
-
-        else:
-            raise TypeError('unsupported running mode')
+        print(Fore.BLACK + Back.GREEN + 'training finished!' + Style.RESET_ALL)
 
 
 def compute_retrieval_metrics(similarity_matrix, labels):

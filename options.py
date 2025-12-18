@@ -20,12 +20,12 @@ def parse_args():
     parser.add_argument('--multi_sketch_split', type=str, default='_', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-'
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
-    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\shoe')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
-    parser.add_argument('--add_str', type=str, default='shoe_attn', help='附带的字符串')
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
+    parser.add_argument('--add_str', type=str, default='chair', help='其它描述字符串')
 
     # training
-    parser.add_argument('--epoch', type=int, default=200, help='最大训练轮数')
+    parser.add_argument('--epoch', type=int, default=300, help='最大训练轮数')
     parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
@@ -38,7 +38,7 @@ def parse_args():
     # visualizing
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')
     parser.add_argument('--n_vis_images', type=int, default=5, help='每张草图查询的图片数')
-    parser.add_argument('--vis_mode', type=str, default='summary', choices=['summary', 'example', 'cluster', ], help='---')
+    parser.add_argument('--vis_mode', type=str, default='example', choices=['summary', 'example', 'cluster', ], help='---')
 
     args = parser.parse_args()
     return args
@@ -55,7 +55,7 @@ supported_encoders = {
 
     'sdgraph': {
         'sketch_format': 'fmt: stk, n_stk: 12, n_stk_pnt: 32',
-        'sketch_subdir': 'sketch_stk12_stkpnt32_autospace',
+        'sketch_subdir': 'sketch_stk12_stkpnt32',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
         'image_suffix': 'png',
@@ -154,9 +154,9 @@ if __name__ == '__main__':
     #
     # print(f"对称差已写入 {fout}，共 {len(sym_diff)} 行。")
 
-    sdgraph_path = './log/revl_ins_sdgraph_vit_fg_sbir_full_multi_pair_chair.json'
-    vit_path = './log/revl_ins_vit_vit_fg_sbir_full_multi_pair_chair.json'
-    lstm_path = './log/revl_ins_bidir_lstm_vit_fg_sbir_full_multi_pair_chair.json'
+    sdgraph_path = './log/revl_ins_sdgraph_vit_fg_sbir_shoe.json'
+    vit_path = './log/revl_ins_vit_vit_fg_sbir_shoe.json'
+    lstm_path = './log/revl_ins_bidir_lstm_vit_fg_sbir_shoe.json'
 
     with open(sdgraph_path, encoding='utf-8') as f:
         sdgraph_dict_chair: dict = json.load(f)
