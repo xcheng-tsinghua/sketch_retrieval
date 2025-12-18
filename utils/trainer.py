@@ -42,6 +42,8 @@ class SBIRTrainer:
         self.ckpt_save_interval = ckpt_save_interval
         self.save_str = save_str
 
+        self.model.to(self.device)
+
         # 保证升序
         topk = list(topk)
         topk.sort()
@@ -79,9 +81,9 @@ class SBIRTrainer:
         self.train_losses = []
 
         print(f'-> initiate trainer successful:')
-        print(f'check point save: {self.check_point}')
-        print(f'learning rate: {learning_rate}')
-        print(f'max epoch: {max_epochs}')
+        print(f'   check point save: {self.check_point}')
+        print(f'   learning rate: {learning_rate}')
+        print(f'   max epoch: {max_epochs}')
 
     def train_epoch(self):
         """

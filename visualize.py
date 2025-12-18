@@ -12,152 +12,13 @@ from datetime import datetime
 from torch.utils.data import Dataset
 from pathlib import Path
 import json
+from colorama import Fore, Back, Style
 
 # 导入数据集和模型
 from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import utils, trainer
 import options
-
-
-class SimpleDataset(Dataset):
-    def __init__(self, file_list, file_loader):
-        self.file_list = file_list
-        self.file_loader = file_loader
-
-    def __len__(self):
-        return len(self.file_list)
-
-    def __getitem__(self, idx):
-        file_path = self.file_list[idx]
-        file_tesor = self.file_loader(file_path)
-
-        return file_tesor
-
-
-def create_simple_dataloader(file_list, file_loader, batch_size, num_workers):
-    simple_set = SimpleDataset(file_list, file_loader)
-
-    simple_loader = torch.utils.data.DataLoader(
-        simple_set,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
-        drop_last=False
-    )
-    return simple_loader
-
-
-def get_fea(encoder, data_loader, device):
-    fea_list = []
-    with torch.no_grad():
-        for sketch_tensor in tqdm(data_loader, desc="loading data"):
-            # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
-            sketch_tensor = sketch_tensor.to(device)
-
-            sketch_fea = encoder(sketch_tensor)
-            fea_list.append(sketch_fea.cpu())
-
-    # 合并特征
-    fea_list = torch.cat(fea_list, dim=0)
-    return fea_list
-
-
-@torch.no_grad()
-def compute_acc_at_k_with_indices(
-    sketch_features: torch.Tensor,   # [m, fea]
-    image_features: torch.Tensor,    # [n, fea]
-    paired_idx: torch.Tensor,        # [m]
-    topk_tuple=(1, 5)
-):
-    """
-    Returns:
-        dict[k] = {
-            'acc': float,
-            'correct_indices': LongTensor
-        }
-    """
-
-    # 2. similarity matrix [m, n]
-    sim_matrix = sketch_features @ image_features.t()
-
-    max_k = max(topk_tuple)
-
-    # 3. top-k retrieval
-    _, topk_indices = sim_matrix.topk(
-        k=max_k,
-        dim=1,
-        largest=True,
-        sorted=True
-    )  # [m, max_k]
-
-    # 4. GT index
-    gt_idx = torch.tensor(paired_idx).view(-1, 1)  # [m, 1]
-
-    accs = []
-    indices = []
-    for k in topk_tuple:
-        # [m] bool
-        correct_k = (topk_indices[:, :k] == gt_idx).any(dim=1)
-
-        # Acc@k
-        acc_k = correct_k.float().mean().item()
-
-        # 命中的草图索引
-        correct_indices = torch.nonzero(correct_k, as_tuple=False).squeeze(1)
-
-        accs.append(acc_k)
-        indices.append(correct_indices)
-
-    return accs, indices
-
-
-def get_revl_success(vis_dataset, sbir_model, save_str, batch_size, num_workers, device, topk=(1, 5)):
-    """
-    验证一个epoch, 并返回 FG-SBIR 检索成功在 Acc@1 及 Acc@5 的草图路径
-    """
-    topk = (list(topk))
-    topk.sort()
-    sbir_model.eval()
-    save_path = f'./log/revl_ins_{save_str}.json'
-
-    # 构建加载器
-    sketch_loader = create_simple_dataloader(vis_dataset.sketch_list, vis_dataset.sketch_loader, batch_size, num_workers)
-    image_loader = create_simple_dataloader(vis_dataset.image_list, vis_dataset.image_loader, batch_size, num_workers)
-
-    # 提取特征
-    sketch_features = get_fea(sbir_model.encode_sketch, sketch_loader, device)
-    image_features = get_fea(sbir_model.encode_image, image_loader, device)
-
-    # 计算准确率
-    acc_topk, revl_idx_topk = compute_acc_at_k_with_indices(sketch_features, image_features, vis_dataset.paired_img_idx)
-    acc_str = ''
-    for k, acc in zip(topk, acc_topk):
-        acc_str += f'Acc@{k}: {acc:.4f} '
-    print(acc_str)
-
-    # 找到对应的字符串并保存到对应的文件
-    save_dict = {}
-    prev_file = []
-    for c_topk, c_idx_list in zip(topk, revl_idx_topk):
-        c_revl_files = []
-        for c_idx in c_idx_list:
-            skh_path = vis_dataset.sketch_list[c_idx]
-
-            # 将路径转化为 class/basename 的格式
-            path = Path(skh_path)
-            skh_path_fmt = f'{path.parent.name}/{path.stem}'
-            c_revl_files.append(skh_path_fmt)
-
-        c_revl_files = [x for x in c_revl_files if x not in prev_file]
-        save_dict[f'top_{c_topk}'] = c_revl_files
-        prev_file.extend(c_revl_files)
-
-    # 保存到文件
-    with open(save_path, 'w', encoding='utf-8') as f:
-        json.dump(save_dict, f, ensure_ascii=False, indent=4)  # 中文正常、带缩进
-    print(f'file save to: {os.path.abspath(save_path)}')
 
 
 def find_topk_matching_images(skh_fea, img_fea, img_tensor, k) -> [torch.Tensor, torch.Tensor]:
@@ -235,7 +96,7 @@ def visualize_sketch_retrieval_results(skh_pixel, gt_imgs,gt_img_idx, topk_imgs,
             # if topk_idx != gt_idx:
             #     img_np = add_border(img_np)
 
-            img_np = add_border(img_np, 5, (0.5, 0.5, 0.5))
+            img_np = add_border(img_np, 5, (182, 215, 254))
             axes[i][j + 2].imshow(img_np, cmap='gray' if img_np.ndim == 2 else None)
             axes[i][j + 2].axis("off")
 
@@ -265,14 +126,20 @@ def tensor_to_image(tensor):
 
 def add_border(img, border_width=5, border_color=(1, 0, 0)):
     """
-    img   : ndarray, shape (H, W, 3), dtype float or uint8, range [0,1] or [0,255]
-    border: int, 边框厚度（像素）
+    Args:
+        img   : ndarray, shape (H, W, 3), dtype float or uint8, range [0, 1] or [0, 255]
+        border_width: int, 边框厚度（像素）
+        border_color: 边框 RGB 颜色，必须是 [0, 1] or [0, 255]
+
     return: 带红色边框的图像
     """
     img = img.copy()          # 不破坏原图
     if img.dtype != np.float32 and img.dtype != np.float64:
         # 如果是 uint8，先把 255 归一化到 1
         img = img.astype(np.float32) / 255.0
+
+    if max(border_color) > 1:
+        border_color = [x / 255 for x in border_color]
 
     H, W = img.shape[:2]
     # 上、下
@@ -312,10 +179,11 @@ def sketch_tensor_to_pixel_image(sketch_tensor, sketch_rep):
 
 
 def main(args, eval_sketches):
-    print("开始可视化前5好类别的PNG草图-图像检索效果...")
-    
     # 设置路径
     save_str = utils.get_save_str(args)
+    print(Fore.CYAN + f'visualize retrieval results, mode: {args.vis_mode}.')
+    print(Fore.BLACK + Back.CYAN + '-> model save name: ' + save_str + ' <-' + Style.RESET_ALL)
+
     checkpoint_path = utils.get_check_point(args.weight_dir, save_str)
     encoder_info = options.get_encoder_info(args.sketch_model)
 
@@ -362,15 +230,6 @@ def main(args, eval_sketches):
         image_model_name=args.image_model,
         sketch_format=encoder_info['sketch_format'],
     )
-    model.to(device)
-
-    # print(f'从如下路径加载检查点: {checkpoint_path}.')
-    # checkpoint = torch.load(checkpoint_path, map_location=device)
-    # model.load_state_dict(checkpoint['model_state_dict'])
-    # print(f"成功加载检查点 (epoch {checkpoint.get('epoch', 'unknown')})")
-    #
-    # model.to(device)
-    # model.eval()
 
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)
@@ -389,66 +248,73 @@ def main(args, eval_sketches):
     if not model_trainer.load_checkpoint(check_point, True, False):
         exit(0)
 
-    # 计算指标
-    model_trainer.save_revl_success_ins()
+    if args.vis_mode == 'summary':
+        # 在测试集计算检索指标，并保存到文件
+        model_trainer.save_revl_success_ins()
 
-    # 将输入的草图信息转化为绝对路径
-    eval_sketch_path = []
-    for c_eval_skh in eval_sketches:
-        c_class, c_base_name = c_eval_skh.split('/')
-        c_real_path = os.path.join(sketch_root, 'test', c_class, c_base_name + '.' + encoder_info['sketch_suffix'])
-        eval_sketch_path.append(c_real_path)
+    elif args.vis_mode == 'example':
+        # 可视化检索样例
+        # 将输入的草图信息转化为绝对路径
+        eval_sketch_path = []
+        for c_eval_skh in eval_sketches:
+            c_class, c_base_name = c_eval_skh.split('/')
+            c_real_path = os.path.join(sketch_root, 'test', c_class, c_base_name + '.' + encoder_info['sketch_suffix'])
+            eval_sketch_path.append(c_real_path)
 
-    # 找到查询草图对应的图片在图片列表中的索引
-    gt_img_idx = []
-    for c_skh_path in eval_sketch_path:
+        # 找到查询草图对应的图片在图片列表中的索引
+        gt_img_idx = []
+        for c_skh_path in eval_sketch_path:
 
-        for c_skh_path_ds, c_id_ds in test_loader.dataset.sketch_list_with_id:
-            if c_skh_path == c_skh_path_ds:
-                gt_img_idx.append(c_id_ds)
-                break
+            for c_skh_path_ds, c_id_ds in test_loader.dataset.sketch_list_with_id:
+                if c_skh_path == c_skh_path_ds:
+                    gt_img_idx.append(c_id_ds)
+                    break
 
-    assert len(eval_sketch_path) == len(gt_img_idx), ValueError('unpaired data')
+        assert len(eval_sketch_path) == len(gt_img_idx), ValueError('unpaired data')
 
-    # 提取草图特征
-    model_trainer.model.eval()
-    sketch_tensor_list = []
-    for c_skh_path in eval_sketch_path:
-        c_skh_tensor = test_loader.dataset.sketch_loader(c_skh_path)
-        sketch_tensor_list.append(c_skh_tensor)
-    skh_tensor = torch.stack(sketch_tensor_list, dim=0)
-    skh_fea = model_trainer.model.encode_sketch(skh_tensor.to(device)).cpu()
+        # 提取草图特征
+        model_trainer.model.eval()
+        sketch_tensor_list = []
+        for c_skh_path in eval_sketch_path:
+            c_skh_tensor = test_loader.dataset.sketch_loader(c_skh_path)
+            sketch_tensor_list.append(c_skh_tensor)
+        skh_tensor = torch.stack(sketch_tensor_list, dim=0)
+        skh_fea = model_trainer.model.encode_sketch(skh_tensor.to(device)).cpu()
 
-    image_tensor_list = []
-    image_fea_list = []
-    test_loader.dataset.back_image()
-    with torch.no_grad():
-        for img_tensor in tqdm(test_loader):
-            # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
-            image_tensor_list.append(img_tensor.cpu())
+        image_tensor_list = []
+        image_fea_list = []
+        test_loader.dataset.back_image()
+        with torch.no_grad():
+            for img_tensor in tqdm(test_loader):
+                # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
+                image_tensor_list.append(img_tensor.cpu())
 
-            # 编码图像
-            img_tensor = img_tensor.to(device)
-            img_fea = model_trainer.model.encode_image(img_tensor)
-            image_fea_list.append(img_fea.cpu())
+                # 编码图像
+                img_tensor = img_tensor.to(device)
+                img_fea = model_trainer.model.encode_image(img_tensor)
+                image_fea_list.append(img_fea.cpu())
 
-    # 合并特征
-    img_fea = torch.cat(image_fea_list, dim=0)
-    img_tensor = torch.cat(image_tensor_list, dim=0)
-    print(f"提取特征完成: sketch {skh_fea.shape}, image {img_fea.shape}")
+        # 合并特征
+        img_fea = torch.cat(image_fea_list, dim=0)
+        img_tensor = torch.cat(image_tensor_list, dim=0)
+        print(f'提取特征完成: sketch {skh_fea.shape}, image {img_fea.shape}')
 
-    # 找到最近的图片及索引，索引用于确认是否检索准确
-    topk_imgs, topk_img_idx = find_topk_matching_images(skh_fea, img_fea, img_tensor, args.n_vis_images)
+        # 找到最近的图片及索引，索引用于确认是否检索准确
+        topk_imgs, topk_img_idx = find_topk_matching_images(skh_fea, img_fea, img_tensor, args.n_vis_images)
 
-    # 获取gt 图片
-    gt_img_tensor = img_tensor[gt_img_idx]
+        # 获取gt 图片
+        gt_img_tensor = img_tensor[gt_img_idx]
 
-    # 将草图转化为可视化图片，有些草图是矢量形式，需要转化为图片
-    skh_info_dict = options.parse_sketch_format(encoder_info['sketch_format'])
-    skh_pixel_tensor = sketch_tensor_to_pixel_image(skh_tensor, skh_info_dict['fmt'])
+        # 将草图转化为可视化图片，有些草图是矢量形式，需要转化为图片
+        skh_info_dict = options.parse_sketch_format(encoder_info['sketch_format'])
+        skh_pixel_tensor = sketch_tensor_to_pixel_image(skh_tensor, skh_info_dict['fmt'])
 
-    # 将查询草图、gt图片、检索图片（gt有红框）进行排列
-    visualize_sketch_retrieval_results(skh_pixel_tensor, gt_img_tensor, gt_img_idx, topk_imgs, topk_img_idx, current_vis_dir)
+        # 将查询草图、gt图片、检索图片（gt有红框）进行排列
+        visualize_sketch_retrieval_results(skh_pixel_tensor, gt_img_tensor, gt_img_idx, topk_imgs, topk_img_idx, current_vis_dir)
+
+    elif args.vis_mode == 'cluster':
+        # 可视化集群
+        pass
 
 
 if __name__ == '__main__':
@@ -526,10 +392,13 @@ if __name__ == '__main__':
         # 'class/CHASPT004GRY-UK_v1_ConcreteCottonVelvet_3',
         # 'class/sd12-o_2',
 
-        "class/ge_12",
-        "class/nin0-3a-noir_10",
-        "class/CHADIN001PNK-UK_v1_ScarletPink_2",
-        "class/sd1770-gris_2"
+        "class/s49-04_12",
+        "class/mc3-smalls_1",
+        "class/b7213200_1",
+        "class/saku231-vi30_1",
+        "class/SOFSTT003BRO-UK_v1_OxfordBrownPremiumLeather_3",
+        "class/ge_3",
+        "class/fb2602_3",
 
 
 

@@ -5,7 +5,7 @@ import torch.nn as nn
 import timm
 
 from encoders import lstm
-from sdgraph import sdgraph_sel, sdgraph_endsnap
+from sdgraph import sdgraph_sel, sdgraph_endsnap, sdgraph_endsnap_attn
 from encoders import gru
 from encoders import sketch_transformer
 import options
@@ -308,7 +308,7 @@ def create_sketch_encoder(model_name,
         )
 
     elif model_name == 'sdgraph':
-        encoder = sdgraph_sel.SDGraphEmbedding(
+        encoder = sdgraph_endsnap_attn.SDGraphEmbedding(
             channel_out=output_dim,
             n_stk=sketch_format['n_stk'],
             n_stk_pnt=sketch_format['n_stk_pnt'],

@@ -28,7 +28,6 @@ def main(args):
 
     # 预加载数据集
     root = args.root_local if eval(args.local) else args.root_sever
-
     pre_load = retrieval_datasets.DatasetPreload(
         sketch_root=os.path.join(root, encoder_info['sketch_subdir']),
         image_root=os.path.join(root, encoder_info['image_subdir']),
@@ -57,7 +56,6 @@ def main(args):
         image_model_name=args.image_model,
         sketch_format=encoder_info['sketch_format'],
     )
-    model.to(device)
 
     # 创建训练器
     check_point = utils.get_check_point(args.weight_dir, save_str)

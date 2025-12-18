@@ -364,6 +364,7 @@ def get_save_str(args):
     """
     is_full_train = '_full_' if eval(args.is_full_train) else ''
     pair_mode = 'single_pair' if args.pair_mode == 'single_pair' else ''
+    args.add_str = '_' + args.add_str if args.add_str != '' else args.add_str
 
     save_str = (args.sketch_model + '_' +
                 args.image_model + '_' +
