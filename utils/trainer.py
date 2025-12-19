@@ -80,11 +80,11 @@ class SBIRTrainer:
         训练一个epoch
         """
         self.model.train()
+        self.train_loader.dataset.back_train_data()
+
         total_loss = 0.0
         num_batches = len(self.train_loader)
         progress_bar = tqdm(self.train_loader, desc=f'{self.current_epoch}/{self.max_epochs}')
-
-        self.train_loader.dataset.back_train_data()
         for sketches, images_pos, images_neg in progress_bar:
             # 移动数据到设备
             sketches = sketches.to(self.device)
