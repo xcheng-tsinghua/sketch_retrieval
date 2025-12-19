@@ -421,10 +421,10 @@ class SBIRTrainer:
                         self.train_losses = checkpoint['train_losses']
                         self.test_acc = checkpoint['test_acc']
                         self.best_acc = checkpoint['best_acc']
-                        self.current_epoch = checkpoint['epoch']
 
-                        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                        # self.current_epoch = checkpoint['epoch']
+                        # self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                        # self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
                     except Exception as e:
                         print(Fore.RED + f'load training status failed, error: {e}.' + Style.RESET_ALL)
