@@ -275,8 +275,8 @@ class SBIRTrainer:
         """
         验证一个epoch
         """
-        # acc_topk, _ = self.get_acc_revl_success()
-        #
+        acc_topk, _ = self.get_acc_revl_success()
+
         # # 计算负样本，需要利用训练集
         # self.model.eval()
         #
