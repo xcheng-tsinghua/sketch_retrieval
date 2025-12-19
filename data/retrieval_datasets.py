@@ -23,7 +23,7 @@ class SketchImageDataset(Dataset):
     TODO: 未完善 category-level 数据加载
     """
     def __init__(self,
-                 data_mode,
+                 is_train,
                  pre_load,
                  sketch_transform,
                  image_transform,
@@ -35,16 +35,16 @@ class SketchImageDataset(Dataset):
         初始化数据集
         
         Args:
-            data_mode: 'train' 或 'test'
+            train_data: 'train' 或 'test'
             pre_load: 固定数据集划分
             sketch_transform: 草图变换
             image_transform: 图像变换
 
         """
-        assert data_mode in ('train', 'test', 'vis')  # vis: 用于可视化检索结果
-        self.data_mode = data_mode
+        self.is_train = is_train
         self.n_neg = n_neg
-        self.test_mode = 'image'
+        self.back_mode = 'train_data'  # ['train_data', 'sketch', 'image']
+        self.neg_instance = None  # 负样本
 
         # 默认变换
         self.sketch_transform = sketch_transform or transforms.Compose([
@@ -98,7 +98,7 @@ class SketchImageDataset(Dataset):
                                     )
 
         self._load_fixed_split(pre_load, is_full_train)
-        print(f'-> SketchImageDataset initialized with: {self.data_mode}.')
+        print(f'-> SketchImageDataset initialized with: {"Training" if self.is_train else "Testing"}.')
         print(f'   sketch: {len(self.sketch_list_with_id)}, image: {len(self.image_list)}, categories: {len(self.categories)}')
         
     def _load_fixed_split(self, pre_load, is_full_train):
@@ -106,16 +106,13 @@ class SketchImageDataset(Dataset):
         加载固定的数据集划分
         """
         # 根据模式选择数据
-        if self.data_mode == 'train':
+        if self.is_train:
             self.data_pairs = pre_load.train_pairs
             if is_full_train:
                 self.data_pairs.extend(pre_load.test_pairs)
 
-        elif self.data_mode == 'test':
-            self.data_pairs = pre_load.test_pairs
-
         else:
-            raise ValueError(f"不支持的模式: {self.data_mode}")
+            self.data_pairs = pre_load.test_pairs
 
         # 获取草图列表、图片列表、id 映射
         self.image_list = []
@@ -143,13 +140,13 @@ class SketchImageDataset(Dataset):
         
     def __len__(self):
         # return len(self.data_pairs)
-        if self.data_mode == 'train':
+        if self.back_mode == 'train_data':
             return len(self.sketch_list_with_id)
 
-        elif self.test_mode == 'image':
+        elif self.back_mode == 'image':
             return len(self.image_list)
 
-        elif self.test_mode == 'sketch':
+        elif self.back_mode == 'sketch':
             return len(self.sketch_list_with_id)
 
         else:
@@ -166,7 +163,7 @@ class SketchImageDataset(Dataset):
             category_name: 类别名称
         """
 
-        if self.data_mode == 'train':
+        if self.back_mode == 'train_data':
             # 选出草图样本
             skh_path, ins_id = self.sketch_list_with_id[idx]
             skh_tensor = self.sketch_loader(skh_path)
@@ -176,7 +173,12 @@ class SketchImageDataset(Dataset):
             pos_img_tensor = self.image_loader(pos_img)
 
             # 选出指定个数负样本：
-            neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id, ))
+            if self.neg_instance is None:  # 随机选取
+                neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id, ))
+            else:  # 根据指定的负样本选取
+                neg_img_list = self.neg_instance[idx]
+                neg_img_list = [self.image_list[i] for i in neg_img_list]
+
             neg_img_tensor_list = []
             for c_neg in neg_img_list:
                 c_neg_tensor = self.image_loader(c_neg).unsqueeze(0)
@@ -185,12 +187,12 @@ class SketchImageDataset(Dataset):
 
             return skh_tensor, pos_img_tensor, neg_img_tensor_all
 
-        elif self.test_mode == 'image':
+        elif self.back_mode == 'image':
             img_path = self.image_list[idx]
             img_tensor = self.image_loader(img_path)
             return img_tensor
 
-        elif self.test_mode == 'sketch':
+        elif self.back_mode == 'sketch':
             skh_path, _ = self.sketch_list_with_id[idx]
             skh_tensor = self.sketch_loader(skh_path)
             return skh_tensor
@@ -199,7 +201,7 @@ class SketchImageDataset(Dataset):
             raise ValueError('unsupported back mode')
 
     @staticmethod
-    def sample_exclude(lst, k, forbidden_idx):
+    def sample_exclude(lst, k, forbidden_idx) -> list:
         # 把允许抽的索引先列出来
         allowed_idx = [i for i in range(len(lst)) if i not in forbidden_idx]
 
@@ -213,10 +215,13 @@ class SketchImageDataset(Dataset):
         return [lst[i] for i in picked_idx]
 
     def back_image(self):
-        self.test_mode = 'image'
+        self.back_mode = 'image'
 
     def back_sketch(self):
-        self.test_mode = 'sketch'
+        self.back_mode = 'sketch'
+
+    def back_train_data(self):
+        self.back_mode = 'train_data'
 
 
 class DatasetPreload(object):
@@ -636,7 +641,7 @@ def create_sketch_image_dataloaders(batch_size,
     
     # 创建数据集
     train_dataset = SketchImageDataset(
-        data_mode='train',
+        is_train=True,
         pre_load=pre_load,
         sketch_transform=train_sketch_transform,
         image_transform=train_image_transform,
@@ -645,22 +650,13 @@ def create_sketch_image_dataloaders(batch_size,
     )
 
     test_dataset = SketchImageDataset(
-        data_mode='test',
+        is_train=False,
         pre_load=pre_load,
         sketch_transform=test_transform,
         image_transform=test_transform,
         sketch_format=sketch_format,
         is_full_train=False,
     )
-
-    # vis_dataset = SketchImageDataset(
-    #     data_mode='vis',
-    #     pre_load=pre_load,
-    #     sketch_transform=test_transform,
-    #     image_transform=test_transform,
-    #     sketch_format=sketch_format,
-    #     is_full_train=False,
-    # )
     
     # 创建数据加载器
     train_loader = torch.utils.data.DataLoader(
@@ -669,7 +665,7 @@ def create_sketch_image_dataloaders(batch_size,
         shuffle=True,
         num_workers=num_workers,
         pin_memory=True,
-        drop_last=True
+        drop_last=False
     )
     
     test_loader = torch.utils.data.DataLoader(
@@ -680,15 +676,6 @@ def create_sketch_image_dataloaders(batch_size,
         pin_memory=True,
         drop_last=False
     )
-
-    # vis_loader = torch.utils.data.DataLoader(
-    #     vis_dataset,
-    #     batch_size=batch_size,
-    #     shuffle=False,
-    #     num_workers=num_workers,
-    #     pin_memory=True,
-    #     drop_last=False
-    # )
 
     return train_loader, test_loader
 

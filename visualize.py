@@ -253,6 +253,9 @@ def main(args, eval_sketches):
         # 在测试集计算检索指标，并保存到文件
         model_trainer.save_revl_success_ins()
 
+        # 显示训练状态
+        model_trainer.vis_training_status()
+
     elif args.vis_mode == 'example':
         # 可视化检索样例
         # 将输入的草图信息转化为绝对路径

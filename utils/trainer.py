@@ -84,6 +84,7 @@ class SBIRTrainer:
         num_batches = len(self.train_loader)
         progress_bar = tqdm(self.train_loader, desc=f'{self.current_epoch}/{self.max_epochs}')
 
+        self.train_loader.dataset.back_train_data()
         for sketches, images_pos, images_neg in progress_bar:
             # 移动数据到设备
             sketches = sketches.to(self.device)
@@ -130,39 +131,41 @@ class SBIRTrainer:
         avg_loss = total_loss / num_batches
         return avg_loss
 
-    @staticmethod
+    # @staticmethod
+    # @torch.no_grad()
+    # def get_fea(encoder, data_loader, device):
+    #     fea_list = []
+    #     for sketch_tensor in tqdm(data_loader, desc="loading data"):
+    #         # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
+    #         sketch_tensor = sketch_tensor.to(device)
+    #
+    #         sketch_fea = encoder(sketch_tensor)
+    #         fea_list.append(sketch_fea.cpu())
+    #
+    #     # 合并特征
+    #     fea_list = torch.cat(fea_list, dim=0)
+    #     return fea_list
+
     @torch.no_grad()
-    def get_fea(encoder, data_loader, device):
-        fea_list = []
-        for sketch_tensor in tqdm(data_loader, desc="loading data"):
-            # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
-            sketch_tensor = sketch_tensor.to(device)
-
-            sketch_fea = encoder(sketch_tensor)
-            fea_list.append(sketch_fea.cpu())
-
-        # 合并特征
-        fea_list = torch.cat(fea_list, dim=0)
-        return fea_list
-
-    @torch.no_grad()
-    def get_acc_and_revl_success(self):
+    def get_acc_revl_success(self):
         """
         获取测试集准确率以及检索成功的草图样例索引
         """
-        self.model.eval()
+        # self.model.eval()
 
-        # 提取草图特征
-        self.test_loader.dataset.back_sketch()
-        sketch_features = self.get_fea(self.model.encode_sketch, self.test_loader, self.device)
+        # # 提取草图特征
+        # self.test_loader.dataset.back_sketch()
+        # sketch_features = self.get_fea(self.model.encode_sketch, self.test_loader, self.device)
+        #
+        # # 提取图片特征
+        # self.test_loader.dataset.back_image()
+        # image_features = self.get_fea(self.model.encode_image, self.test_loader, self.device)
+        #
+        # # 计算准确率及匹配的样例
+        # # 1. similarity matrix [m, n]
+        # sim_matrix = sketch_features @ image_features.t()
 
-        # 提取图片特征
-        self.test_loader.dataset.back_image()
-        image_features = self.get_fea(self.model.encode_image, self.test_loader, self.device)
-
-        # 计算准确率及匹配的样例
-        # 1. similarity matrix [m, n]
-        sim_matrix = sketch_features @ image_features.t()
+        sim_matrix = self.get_similarity_matrix(False)
 
         max_k = max(self.topk)
 
@@ -195,7 +198,7 @@ class SBIRTrainer:
         """
         save_path = f'./log/revl_ins_{self.save_str}.json'
 
-        acc_topk, revl_idx_topk = self.get_acc_and_revl_success()
+        acc_topk, revl_idx_topk = self.get_acc_revl_success()
         acc_str = ''
         for k, acc in zip(self.topk, acc_topk):
             acc_str += f'Acc@{k}: {acc:.4f} '
@@ -225,11 +228,99 @@ class SBIRTrainer:
             json.dump(save_dict, f, ensure_ascii=False, indent=4)  # 中文正常、带缩进
         print(f'file save to: {os.path.abspath(save_path)}')
 
+    @torch.no_grad()
+    def get_similarity_matrix(self, is_train):
+        """
+        获取相似度矩阵
+        [n_skh, n_img]
+
+        is_train: True 训练集上的相似度矩阵
+        False 测试集上的相似度矩阵
+        """
+
+        def _get_fea(_encoder):
+            """
+            获取特征
+            """
+            _fea_list = []
+            for _data_tensor in tqdm(target_loader, desc='loading data'):
+                # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
+                _data_tensor = _data_tensor.to(self.device)
+
+                _fea_tensor = _encoder(_data_tensor)
+                _fea_list.append(_fea_tensor.cpu())
+
+            # 合并特征
+            _fea_list = torch.cat(_fea_list, dim=0)
+            return _fea_list
+
+        target_loader = self.train_loader if is_train else self.test_loader
+
+        self.model.eval()
+        # 提取草图特征
+        target_loader.dataset.back_sketch()
+        sketch_features = _get_fea(self.model.encode_sketch)
+
+        # 提取图片特征
+        target_loader.dataset.back_image()
+        image_features = _get_fea(self.model.encode_image)
+
+        # 计算准确率及匹配的样例
+        # 1. similarity matrix [m, n]
+        sim_matrix = sketch_features @ image_features.t()
+
+        return sim_matrix
+
     def validate_epoch(self):
         """
         验证一个epoch
         """
-        acc_topk = self.get_acc_and_revl_success()[0]
+        # acc_topk, _ = self.get_acc_revl_success()
+        #
+        # # 计算负样本，需要利用训练集
+        # self.model.eval()
+        #
+        # # 提取草图特征
+        # self.train_loader.dataset.back_sketch()
+        # sketch_features = self.get_fea(self.model.encode_sketch, self.train_loader, self.device)
+        #
+        # # 提取图片特征
+        # self.train_loader.dataset.back_image()
+        # image_features = self.get_fea(self.model.encode_image, self.train_loader, self.device)
+        #
+        # # 计算准确率及匹配的样例
+        # # 1. similarity matrix [m, n]
+        # sim_matrix = sketch_features @ image_features.t()
+
+        sim_matrix = self.get_similarity_matrix(True)
+
+        max_k = self.train_loader.dataset.n_neg + 1
+
+        # 2. top-k retrieval
+        _, topk_indices = sim_matrix.topk(k=max_k, dim=1, largest=True, sorted=True)  # [m, max_k]
+
+        # 4. GT index
+        gt_idx = torch.tensor(self.train_loader.dataset.sketch_paired_id).view(-1, 1)  # [m, 1]
+
+        # 获取最相近的负样本
+        neg_mask = topk_indices != gt_idx  # [m, n_neg + 1]
+        neg_idxes = []
+        for i in range(gt_idx.size(0)):
+            c_revl = topk_indices[i]
+            c_neg_mask = neg_mask[i]
+
+            if c_neg_mask.logical_not().any():  # 存在正样本
+                c_neg_idx = c_revl[c_neg_mask]
+            else:  # 不存在正样本
+                c_neg_idx = c_revl[:-1]
+
+            c_neg_idx = c_neg_idx.tolist()
+            assert len(c_neg_idx) == self.train_loader.dataset.n_neg, ValueError('error neg instance number')
+            neg_idxes.append(c_neg_idx)
+
+        # 设置负样本
+        self.train_loader.dataset.neg_instance = neg_idxes
+
         return acc_topk
 
     def vis_fea_cluster(self):
@@ -260,6 +351,43 @@ class SBIRTrainer:
 
         vis_class = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         visualize_embeddings(sketch_features, class_labels, vis_class, class_name)
+
+    def vis_training_status(self):
+        """
+        绘制epoch过程中loss和acc的曲线
+        """
+        # self.train_losses = checkpoint['train_losses']
+        # self.test_acc = checkpoint['test_acc']
+        x = np.arange(len(self.test_acc))
+
+        # 2. 建立画布和主轴（左侧）
+        fig, ax1 = plt.subplots(figsize=(6, 4))
+
+        # 3. 画第一条线，并自动绑定在左侧 y 轴
+        color1 = 'tab:blue'
+        ax1.set_xlabel('epoch')
+        ax1.set_ylabel('train loss', color=color1)
+        ax1.tick_params(axis='y', labelcolor=color1)
+
+        # 4. 生成右侧 y 轴
+        ax2 = ax1.twinx()  # ★ 关键：共享 x 轴
+
+        # 5. 在右侧 y 轴画第二条线
+        color2 = 'tab:red'
+        ax2.set_ylabel('test acc', color=color2)
+        ax2.tick_params(axis='y', labelcolor=color2)
+
+        acc_np = np.array(self.test_acc)  # [n, len(topk)]
+        for i, c_top in enumerate(self.topk):
+            ax2.plot(x, acc_np[:, i], label=f'Acc@{c_top}')
+
+        # 6. 可选：把两条线的图例合并到同一框
+        plt.legend()
+
+        # 7. 标题 & 布局
+        fig.suptitle('training status')
+        fig.tight_layout()
+        plt.show()
 
     def save_checkpoint(self, is_best=False):
         """保存模型检查点"""

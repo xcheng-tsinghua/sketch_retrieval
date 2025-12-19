@@ -13,4 +13,8 @@ git rm --cached -r ${directory}
 git rm --cached ${file}
 
 # 训练除sdgraph外其他的模型
-python train.py --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --add_str=shoe --sketch_model=bidir_lstm && python train.py --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --add_str=shoe --sketch_model=vit && python train.py --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --add_str=chair --sketch_model=bidir_lstm && python train.py --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --add_str=chair --sketch_model=vit
+
+python train.py --sketch_model=bidir_lstm --is_load_ckpt=False && python train.py --sketch_model=vit --is_load_ckpt=False
+
+python train.py --sketch_model=vit --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --add_str=shoe --is_load_ckpt=False
+
