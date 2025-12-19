@@ -254,7 +254,7 @@ def main(args, eval_sketches):
         model_trainer.save_revl_success_ins()
 
         # 显示训练状态
-        model_trainer.vis_training_status()
+        # model_trainer.vis_training_status()
 
     elif args.vis_mode == 'example':
         # 可视化检索样例
