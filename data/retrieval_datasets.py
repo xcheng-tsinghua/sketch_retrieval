@@ -29,7 +29,7 @@ class SketchImageDataset(Dataset):
                  image_transform,
                  sketch_format,
                  is_full_train,
-                 n_neg=6,  # 每次返回的负样本数
+                 n_neg=8,  # 每次返回的负样本数
                  ):
         """
         初始化数据集
@@ -173,11 +173,24 @@ class SketchImageDataset(Dataset):
             pos_img_tensor = self.image_loader(pos_img)
 
             # 选出指定个数负样本：
-            if self.neg_instance is None:  # 随机选取
-                neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id, ))
-            else:  # 根据指定的负样本选取
-                neg_img_list = self.neg_instance[idx]
-                neg_img_list = [self.image_list[i] for i in neg_img_list]
+            neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id,))
+
+            # 如果有精选的负样本，使用一半精选负样本
+            if self.neg_instance is not None:
+                neg_img_sel = self.neg_instance[idx]
+                neg_img_sel = [self.image_list[i] for i in neg_img_sel]
+
+                half = self.n_neg // 2
+                neg_img_rand = random.sample(neg_img_list, half)
+                neg_img_sel = random.sample(neg_img_sel, self.n_neg - half)
+
+                neg_img_list = neg_img_sel + neg_img_rand
+
+            # if self.neg_instance is None:  # 随机选取
+            #     neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id, ))
+            # else:  # 根据指定的负样本选取
+            #     neg_img_list = self.neg_instance[idx]
+            #     neg_img_list = [self.image_list[i] for i in neg_img_list]
 
             neg_img_tensor_list = []
             for c_neg in neg_img_list:
