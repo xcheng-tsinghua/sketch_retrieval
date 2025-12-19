@@ -182,7 +182,7 @@ class SketchImageDataset(Dataset):
 
                 half = self.n_neg // 2
                 neg_img_rand = random.sample(neg_img_list, half)
-                neg_img_sel = random.sample(neg_img_sel, self.n_neg - half)
+                neg_img_sel = neg_img_sel[:self.n_neg - half]  # 选出最相近的精选负样本
 
                 neg_img_list = neg_img_sel + neg_img_rand
 

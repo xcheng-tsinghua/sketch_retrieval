@@ -101,7 +101,7 @@ class PNGSketchEncoder(nn.Module):
         Returns:
             sketch_features: 草图特征 [batch_size, output_dim]
         """
-        batch_size = sketch_images.size(0)
+        # batch_size = sketch_images.size(0)
         
         # 通过ViT模型获取特征
         if hasattr(self.vision_model, 'forward_features'):
@@ -206,7 +206,7 @@ class PNGSketchEncoderWithAttention(PNGSketchEncoder):
         Returns:
             sketch_features: 草图特征 [batch_size, output_dim]
         """
-        batch_size = sketch_images.size(0)
+        # batch_size = sketch_images.size(0)
         
         # 通过ViT模型获取特征
         if hasattr(self.vision_model, 'forward_features'):
