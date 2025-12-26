@@ -514,7 +514,7 @@ if __name__ == '__main__':
     # data = np.loadtxt(file_nale)
     # print(data.shape)
 
-    translate_class_folder(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad\photo')
+    translate_class_folder(r'/opt/data/private/data_set/sketch_retrieval/sketch_cad/photo')
 
     pass
 
