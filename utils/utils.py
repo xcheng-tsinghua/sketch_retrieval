@@ -363,8 +363,8 @@ def get_save_str(args):
     """
     统一的获取保存名的方式
     """
-    is_full_train = '_full_' if eval(args.is_full_train) else ''
-    pair_mode = 'single_pair' if args.pair_mode == 'single_pair' else ''
+    is_full_train = '_full' if eval(args.is_full_train) else ''
+    pair_mode = '_single_pair' if args.pair_mode == 'single_pair' else ''
     args.add_str = '_' + args.add_str if args.add_str != '' else args.add_str
 
     save_str = (args.sketch_model + '_' +
