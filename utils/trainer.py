@@ -30,6 +30,7 @@ class SBIRTrainer:
                  max_epochs,
                  ckpt_save_interval=20,  # 检查点保存的 epoch 间隔
                  topk=(1, 5),
+                 is_sel_neg_samples=False,  # 是否将上一轮检索失败的案例作为精选负样本
                  ):
         self.model = model
         self.train_loader = train_loader
@@ -40,6 +41,7 @@ class SBIRTrainer:
         self.logger = logger
         self.ckpt_save_interval = ckpt_save_interval
         self.save_str = save_str
+        self.is_sel_neg_samples = is_sel_neg_samples
 
         self.model.to(self.device)
 
@@ -173,7 +175,7 @@ class SBIRTrainer:
         _, topk_indices = sim_matrix.topk(k=max_k, dim=1, largest=True, sorted=True)  # [m, max_k]
 
         # 4. GT index
-        gt_idx = torch.tensor(self.test_loader.dataset.sketch_paired_id).view(-1, 1)  # [m, 1]
+        gt_idx = get_gt_index(self.test_loader.dataset.sketch_list_with_id)  # [m, 1]
 
         accs = []
         indices = []
@@ -277,49 +279,36 @@ class SBIRTrainer:
         """
         acc_topk, _ = self.get_acc_revl_success()
 
-        # # 计算负样本，需要利用训练集
-        # self.model.eval()
-        #
-        # # 提取草图特征
-        # self.train_loader.dataset.back_sketch()
-        # sketch_features = self.get_fea(self.model.encode_sketch, self.train_loader, self.device)
-        #
-        # # 提取图片特征
-        # self.train_loader.dataset.back_image()
-        # image_features = self.get_fea(self.model.encode_image, self.train_loader, self.device)
-        #
-        # # 计算准确率及匹配的样例
-        # # 1. similarity matrix [m, n]
-        # sim_matrix = sketch_features @ image_features.t()
+        # 设置精选负样本
+        if self.is_sel_neg_samples:
+            sim_matrix = self.get_similarity_matrix(True)
 
-        sim_matrix = self.get_similarity_matrix(True)
+            max_k = self.train_loader.dataset.n_neg + 1
 
-        max_k = self.train_loader.dataset.n_neg + 1
+            # 2. top-k retrieval
+            _, topk_indices = sim_matrix.topk(k=max_k, dim=1, largest=True, sorted=True)  # [m, max_k]
 
-        # 2. top-k retrieval
-        _, topk_indices = sim_matrix.topk(k=max_k, dim=1, largest=True, sorted=True)  # [m, max_k]
+            # 4. GT index
+            gt_idx = get_gt_index(self.train_loader.dataset.sketch_list_with_id)  # [m, 1]
 
-        # 4. GT index
-        gt_idx = torch.tensor(self.train_loader.dataset.sketch_paired_id).view(-1, 1)  # [m, 1]
+            # 获取最相近的负样本
+            neg_mask = topk_indices != gt_idx  # [m, n_neg + 1]
+            neg_idxes = []
+            for i in range(gt_idx.size(0)):
+                c_revl = topk_indices[i]
+                c_neg_mask = neg_mask[i]
 
-        # 获取最相近的负样本
-        neg_mask = topk_indices != gt_idx  # [m, n_neg + 1]
-        neg_idxes = []
-        for i in range(gt_idx.size(0)):
-            c_revl = topk_indices[i]
-            c_neg_mask = neg_mask[i]
+                if c_neg_mask.logical_not().any():  # 存在正样本
+                    c_neg_idx = c_revl[c_neg_mask]
+                else:  # 不存在正样本
+                    c_neg_idx = c_revl[:-1]
 
-            if c_neg_mask.logical_not().any():  # 存在正样本
-                c_neg_idx = c_revl[c_neg_mask]
-            else:  # 不存在正样本
-                c_neg_idx = c_revl[:-1]
+                c_neg_idx = c_neg_idx.tolist()
+                assert len(c_neg_idx) == self.train_loader.dataset.n_neg, ValueError('error neg instance number')
+                neg_idxes.append(c_neg_idx)
 
-            c_neg_idx = c_neg_idx.tolist()
-            assert len(c_neg_idx) == self.train_loader.dataset.n_neg, ValueError('error neg instance number')
-            neg_idxes.append(c_neg_idx)
-
-        # 设置负样本
-        self.train_loader.dataset.neg_instance = neg_idxes
+            # 设置负样本
+            self.train_loader.dataset.neg_instance = neg_idxes
 
         return acc_topk
 
@@ -475,6 +464,18 @@ class SBIRTrainer:
             self.logger.info(log_str)
 
         print(Fore.BLACK + Back.GREEN + 'training finished!' + Style.RESET_ALL)
+
+
+def get_gt_index(skh_path_with_id):
+    """
+    从带草图路径和id的数组中提取id，用于获取实例级匹配的样本索引
+    """
+    id_list = []
+    for c_path, c_id in skh_path_with_id:
+        id_list.append(c_id)
+
+    id_tensor = torch.tensor(id_list).view(-1, 1)
+    return id_tensor
 
 
 def compute_retrieval_metrics(similarity_matrix, labels):

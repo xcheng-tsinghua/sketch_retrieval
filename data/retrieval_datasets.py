@@ -6,7 +6,6 @@ import os
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
-from pathlib import Path
 from functools import partial
 import numpy as np
 import random
@@ -61,7 +60,7 @@ class SketchImageDataset(Dataset):
 
         # 创建草图加载器
         sketch_format = options.parse_sketch_format(sketch_format)
-        if sketch_format['fmt'] == 's5':
+        if sketch_format['fmt'] == 's3 -> s5':
             self.sketch_loader = partial(
                 utils.s3_file_to_s5,
                 max_length=sketch_format['max_length'],
@@ -114,30 +113,33 @@ class SketchImageDataset(Dataset):
         else:
             self.data_pairs = pre_load.test_pairs
 
+        # 建立类别名映射
+        self.categories = tuple(pre_load.common_categories)
+        self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
+
         # 获取草图列表、图片列表、id 映射
         self.image_list = []
+        self.image_cat = []
         for skh_path, img_path, class_name in self.data_pairs:
             if img_path not in self.image_list:
                 self.image_list.append(img_path)
+                self.image_cat.append(self.category_to_idx[class_name])
+
+        # id: 某张草图实例级匹配的图片，在 image_list 中的索引
+        self.sketch_list_with_id = []  # 将 sketch_list 中的每个样本路径加上 id，以表明其匹配的图片
+        self.sketch_cat = []
+        for skh_path, img_path, class_name in self.data_pairs:
+            c_paired_img_idx = self.image_list.index(img_path)
+
+            self.sketch_list_with_id.append((skh_path, c_paired_img_idx))
+            self.sketch_cat.append(self.category_to_idx[class_name])
 
         # 防止列表被修改
         self.image_list = tuple(self.image_list)
-
-        # 将 sketch_list 中的每个样本加上 id，以表明其匹配的图片
-        self.sketch_list_with_id = []
-        self.sketch_paired_id = []
-        for skh_path, img_path, _ in self.data_pairs:
-            c_paired_img_idx = self.image_list.index(img_path)
-
-            self.sketch_paired_id.append(c_paired_img_idx)
-            self.sketch_list_with_id.append((skh_path, c_paired_img_idx))
-
-        self.sketch_paired_id = tuple(self.sketch_paired_id)
+        self.image_cat = tuple(self.image_cat)
         self.sketch_list_with_id = tuple(self.sketch_list_with_id)
+        self.sketch_cat = tuple(self.sketch_cat)
 
-        self.categories = tuple(pre_load.common_categories)
-        self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
-        
     def __len__(self):
         # return len(self.data_pairs)
         if self.back_mode == 'train_data':
@@ -185,12 +187,6 @@ class SketchImageDataset(Dataset):
                 neg_img_sel = neg_img_sel[:self.n_neg - half]  # 选出最相近的精选负样本
 
                 neg_img_list = neg_img_sel + neg_img_rand
-
-            # if self.neg_instance is None:  # 随机选取
-            #     neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id, ))
-            # else:  # 根据指定的负样本选取
-            #     neg_img_list = self.neg_instance[idx]
-            #     neg_img_list = [self.image_list[i] for i in neg_img_list]
 
             neg_img_tensor_list = []
             for c_neg in neg_img_list:
@@ -385,8 +381,8 @@ class DatasetPreload(object):
         np.random.seed(random_seed)
 
         # 获取所有类别
-        sketch_categories = get_subdirs(sketch_root)
-        image_categories = get_subdirs(image_root)
+        sketch_categories = utils.get_subdirs(sketch_root)
+        image_categories = utils.get_subdirs(image_root)
 
         # 判断是否存在 'train', 'test' 文件夹
         is_train_test_divided = self.check_is_divided(sketch_categories, image_categories)
@@ -396,11 +392,11 @@ class DatasetPreload(object):
             print('Training set and testing set are already divided.')
 
             # 重新获取类别
-            sketch_categories_train = get_subdirs(os.path.join(sketch_root, 'train'))
-            sketch_categories_test = get_subdirs(os.path.join(sketch_root, 'test'))
+            sketch_categories_train = utils.get_subdirs(os.path.join(sketch_root, 'train'))
+            sketch_categories_test = utils.get_subdirs(os.path.join(sketch_root, 'test'))
 
-            image_categories_train = get_subdirs(os.path.join(image_root, 'train'))
-            image_categories_test = get_subdirs(os.path.join(image_root, 'test'))
+            image_categories_train = utils.get_subdirs(os.path.join(image_root, 'train'))
+            image_categories_test = utils.get_subdirs(os.path.join(image_root, 'test'))
 
             common_categories_train = list(set(sketch_categories_train) & set(image_categories_train))
             common_categories_test = list(set(sketch_categories_test) & set(image_categories_test))
@@ -506,46 +502,46 @@ class DatasetPreload(object):
         配对依据为文件名 skh_file_name = img_file_name + multi_sketch_split + num
         """
         # 获取该类别下的所有草图文件和图片文件
-        sketch_files = get_allfiles(skh_root, skh_suffix, filename_only=True)
-        image_files = get_allfiles(img_root, img_suffix, filename_only=True)
+        sketch_files = utils.get_allfiles(skh_root, skh_suffix)
+        image_files = utils.get_allfiles(img_root, img_suffix)
 
         # 构建图片实例字典和对应的草图列表
         # id 即不带路径也后缀的图片文件名，每个id和一个具体图片文件一一对应
         # 每个 id 可能对应多个草图，因为一张图片可能画了多张草图
         # 在 sketchy 数据集中，图片文件名和草图文件名的对应关系为 photo: aaa.jpg, sketch: [aaa_1.jpg, aaa_2.jpg, ...]
         #    即用下划线加序号表示同一张图片绘制的多个草图
-        skhid_name = {}  # 草图 id 和文件名的对应字典, {实例id: [草图文件路径列表]}
-        imgid_name = {}  # 图片 id 和文件名的对应字典, {实例id: 图片路径},
+        skhid_path = {}  # 草图 id 和文件路径的对应字典, {实例id: [草图文件路径列表]}
+        imgid_path = {}  # 图片 id 和文件路径的对应字典, {实例id: 图片路径},
 
         # 构建图片实例字典
         for image_file in image_files:
             # 获取图片文件名，不带路径与后缀
-            instance_id = os.path.splitext(image_file)[0]
+            instance_id = utils.basename_without_ext(image_file)
 
-            skhid_name[instance_id] = []
-            imgid_name[instance_id] = os.path.join(img_root, image_file)
+            skhid_path[instance_id] = []
+            imgid_path[instance_id] = image_file
 
         # 收集每个实例对应的所有草图
         for sketch_file in sketch_files:
             # 去掉扩展名获取基础名称
-            sketch_base_name = os.path.splitext(sketch_file)[0]
+            sketch_base_name = utils.basename_without_ext(sketch_file)
 
             # 尝试匹配实例ID（处理可能的草图变体）
             # 首先尝试直接匹配
-            if sketch_base_name in imgid_name.keys():
-                skhid_name[sketch_base_name].append(sketch_file)
+            if sketch_base_name in imgid_path.keys():
+                skhid_path[sketch_base_name].append(sketch_file)
 
             elif multi_sketch_split in sketch_base_name:
                 # 如果有'-'分隔符，尝试取前面部分作为实例ID
                 instance_id = sketch_base_name.rsplit(multi_sketch_split, 1)[0]
-                if instance_id in imgid_name.keys():
-                    skhid_name[instance_id].append(os.path.join(skh_root, sketch_file))
+                if instance_id in imgid_path.keys():
+                    skhid_path[instance_id].append(sketch_file)
 
         # 为每个草图选择一张图片配对
         category_pairs = []
-        for instance_id, skh_path_list in skhid_name.items():
-            if len(skh_path_list) > 0 and instance_id in imgid_name.keys():
-                img_path = imgid_name[instance_id]
+        for instance_id, skh_path_list in skhid_path.items():
+            if len(skh_path_list) > 0 and instance_id in imgid_path.keys():
+                img_path = imgid_path[instance_id]
 
                 if is_multi_pair:  # 一张图片对应多张草图
                     for skh_path in skh_path_list:
@@ -558,49 +554,6 @@ class DatasetPreload(object):
                     category_pairs.append((skh_path, img_path, class_name))
 
         return category_pairs
-
-
-def get_subdirs(dir_path):
-    """
-    获取 dir_path 的所有一级子文件夹
-    仅仅是文件夹名，不是完整路径
-    """
-    path_allclasses = Path(dir_path)
-    directories = [str(x) for x in path_allclasses.iterdir() if x.is_dir()]
-    dir_names = [item.split(os.sep)[-1] for item in directories]
-
-    return dir_names
-
-
-def get_allfiles(dir_path, suffix='txt', filename_only=False):
-    """
-    获取dir_path下的全部文件路径
-    :param dir_path:
-    :param suffix: 文件后缀，不需要 "."，如果是 None 则返回全部文件，不筛选类型
-    :param filename_only:
-    :return: [file_path0, file_path1, ...]
-    """
-    filepath_all = []
-
-    for root, dirs, files in os.walk(dir_path):
-        for file in files:
-
-            if suffix is not None:
-                if file.split('.')[-1] == suffix:
-                    if filename_only:
-                        current_filepath = file
-                    else:
-                        current_filepath = str(os.path.join(root, file))
-                    filepath_all.append(current_filepath)
-
-            else:
-                if filename_only:
-                    current_filepath = file
-                else:
-                    current_filepath = str(os.path.join(root, file))
-                filepath_all.append(current_filepath)
-
-    return filepath_all
 
 
 def create_sketch_image_dataloaders(batch_size,

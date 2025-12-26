@@ -10,6 +10,7 @@ from functools import partial
 import os
 import torchvision.transforms as transforms
 import einops
+from pathlib import Path
 
 
 class MLP(nn.Module):
@@ -388,6 +389,93 @@ def basename_without_ext(file_name):
     return name
 
 
+def translate_class_folder(root):
+    """
+    翻译一级子文件夹下的文件夹名
+
+    root
+    ├─ bearing (folder)
+    ├─ bolt (folder)
+    ├─ ...
+    └─ washer (folder)
+
+    """
+    terms_mapping = {
+        '衬套': 'Bushing',
+        '齿轮': 'Gear',
+        '带轮': 'Pulley',
+        '弹簧': 'Spring',
+        '挡圈': 'Retaining_ring',
+        '垫圈': 'Washer',
+        '堵头': 'Plug',
+        '阀门': 'Valve',
+        '法兰': 'Flange',
+        '风扇': 'Fan',
+        '间隔器': 'Spacer',
+        '键': 'Key',
+        '脚轮': 'Caster',
+        '接头': 'Joint',
+        '链轮': 'Sprocket',
+        '螺钉': 'Screw',
+        '螺母': 'Nut',
+        '螺栓': 'Bolt',
+        '螺柱': 'Stud',
+        '铆钉': 'Rivet',
+        '涡轮': 'Turbine',
+        '销': 'Pin',
+        '轴承': 'Bearing',
+
+    }
+
+    sub_dirs = get_subdirs(root)
+    for c_name in sub_dirs:
+        new_name = terms_mapping[c_name]
+        os.rename(os.path.join(root, c_name), os.path.join(root, new_name))
+
+
+def get_subdirs(dir_path):
+    """
+    获取 dir_path 的所有一级子文件夹
+    仅仅是文件夹名，不是完整路径
+    """
+    path_allclasses = Path(dir_path)
+    directories = [str(x) for x in path_allclasses.iterdir() if x.is_dir()]
+    dir_names = [item.split(os.sep)[-1] for item in directories]
+
+    return dir_names
+
+
+def get_allfiles(dir_path, suffix='txt', filename_only=False):
+    """
+    获取dir_path下的全部文件路径
+    :param dir_path:
+    :param suffix: 文件后缀，不需要 "."，如果是 None 则返回全部文件，不筛选类型
+    :param filename_only:
+    :return: [file_path0, file_path1, ...]
+    """
+    filepath_all = []
+
+    for root, dirs, files in os.walk(dir_path):
+        for file in files:
+
+            if suffix is not None:
+                if file.split('.')[-1] == suffix:
+                    if filename_only:
+                        current_filepath = file
+                    else:
+                        current_filepath = str(os.path.join(root, file))
+                    filepath_all.append(current_filepath)
+
+            else:
+                if filename_only:
+                    current_filepath = file
+                else:
+                    current_filepath = str(os.path.join(root, file))
+                filepath_all.append(current_filepath)
+
+    return filepath_all
+
+
 if __name__ == '__main__':
     # as3_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt'
     # stk_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_stk11_stkpnt32\airplane\n02691156_58-1.txt'
@@ -422,11 +510,14 @@ if __name__ == '__main__':
     # n_stk_pnt = re.findall(r'stkpnt(\d+)', stk_name)
     # print(n_stk, n_stk_pnt)
 
-    file_nale = r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_s3_352\train\class\2kn308a2ca10_1.txt'
-    data = np.loadtxt(file_nale)
-    print(data.shape)
+    # file_nale = r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_s3_352\train\class\2kn308a2ca10_1.txt'
+    # data = np.loadtxt(file_nale)
+    # print(data.shape)
+
+    translate_class_folder(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad\photo')
 
     pass
+
 
 
 
