@@ -8,6 +8,8 @@ from colorama import Fore, Back, Style
 from datetime import datetime
 import os
 from tqdm import tqdm
+from safetensors.torch import save_file, load_file
+from torchvision.transforms.functional import to_pil_image
 
 from data import retrieval_datasets
 from encoders import sbir_model_wrapper
@@ -16,12 +18,13 @@ from utils import trainer, utils
 
 
 app = Flask(__name__)
-args = options.parse_args()
-save_str = utils.get_save_str(args)
-print(Fore.BLACK + Back.CYAN + '-> model save name: ' + save_str + ' <-' + Style.RESET_ALL)
 
 
-def prepare_model_and_data():
+def prepare_model_and_data(is_load_data=True):
+    args = options.parse_args()
+    save_str = utils.get_save_str(args)
+    print(Fore.BLACK + Back.CYAN + '-> model save name: ' + save_str + ' <-' + Style.RESET_ALL)
+
     encoder_info = options.get_encoder_info(args.sketch_model)
 
     # 设置日志
@@ -30,6 +33,7 @@ def prepare_model_and_data():
 
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda')
 
     # 预加载数据集
     root = args.root_local if eval(args.local) else args.root_sever
@@ -86,30 +90,44 @@ def prepare_model_and_data():
     model_trainer.model.eval()
 
     # 提取图片特征
-    target_loader.dataset.back_image()
-    image_features = []
+    if is_load_data:
+        image_feas = load_file('./model_trained/sketch_proj.safetensors')['img_feas']
 
-    for data_tensor in tqdm(target_loader, desc='loading data'):
-        # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
-        data_tensor = data_tensor.to(device)
+    else:
+        target_loader.dataset.back_image()
+        image_feas = []
 
-        fea_tensor = model_trainer.model.encode_image(data_tensor)
-        image_features.append(fea_tensor.cpu())
+        for data_tensor in tqdm(target_loader, desc='loading data'):
+            # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
+            data_tensor = data_tensor.to(device)
 
-    # 合并特征
-    image_features = torch.cat(image_features, dim=0)
+            fea_tensor = model_trainer.model.encode_image(data_tensor)
+            image_feas.append(fea_tensor.cpu())
+
+        # 合并特征
+        image_feas = torch.cat(image_feas, dim=0).cpu()
+        print(f'image feature list: {image_feas.size()}')
+
+        # 保存特征
+        save_file(
+            {"img_feas": image_feas},
+            "./model_trained/sketch_proj.safetensors"
+        )
 
     model_trainer.model.eval()
 
     # 图片路径表
-    image_path_list = target_loader.dataset.image_list
+    img_path_list = target_loader.dataset.image_list
 
-    return model_trainer.model, image_features, image_path_list
+    # 获取三维模型的路径列表
+    stp_path_list = []
+    for c_img_path in img_path_list:
+        c_stp_path = c_img_path.replace('photo', 'model_3d')
+        c_stp_path = c_stp_path.replace('_1.png', '.STEP')
 
+        stp_path_list.append(c_stp_path)
 
-revl_model = None
-image_features = None
-image_path_list = None
+    return model_trainer.model, image_feas, img_path_list, stp_path_list, device
 
 
 # 检索样本数
@@ -123,44 +141,49 @@ def inference(pnt_seq):
     # 先将序列转换为图片
     skh_pixel = utils.s3_to_tensor_img(pnt_seq)
 
+    # pil_img = to_pil_image(skh_pixel)
+    # pil_img.show()
+
     # 提取草图特征
-    sketch_features = revl_model.encode_sketch(skh_pixel.unsqueeze(0))
+    sketch_features = revl_model.encode_sketch(skh_pixel.unsqueeze(0).to(device)).cpu()
 
     # 计算相似度
     sim_matrix = sketch_features @ image_features.t()  # [1, n]
 
     _, topk_indices = sim_matrix.topk(k=n_retrieval, dim=1, largest=True, sorted=True)  # [1, max_k]
-    topk_indices = topk_indices.tolist()
+    topk_indices = topk_indices.squeeze().tolist()
 
     # 找到对应的字符串
     searched_img_path_list = []
+    searched_stp_path_list = []
     for idx in topk_indices:
         searched_img_path_list.append(image_path_list[idx])
+        searched_stp_path_list.append(step_path_list[idx])
 
-    return searched_img_path_list
+    return searched_img_path_list, searched_stp_path_list
 
 
 @app.route('/infer', methods=['POST'])
 def infer():
     data = request.json
     x = torch.tensor(data['input'], dtype=torch.float32)
-    y = inference(x)
+    imgs, stps = inference(x)
 
-    return jsonify({"output": y})
+    return jsonify({'imgs': imgs, 'stps': stps})
 
 
 def test_input():
     x = np.loadtxt(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad\sketch_s3_352\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt')
-    y = inference(x)
+    imgs, stps = inference(x)
 
-    print(y)
+    print(imgs, stps)
 
 
 if __name__ == "__main__":
-    revl_model, image_features, image_path_list = prepare_model_and_data()
+    revl_model, image_features, image_path_list, step_path_list, device = prepare_model_and_data()
 
-    # app.run(host='0.0.0.0', port=5000)
-    test_input()
+    app.run(host='0.0.0.0', port=5000)
+    # test_input()
 
 
 

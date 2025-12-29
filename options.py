@@ -20,12 +20,12 @@ def parse_args():
     parser.add_argument('--multi_sketch_split', type=str, default='_', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-'
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
-    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/sketch_cad')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/sketch_cad_small')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
     parser.add_argument('--add_str', type=str, default='cad', help='其它描述字符串')
 
     # training
-    parser.add_argument('--epoch', type=int, default=300, help='最大训练轮数')
+    parser.add_argument('--epoch', type=int, default=3000, help='最大训练轮数')
     parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
