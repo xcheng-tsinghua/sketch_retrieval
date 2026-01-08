@@ -63,7 +63,8 @@ class SBIRTrainer:
             betas=(0.9, 0.98),
             eps=1e-6
         )
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.9)
+        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.9)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=10)
         self.criterion = loss_func.info_nce_multi_neg
 
         # 训练状态
