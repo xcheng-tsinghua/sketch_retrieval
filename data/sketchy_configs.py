@@ -22,7 +22,7 @@ sketchy_test_classes = [
     'tree',
     'wheelchair',
     'windmill',
-    'window'
+    'window',
 ]
 
 sketchy_train_classes = [

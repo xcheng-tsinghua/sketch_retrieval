@@ -22,19 +22,19 @@ class SketchImageDataset(Dataset):
     TODO: 未完善 category-level 数据加载
     """
     def __init__(self,
-                 is_train,
+                 is_train: bool,
                  pre_load,
                  sketch_transform,
                  image_transform,
                  sketch_format,
                  is_full_train,
-                 n_neg=8,  # 每次返回的负样本数
+                 n_neg: int = 8,  # 每次返回的负样本数
                  ):
         """
         初始化数据集
         
         Args:
-            train_data: 'train' 或 'test'
+            is_train:
             pre_load: 固定数据集划分
             sketch_transform: 草图变换
             image_transform: 图像变换
@@ -334,7 +334,8 @@ class DatasetPreload(object):
                  random_seed=42,
                  is_multi_pair=False,
                  split_mode='zs-sbir',  # ['sbir', 'zs-sbir']
-                 multi_sketch_split='_'  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
+                 multi_sketch_split='_',  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
+                 zs_test_classes=scfg.sketchy_test_classes
                  ):
 
         self.train_pairs = []  # (sketch_root, image_root, class_name)
@@ -354,7 +355,8 @@ class DatasetPreload(object):
                        random_seed,
                        is_multi_pair,
                        split_mode,  # ['sbir', 'zs-sbir']
-                       multi_sketch_split
+                       multi_sketch_split,
+                       zs_test_classes,
                        )
 
         print(f'-> preload data info: ')
@@ -372,7 +374,8 @@ class DatasetPreload(object):
                   random_seed,
                   is_multi_pair,
                   split_mode,
-                  multi_sketch_split
+                  multi_sketch_split,
+                  zs_test_classes,
                   ):
         assert split_mode in ['sbir', 'zs-sbir'], TypeError(f'error solit mode: {split_mode}')
 
@@ -460,7 +463,7 @@ class DatasetPreload(object):
             for class_name, class_pair_list in all_category_pairs.items():
                 if split_mode == 'zs-sbir':  # zero-shot 检索直接将类别划分为训练类别和测试类别
 
-                    if class_name in scfg.sketchy_test_classes:
+                    if class_name in zs_test_classes:
                         self.test_pairs.extend(class_pair_list)
 
                     else:
