@@ -3,6 +3,7 @@
 """
 import torch.nn as nn
 import timm
+import torchvision.models as models
 
 from encoders import lstm
 from sdgraph import sdgraph_sel, sdgraph_endsnap, sdgraph_endsnap_attn
@@ -292,6 +293,26 @@ def create_sketch_encoder(model_name,
                 output_dim=output_dim,
                 dropout_rate=dropout
             )
+
+    elif model_name == 'resnet18':
+        encoder = models.resnet18()
+        in_dim = encoder.fc.in_features
+        encoder.fc = nn.Linear(in_dim, output_dim)
+
+    elif model_name == 'resnet34':
+        encoder = models.resnet34()
+        in_dim = encoder.fc.in_features
+        encoder.fc = nn.Linear(in_dim, output_dim)
+
+    elif model_name == 'densenet121':
+        encoder = models.densenet121()
+        in_dim = encoder.fc.in_features
+        encoder.fc = nn.Linear(in_dim, output_dim)
+
+    elif model_name == 'densenet169':
+        encoder = models.densenet169()
+        in_dim = encoder.fc.in_features
+        encoder.fc = nn.Linear(in_dim, output_dim)
 
     elif model_name == 'lstm':
         encoder = lstm.BiLSTMEncoder(

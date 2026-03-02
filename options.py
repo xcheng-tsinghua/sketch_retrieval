@@ -12,7 +12,7 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=8, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
-    parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru'], help='草图Encoder的名字')
+    parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru', 'resnet18', 'resnet34', 'densenet121', 'densenet169'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='--')
     parser.add_argument('--retrieval_mode', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
@@ -46,6 +46,38 @@ def parse_args():
 
 supported_encoders = {
     'vit': {
+        'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'resnet18': {
+        'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'resnet34': {
+        'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'densenet121': {
+        'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+        'sketch_suffix': 'txt',
+        'image_suffix': 'png',
+    },
+
+    'densenet169': {
         'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
