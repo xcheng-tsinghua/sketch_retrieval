@@ -370,8 +370,8 @@ def get_save_str(args):
 
     save_str = (args.sketch_model + '_' +
                 args.image_model + '_' +
-                retrieval_mode + '_' +
                 args.task +
+                retrieval_mode + '_' +
                 is_full_train +
                 pair_mode +
                 args.add_str)
