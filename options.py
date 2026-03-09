@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument('--retrieval_mode', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
     parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
-    parser.add_argument('--multi_sketch_split', type=str, default='_', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-'
+    parser.add_argument('--multi_sketch_split', type=str, default='-', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-'
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/sketchy')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
 
     parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
-    parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
+    parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='False', help='使用全部数据训练')
 
     # visualizing
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')
@@ -102,43 +102,43 @@ supported_encoders = {
     },
 
     'lstm': {
-        'sketch_format': 'fmt: s5, max_length: 352',
+        'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
-        'image_suffix': 'png',
+        'image_suffix': 'jpg',  # sdgraph: jpg. QMUL: png
     },
 
     'bidir_lstm': {
-        'sketch_format': 'fmt: s5, max_length: 352',
+        'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
-        'image_suffix': 'png',
+        'image_suffix': 'jpg',
     },
 
     'gru': {
-        'sketch_format': 'fmt: s5, max_length: 352',
+        'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
-        'image_suffix': 'png',
+        'image_suffix': 'jpg',
     },
 
     'bidir_gru': {
-        'sketch_format': 'fmt: s5, max_length: 352',
+        'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
-        'image_suffix': 'png',
+        'image_suffix': 'jpg',
     },
 
     'sketch_transformer': {
-        'sketch_format': 'fmt: s5, max_length: 352',
+        'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
-        'image_suffix': 'png',
+        'image_suffix': 'jpg',
     }
 
 }
