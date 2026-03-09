@@ -14,8 +14,8 @@ def parse_args():
 
     parser.add_argument('--sketch_model', type=str, default='sketch_transformer', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru', 'resnet18', 'resnet34', 'densenet121', 'densenet169'], help='草图Encoder的名字')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='--')
-    parser.add_argument('--retrieval_mode', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
-    parser.add_argument('--task', type=str, default='sbir', choices=['sbir', 'zs_sbir'], help='检索任务类型')
+    parser.add_argument('--task', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
+    parser.add_argument('--is_zero_shot', type=str, default='True', choices=['True', 'False'], help='检索任务类型')
     parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
     parser.add_argument('--multi_sketch_split', type=str, default='-', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-'
 

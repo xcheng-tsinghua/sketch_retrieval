@@ -4,6 +4,20 @@ cd /opt/data/private/networks/sketch_retrieval/ && conda activate dp
 git status && git add . && git commit -m "change" && git push
 
 
+
+## 查看 nohup 的进程输出
+tail -f nohup.out
+
+## 查看 nohup 的进程
+ps -ef | grep python
+
+nohup 末尾添加该命令可以指定log文件
+> out.log 2>&1 &
+例如：
+nohup python train.py > out.log 2>&1 &
+
+
+
 # 对于目录
 # 需要将 ${directory} 更换为已被Git同步但是需要解除同步的文件夹
 git rm --cached -r ${directory}

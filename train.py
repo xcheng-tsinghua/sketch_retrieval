@@ -34,7 +34,7 @@ def main(args):
         sketch_suffix=encoder_info['sketch_suffix'],
         image_suffix=encoder_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-        split_mode=args.task,
+        is_zero_shot=eval(args.is_zero_shot),
         multi_sketch_split=args.multi_sketch_split
     )
 
@@ -44,7 +44,8 @@ def main(args):
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
-        is_full_train=eval(args.is_full_train)
+        is_full_train=eval(args.is_full_train),
+        task=args.task
     )
 
     # 创建模型
@@ -70,6 +71,7 @@ def main(args):
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
+        task=args.task
     )
     
     # 恢复训练（如果指定）

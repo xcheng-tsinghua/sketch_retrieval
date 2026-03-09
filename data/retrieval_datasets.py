@@ -28,6 +28,8 @@ class SketchImageDataset(Dataset):
                  image_transform,
                  sketch_format,
                  is_full_train,
+                 task,
+                 n_pos: int = 1,  # 每次返回的正样本数（细粒度检索仅返回一个正样本，无视该值）
                  n_neg: int = 8,  # 每次返回的负样本数
                  ):
         """
@@ -41,9 +43,12 @@ class SketchImageDataset(Dataset):
 
         """
         self.is_train = is_train
+        self.n_pos = n_pos
         self.n_neg = n_neg
         self.back_mode = 'train_data'  # ['train_data', 'sketch', 'image']
         self.neg_instance = None  # 负样本
+        self.task = task
+        assert self.task in ('fg', 'cl')
 
         # 默认变换
         self.sketch_transform = sketch_transform or transforms.Compose([
@@ -140,6 +145,14 @@ class SketchImageDataset(Dataset):
         self.sketch_list_with_id = tuple(self.sketch_list_with_id)
         self.sketch_cat = tuple(self.sketch_cat)
 
+        self.cat_to_img_list = {}
+        if self.task == 'cl':
+            for cat_idx, img_path in zip(self.image_cat, self.image_list):
+                if cat_idx in self.cat_to_img_list.keys():
+                    self.cat_to_img_list[cat_idx].append(img_path)
+                else:
+                    self.cat_to_img_list[cat_idx] = [img_path]
+
     def __len__(self):
         # return len(self.data_pairs)
         if self.back_mode == 'train_data':
@@ -171,22 +184,47 @@ class SketchImageDataset(Dataset):
             skh_tensor = self.sketch_loader(skh_path)
 
             # 选出草图正样本
-            pos_img = self.image_list[ins_id]
-            pos_img_tensor = self.image_loader(pos_img)
+            if self.task == 'cl':
+                # 找到草图所属类别索引
+                pos_cat = self.sketch_cat[idx]
+                pos_img_all = self.cat_to_img_list[pos_cat]
 
-            # 选出指定个数负样本：
-            neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id,))
+                # 随机选取指定个数正样本
+                pos_imgs = random.sample(pos_img_all, self.n_pos)
 
-            # 如果有精选的负样本，使用一半精选负样本
-            if self.neg_instance is not None:
-                neg_img_sel = self.neg_instance[idx]
-                neg_img_sel = [self.image_list[i] for i in neg_img_sel]
+                pos_img_tensor_list = []
+                for c_pos in pos_imgs:
+                    c_neg_tensor = self.image_loader(c_pos).unsqueeze(0)
+                    pos_img_tensor_list.append(c_neg_tensor)
+                pos_img_tensor = torch.cat(pos_img_tensor_list, dim=0)
 
-                half = self.n_neg // 2
-                neg_img_rand = random.sample(neg_img_list, half)
-                neg_img_sel = neg_img_sel[:self.n_neg - half]  # 选出最相近的精选负样本
+                # 选出指定个数负样本
+                neg_img_all_list = []
+                for cat_key in self.cat_to_img_list.keys():
+                    if cat_key != pos_cat:
+                        neg_img_all_list.extend(self.cat_to_img_list[cat_key])
+                neg_img_list = random.sample(neg_img_all_list, self.n_neg)
 
-                neg_img_list = neg_img_sel + neg_img_rand
+            elif self.task == 'fg':
+                pos_img = self.image_list[ins_id]
+                pos_img_tensor = self.image_loader(pos_img)
+
+                # 选出指定个数负样本：
+                neg_img_list = self.sample_exclude(self.image_list, self.n_neg, (ins_id,))
+
+                # 如果有精选的负样本 (上次检索失败获得的样本)，使用一半精选负样本
+                if self.neg_instance is not None:
+                    neg_img_sel = self.neg_instance[idx]
+                    neg_img_sel = [self.image_list[i] for i in neg_img_sel]
+
+                    half = self.n_neg // 2
+                    neg_img_rand = random.sample(neg_img_list, half)
+                    neg_img_sel = neg_img_sel[:self.n_neg - half]  # 选出最相近的精选负样本
+
+                    neg_img_list = neg_img_sel + neg_img_rand
+
+            else:
+                raise ValueError
 
             neg_img_tensor_list = []
             for c_neg in neg_img_list:
@@ -333,7 +371,7 @@ class DatasetPreload(object):
                  train_split=0.8,
                  random_seed=42,
                  is_multi_pair=False,
-                 split_mode='zs-sbir',  # ['sbir', 'zs-sbir']
+                 is_zero_shot=True,  # ['sbir', 'zs-sbir']
                  multi_sketch_split='_',  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
                  zs_test_classes=scfg.sketchy_test_classes
                  ):
@@ -354,7 +392,7 @@ class DatasetPreload(object):
                        train_split,
                        random_seed,
                        is_multi_pair,
-                       split_mode,  # ['sbir', 'zs-sbir']
+                       is_zero_shot,  # ['sbir', 'zs-sbir']
                        multi_sketch_split,
                        zs_test_classes,
                        )
@@ -373,11 +411,11 @@ class DatasetPreload(object):
                   train_split,
                   random_seed,
                   is_multi_pair,
-                  split_mode,
+                  is_zero_shot,
                   multi_sketch_split,
                   zs_test_classes,
                   ):
-        assert split_mode in ['sbir', 'zs-sbir'], TypeError(f'error solit mode: {split_mode}')
+        # assert split_mode in ['sbir', 'zs-sbir'], TypeError(f'error solit mode: {split_mode}')
 
         # 设置随机种子
         random.seed(random_seed)
@@ -461,7 +499,7 @@ class DatasetPreload(object):
 
             # 划分训练集和测试集
             for class_name, class_pair_list in all_category_pairs.items():
-                if split_mode == 'zs-sbir':  # zero-shot 检索直接将类别划分为训练类别和测试类别
+                if is_zero_shot:  # zero-shot 检索直接将类别划分为训练类别和测试类别
 
                     if class_name in zs_test_classes:
                         self.test_pairs.extend(class_pair_list)
@@ -564,6 +602,7 @@ def create_sketch_image_dataloaders(batch_size,
                                     pre_load,
                                     sketch_format,
                                     is_full_train,
+                                    task  # ['cl', 'fg']
                                     ):
     """
     创建训练和测试数据加载器
@@ -572,12 +611,9 @@ def create_sketch_image_dataloaders(batch_size,
         batch_size: 批次大小
         num_workers: 数据加载进程数
         pre_load: 固定数据集划分信息
-        root:
         sketch_format:
-        vec_sketch_rep: 矢量草图格式 [S5, STK_11_32]
-        sketch_image_subdirs:
-        back_mode:
         is_full_train:
+        task:
         
     Returns:
         train_loader, test_loader, dataset_info
@@ -616,6 +652,7 @@ def create_sketch_image_dataloaders(batch_size,
         image_transform=train_image_transform,
         sketch_format=sketch_format,
         is_full_train=is_full_train,
+        task=task
     )
 
     test_dataset = SketchImageDataset(
@@ -625,6 +662,7 @@ def create_sketch_image_dataloaders(batch_size,
         image_transform=test_transform,
         sketch_format=sketch_format,
         is_full_train=False,
+        task=task
     )
     
     # 创建数据加载器

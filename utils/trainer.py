@@ -15,6 +15,9 @@ from colorama import Fore, Back, Style
 from utils import loss_func
 
 
+# TODO: 完善 cl 检索代码
+
+
 class SBIRTrainer:
     """PNG草图-图像对齐训练器"""
     def __init__(self,
@@ -28,6 +31,7 @@ class SBIRTrainer:
                  learning_rate,
                  weight_decay,
                  max_epochs,
+                 task,  # ['fg', 'cl']
                  ckpt_save_interval=20,  # 检查点保存的 epoch 间隔
                  topk=(1, 5),
                  is_sel_neg_samples=False,  # 是否将上一轮检索失败的案例作为精选负样本
@@ -38,6 +42,7 @@ class SBIRTrainer:
         self.device = device
         self.check_point = check_point
         self.max_epochs = max_epochs
+        self.task = task
         self.logger = logger
         self.ckpt_save_interval = ckpt_save_interval
         self.save_str = save_str
