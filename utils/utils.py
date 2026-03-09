@@ -366,10 +366,11 @@ def get_save_str(args):
     is_full_train = '_full' if eval(args.is_full_train) else ''
     pair_mode = '_single_pair' if args.pair_mode == 'single_pair' else ''
     args.add_str = '_' + args.add_str if args.add_str != '' else args.add_str
+    retrieval_mode = 'zs-sbir' if eval(args.is_zero_shot) else 'sbir'
 
     save_str = (args.sketch_model + '_' +
                 args.image_model + '_' +
-                args.retrieval_mode + '_' +
+                retrieval_mode + '_' +
                 args.task +
                 is_full_train +
                 pair_mode +
