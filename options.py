@@ -50,7 +50,7 @@ supported_encoders = {
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
         'sketch_suffix': 'txt',
-        'image_suffix': 'png',
+        'image_suffix': 'jpg',
     },
 
     'resnet18': {
