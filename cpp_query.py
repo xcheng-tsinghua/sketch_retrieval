@@ -43,7 +43,7 @@ def prepare_model_and_data(is_load_data=True):
         sketch_suffix=encoder_info['sketch_suffix'],
         image_suffix=encoder_info['image_suffix'],
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-        split_mode=args.task,
+        is_zero_shot=eval(args.is_zero_shot),
         multi_sketch_split=args.multi_sketch_split
     )
 
@@ -53,7 +53,8 @@ def prepare_model_and_data(is_load_data=True):
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
-        is_full_train=eval(args.is_full_train)
+        is_full_train=eval(args.is_full_train),
+        task=args.task
     )
 
     # 创建模型
@@ -79,6 +80,7 @@ def prepare_model_and_data(is_load_data=True):
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
+        task=args.task
     )
 
     if not model_trainer.load_checkpoint(check_point, eval(args.is_load_ckpt)):
@@ -180,10 +182,10 @@ def test_input():
 
 
 if __name__ == "__main__":
-    revl_model, image_features, image_path_list, step_path_list, device = prepare_model_and_data()
+    revl_model, image_features, image_path_list, step_path_list, device = prepare_model_and_data(True)
 
-    app.run(host='0.0.0.0', port=5000)
-    # test_input()
+    # app.run(host='0.0.0.0', port=5000)
+    test_input()
 
 
 
