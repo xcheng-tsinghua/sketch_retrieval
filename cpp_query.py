@@ -20,7 +20,7 @@ from utils import trainer, utils
 app = Flask(__name__)
 
 
-def prepare_model_and_data(is_load_data=True):
+def prepare_model_and_data():
     args = options.parse_args()
     save_str = utils.get_save_str(args)
     print(Fore.BLACK + Back.CYAN + '-> model save name: ' + save_str + ' <-' + Style.RESET_ALL)
@@ -92,10 +92,12 @@ def prepare_model_and_data(is_load_data=True):
     model_trainer.model.eval()
 
     # 提取图片特征
-    if is_load_data:
+    try:
         image_feas = load_file('./model_trained/sketch_proj.safetensors')['img_feas']
 
-    else:
+    except Exception as e:
+        print(f'no exist image feature tensor, generating ..., exception: {e}')
+
         target_loader.dataset.back_image()
         image_feas = []
 
@@ -134,6 +136,7 @@ def prepare_model_and_data(is_load_data=True):
 
 # 检索样本数
 n_retrieval = 5
+
 
 def inference(pnt_seq):
     """
@@ -182,7 +185,7 @@ def test_input():
 
 
 if __name__ == "__main__":
-    revl_model, image_features, image_path_list, step_path_list, device = prepare_model_and_data(True)
+    revl_model, image_features, image_path_list, step_path_list, device = prepare_model_and_data()
 
     # app.run(host='0.0.0.0', port=5000)
     test_input()
