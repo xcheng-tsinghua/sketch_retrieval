@@ -92,8 +92,10 @@ def prepare_model_and_data():
     model_trainer.model.eval()
 
     # 提取图片特征
+    img_feat_file_path = './model_trained/sketch_proj.safetensors'
     try:
-        image_feas = load_file('./model_trained/sketch_proj.safetensors')['img_feas']
+        print('loading image features from: ', img_feat_file_path)
+        image_feas = load_file(img_feat_file_path)['img_feas']
 
     except Exception as e:
         print(f'no exist image feature tensor, generating ..., exception: {e}')
@@ -113,10 +115,8 @@ def prepare_model_and_data():
         print(f'image feature list: {image_feas.size()}')
 
         # 保存特征
-        save_file(
-            {"img_feas": image_feas},
-            "./model_trained/sketch_proj.safetensors"
-        )
+        save_file({'img_feas': image_feas}, img_feat_file_path)
+        print(f'save image features to: {img_feat_file_path} successfully')
 
     model_trainer.model.eval()
 
@@ -150,10 +150,10 @@ def inference(pnt_seq):
     # pil_img.show()
 
     # 提取草图特征
-    sketch_features = revl_model.encode_sketch(skh_pixel.unsqueeze(0).to(device)).cpu()
+    sketch_features = REVL_MODEL.encode_sketch(skh_pixel.unsqueeze(0).to(DEVICE)).cpu()
 
     # 计算相似度
-    sim_matrix = sketch_features @ image_features.t()  # [1, n]
+    sim_matrix = sketch_features @ IMG_FEAT.t()  # [1, n]
 
     _, topk_indices = sim_matrix.topk(k=n_retrieval, dim=1, largest=True, sorted=True)  # [1, max_k]
     topk_indices = topk_indices.squeeze().tolist()
@@ -162,8 +162,8 @@ def inference(pnt_seq):
     searched_img_path_list = []
     searched_stp_path_list = []
     for idx in topk_indices:
-        searched_img_path_list.append(image_path_list[idx])
-        searched_stp_path_list.append(step_path_list[idx])
+        searched_img_path_list.append(IMG_PATH[idx])
+        searched_stp_path_list.append(STP_PATH[idx])
 
     return searched_img_path_list, searched_stp_path_list
 
@@ -185,7 +185,7 @@ def test_input():
 
 
 if __name__ == "__main__":
-    revl_model, image_features, image_path_list, step_path_list, device = prepare_model_and_data()
+    REVL_MODEL, IMG_FEAT, IMG_PATH, STP_PATH, DEVICE = prepare_model_and_data()
 
     # app.run(host='0.0.0.0', port=5000)
     test_input()
