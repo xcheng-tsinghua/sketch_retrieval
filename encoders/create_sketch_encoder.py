@@ -306,13 +306,13 @@ def create_sketch_encoder(model_name,
 
     elif model_name == 'densenet121':
         encoder = models.densenet121()
-        in_dim = encoder.fc.in_features
-        encoder.fc = nn.Linear(in_dim, output_dim)
+        in_dim = encoder.classifier.in_features
+        encoder.classifier = nn.Linear(in_dim, output_dim)
 
     elif model_name == 'densenet169':
         encoder = models.densenet169()
-        in_dim = encoder.fc.in_features
-        encoder.fc = nn.Linear(in_dim, output_dim)
+        in_dim = encoder.classifier.in_features
+        encoder.classifier = nn.Linear(in_dim, output_dim)
 
     elif model_name == 'lstm':
         encoder = lstm.BiLSTMEncoder(
