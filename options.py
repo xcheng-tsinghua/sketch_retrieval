@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
-    parser.add_argument('--add_str', type=str, default='cad', help='其它描述字符串')
+    parser.add_argument('--add_str', type=str, default='', help='其它描述字符串')
 
     # training
     parser.add_argument('--epoch', type=int, default=3000, help='最大训练轮数')
