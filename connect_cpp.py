@@ -187,8 +187,8 @@ def test_input():
 if __name__ == "__main__":
     REVL_MODEL, IMG_FEAT, IMG_PATH, STP_PATH, DEVICE = prepare_model_and_data()
 
-    # app.run(host='0.0.0.0', port=5000)
-    test_input()
+    app.run(host='0.0.0.0', port=5000)
+    # test_input()
 
 
 
