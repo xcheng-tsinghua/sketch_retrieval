@@ -1,10 +1,13 @@
-import argparse
+import os.path
 import re
 import json
+from argparse import Namespace, ArgumentParser
+import yaml
+from colorama import Fore, Style
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
 
     # training & visualizing
     parser.add_argument('--bs', type=int, default=20, help='批次大小')  # 200
@@ -17,30 +20,46 @@ def parse_args():
     parser.add_argument('--task', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--is_zero_shot', type=str, default='False', choices=['True', 'False'], help='检索任务类型')
     parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
-    parser.add_argument('--multi_sketch_split', type=str, default='-', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-'
+    parser.add_argument('--multi_sketch_split', type=str, default='_', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-', 对于 cad 是 '-'
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
-    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/sketch_cad_small')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DataSet\sketch_retrieval\sketch_cad')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair')  # r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy'
     parser.add_argument('--add_str', type=str, default='cad', help='其它描述字符串')
 
     # training
     parser.add_argument('--epoch', type=int, default=3000, help='最大训练轮数')
     parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
-    parser.add_argument('--is_freeze_image_encoder', type=str, choices=['True', 'False'], default='True', help='冻结图像编码器')
-    parser.add_argument('--is_freeze_sketch_backbone', type=str, choices=['True', 'False'], default='False', help='冻结草图编码器主干网络')
-    parser.add_argument('--is_load_ckpt', type=str, choices=['True', 'False'], default='True', help='是否加载检查点')
+    parser.add_argument('--is_freeze_image_encoder', type=str, default='True', choices=['True', 'False'], help='冻结图像编码器')
+    parser.add_argument('--is_freeze_sketch_backbone', type=str, default='False', choices=['True', 'False'], help='冻结草图编码器主干网络')
+    parser.add_argument('--is_load_ckpt', type=str, default='True', choices=['True', 'False'], help='是否加载检查点')
 
-    parser.add_argument('--is_vis', type=str, choices=['True', 'False'], default='False', help='是否可视化草图特征，可视化后不进行训练')
-    parser.add_argument('--is_full_train', type=str, choices=['True', 'False'], default='True', help='使用全部数据训练')
+    parser.add_argument('--is_vis', type=str, default='False', choices=['True', 'False'], help='是否可视化草图特征，可视化后不进行训练')
+    parser.add_argument('--is_full_train', type=str, default='True', choices=['True', 'False'], help='使用全部数据训练')
 
     # visualizing
     parser.add_argument('--output_dir', type=str, default='vis_results', help='可视化存储目录')
     parser.add_argument('--n_vis_images', type=int, default=5, help='每张草图查询的图片数')
-    parser.add_argument('--vis_mode', type=str, default='example', choices=['summary', 'example', 'cluster', ], help='---')
+    parser.add_argument('--vis_mode', type=str, default='example', choices=['summary', 'example', 'cluster'], help='可视化类型')
+
+    # configs
+    parser.add_argument('--configs_dir', type=str, default='configs', help='配置目录')
+    parser.add_argument('--configs_name', type=str, default='skh_proj.yaml', help='配置文件名')
+    parser.add_argument('--is_load_config', type=str, default='False', choices=['True', 'False'], help='是否使用配置文件中的参数')
+    parser.add_argument('--is_save_config', type=str, default='False', choices=['True', 'False'], help='是否将当前参数保存到配置文件')
 
     args = parser.parse_args()
+    config_file_path = os.path.join(args.configs_dir, args.configs_name)
+
+    if eval(args.is_load_config):
+        print(Fore.CYAN + f'load configs from: {config_file_path}' + Style.RESET_ALL)
+        args = load_config(config_file_path)
+
+    if eval(args.is_save_config):
+        print(Fore.GREEN + f'save configs to: {config_file_path}' + Style.RESET_ALL)
+        save_config(args, config_file_path)
+
     return args
 
 
@@ -173,6 +192,30 @@ def parse_sketch_format(format_str):
     pairs = re.findall(r'(\w+)\s*:\s*([^,]+)', format_str)
     format_dict = {k: _parse_value(v) for k, v in pairs}
     return format_dict
+
+
+def load_config(config_path):
+    """
+    从yaml配置文件加载参数，并返回Namespace对象
+    可通过 args.xxx 访问
+    """
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        cfg_dict = yaml.safe_load(f)
+
+    args = Namespace(**cfg_dict)
+    return args
+
+
+def save_config(args, save_path):
+    """
+    保存Namespace参数到yaml配置文件
+    """
+
+    cfg_dict = vars(args)
+
+    with open(save_path, "w", encoding="utf-8") as f:
+        yaml.dump(cfg_dict, f, allow_unicode=True, sort_keys=False)
 
 
 if __name__ == '__main__':

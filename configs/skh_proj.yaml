@@ -1,0 +1,39 @@
+# training & visualizing
+bs: 20
+embed_dim: 512
+num_workers: 8
+weight_dir: 'model_trained'
+
+sketch_model: 'vit'
+image_model: 'vit'
+task: 'fg'
+is_zero_shot: 'False'
+pair_mode: 'multi_pair'
+multi_sketch_split: '-'
+
+local: 'False'
+root_sever: '/opt/data/private/data_set/sketch_retrieval/sketch_cad_small'
+root_local: 'D:\document\DataSet\sketch_retrieval\sketch_cad'
+add_str: 'cad'
+
+# training
+epoch: 3000
+lr: 0.0001
+weight_decay: 0.0001
+is_freeze_image_encoder: 'True'
+is_freeze_sketch_backbone: 'False'
+is_load_ckpt: 'True'
+
+is_vis: 'False'
+is_full_train: 'True'
+
+# visualizing
+output_dir: 'vis_results'
+n_vis_images: 5
+vis_mode: 'example'
+
+# configs
+configs_dir: 'configs'
+configs_name: 'skh_proj.yaml'
+is_load_config: 'False'
+is_save_config: 'False'
