@@ -16,7 +16,10 @@ def parse_args():
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
     parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru', 'resnet18', 'resnet34', 'densenet121', 'densenet169'], help='草图Encoder的名字')
-    parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='--')
+    parser.add_argument('--sketch_suffix', type=str, default='txt', help='草图文件后缀')
+    parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='图片编码器')
+    parser.add_argument('--image_suffix', type=str, default='png', help='图片文件后缀')  # sdgraph: jpg. QMUL: png
+
     parser.add_argument('--task', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--is_zero_shot', type=str, default='False', choices=['True', 'False'], help='检索任务类型')
     parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
@@ -66,96 +69,72 @@ supported_encoders = {
         'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'png',
     },
 
     'resnet18': {
         'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'png',
     },
 
     'resnet34': {
         'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'png',
     },
 
     'densenet121': {
         'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'png',
     },
 
     'densenet169': {
         'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'png',
     },
 
     'sdgraph': {
         'sketch_format': 'fmt: stk, n_stk: 12, n_stk_pnt: 32',
         'sketch_subdir': 'sketch_stk12_stkpnt32',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'png',
     },
 
     'sdgraph_attn': {
         'sketch_format': 'fmt: stk, n_stk: 12, n_stk_pnt: 32',
         'sketch_subdir': 'sketch_stk12_stkpnt32_autospace',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'png',
     },
 
     'lstm': {
         'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'jpg',  # sdgraph: jpg. QMUL: png
     },
 
     'bidir_lstm': {
         'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'jpg',
     },
 
     'gru': {
         'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'jpg',
     },
 
     'bidir_gru': {
         'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'jpg',
     },
 
     'sketch_transformer': {
         'sketch_format': 'fmt: s3 -> s5, max_length: 352',
         'sketch_subdir': 'sketch_s3_352',
         'image_subdir': 'photo',
-        'sketch_suffix': 'txt',
-        'image_suffix': 'jpg',
     }
 
 }

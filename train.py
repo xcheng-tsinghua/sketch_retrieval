@@ -31,8 +31,8 @@ def main(args):
     pre_load = retrieval_datasets.DatasetPreload(
         sketch_root=os.path.join(root, encoder_info['sketch_subdir']),
         image_root=os.path.join(root, encoder_info['image_subdir']),
-        sketch_suffix=encoder_info['sketch_suffix'],
-        image_suffix=encoder_info['image_suffix'],
+        sketch_suffix=args.sketch_suffix,
+        image_suffix=args.image_suffix,
         is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
         is_zero_shot=eval(args.is_zero_shot),
         multi_sketch_split=args.multi_sketch_split
