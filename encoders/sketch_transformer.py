@@ -538,7 +538,7 @@ class SketchTransformer(nn.Module):
 
     def forward(self, input_states, attention_mask=None):
         """
-        input_states: [bs, max_len, 5]
+        input_states: [bs, max_len, 5] sketch of stroke-5 format
         attention_mask: [bs, max_len]
         """
         fea = self.sketch_transformer(input_states, attention_mask)
