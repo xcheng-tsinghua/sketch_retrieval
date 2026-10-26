@@ -82,3 +82,25 @@ python train.py --sketch_model=bidir_lstm --is_load_ckpt=False && python train.p
 
 python train.py --sketch_model=vit --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --add_str=shoe --is_load_ckpt=False
 
+## TMM R1
+随机种子： 92,48,69,83,5
+
+## CL-ZS-SBIR sketchy
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=92 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=48 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=69 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=83 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=5 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=92 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=48 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=69 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=83 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=5 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=92 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=48 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=69 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=83 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=5 && \
+
+
+
