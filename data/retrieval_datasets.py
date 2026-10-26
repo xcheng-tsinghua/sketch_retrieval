@@ -322,24 +322,26 @@ class DatasetPreload:
             raise ValueError('Both sketch and photo roots must contain train AND test folders')
         held_out = set(zs_test_classes)
 
-        def files(folder, suffix):
-            suffix = '.' + suffix.lstrip('.').lower()
-            return sorted(str(p) for p in folder.iterdir() if p.is_file() and p.suffix.lower() == suffix)
+        def files(folder, suffix, photos=False):
+            suffixes = {'.' + suffix.lstrip('.').lower()}
+            if photos:
+                suffixes.update({'.jpg', '.jpeg', '.png'})
+            return sorted(str(p) for p in folder.iterdir() if p.is_file() and p.suffix.lower() in suffixes)
 
         def scan(sk_dir, im_dir, ex_dir):
             categories = sorted({p.name for p in sk_dir.iterdir() if p.is_dir()} &
                                 {p.name for p in im_dir.iterdir() if p.is_dir()})
             records, gallery = [], []
             for cat in categories:
-                photos = files(im_dir / cat, image_suffix)
+                photos = files(im_dir / cat, image_suffix, photos=True)
                 if not photos:
-                    raise ValueError(f'No {image_suffix} photos in {im_dir / cat}')
+                    raise ValueError(f'No jpg/jpeg/png or {image_suffix} photos in {im_dir / cat}')
                 by_stem = {Path(p).stem: p for p in photos}
                 if len(by_stem) != len(photos):
                     raise ValueError(f'Duplicate photo stems in {im_dir / cat}')
                 gallery.extend((p, cat) for p in photos)
                 if ex_dir is not None and (ex_dir / cat).is_dir():
-                    gallery.extend((p, cat) for p in files(ex_dir / cat, image_suffix))
+                    gallery.extend((p, cat) for p in files(ex_dir / cat, image_suffix, photos=True))
                 matched = {}
                 for sk in files(sk_dir / cat, sketch_suffix):
                     stem = Path(sk).stem
