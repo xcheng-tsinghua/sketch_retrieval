@@ -374,7 +374,7 @@ def get_save_str(args):
                 retrieval_mode +
                 is_full_train +
                 pair_mode +
-                add_str)
+                add_str + '_' + str(args.seed))
 
     return save_str
 

@@ -38,6 +38,8 @@ class SBIRTrainer:
                  topk=(1, 5, 10),
                  eval_chunk_size=128,
                  is_sel_neg_samples=False,  # 是否将上一轮检索失败的案例作为精选负样本
+                 wandb_run=None,
+                 early_stop=None,
                  ):
         self.model = model
         self.train_loader = train_loader
@@ -53,6 +55,8 @@ class SBIRTrainer:
         self.ckpt_save_interval = ckpt_save_interval
         self.save_str = save_str
         self.is_sel_neg_samples = is_sel_neg_samples
+        self.wandb_run = wandb_run
+        self.early_stop = early_stop
 
         self.model.to(self.device)
 
@@ -128,6 +132,8 @@ class SBIRTrainer:
 
             # 计算损失
             loss = self.criterion(sketch_features, pos_features, neg_features)
+            if hasattr(self.model, 'auxiliary_loss'):
+                loss = loss + self.model.auxiliary_loss()
 
             # 反向传播
             loss.backward()
@@ -361,6 +367,7 @@ class SBIRTrainer:
             'task': self.task,
             'selection_metric': 'mAP' if self.task == 'cl' else 'Acc@1',
             'metrics_history': self.metrics_history,
+            'early_stop': self.early_stop,
         }
         torch.save(checkpoint, self.check_point)
 
@@ -425,10 +432,20 @@ class SBIRTrainer:
             is_best = score > self.best_acc
             if is_best:
                 self.best_acc = score
-            if is_best or (epoch + 1) % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
+            should_stop = (self.early_stop is not None and
+                           self.last_metrics[self.early_stop[0]] > self.early_stop[1])
+            if should_stop or is_best or (epoch + 1) % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
                 self.save_checkpoint(is_best=is_best)
 
             current_lr = self.optimizer.param_groups[0]['lr']
+            if self.wandb_run is not None:
+                self.wandb_run.log({
+                    'epoch': epoch + 1,
+                    'train/loss': train_loss,
+                    'train/lr': current_lr,
+                    'val/best_score': self.best_acc,
+                    **{f'val/{key}': value for key, value in self.last_metrics.items()},
+                }, step=epoch + 1)
             log_str = f'train_loss: {train_loss:.4f}, lr: {current_lr:.6f} '
             for k, acc in zip(self.topk, acc_topk):
                 log_str += f'Acc@{k}: {acc:.4f} '
@@ -439,6 +456,15 @@ class SBIRTrainer:
             log_str = log_str.replace(' ', '\t')
             if self.logger is not None:
                 self.logger.info(log_str)
+
+            if should_stop:
+                metric, threshold = self.early_stop
+                message = (f'Early stopping at epoch {epoch + 1}: '
+                           f'{metric}={self.last_metrics[metric]:.6f} > {threshold}')
+                print(message)
+                if self.logger is not None:
+                    self.logger.info(message)
+                break
 
         print(Fore.BLACK + Back.GREEN + 'training finished!' + Style.RESET_ALL)
 

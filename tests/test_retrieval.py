@@ -142,7 +142,14 @@ class RetrievalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             trainer = ShortTrainer(torch.nn.Linear(2, 2), None, None, 'cpu',
                                    str(Path(tmp) / 'test.pth'), None, 'test', .001, 0., 2, 'cl')
+            from unittest.mock import Mock
+            trainer.wandb_run = Mock()
             trainer.train()
+            calls = trainer.wandb_run.log.call_args_list
+            self.assertEqual([call.kwargs['step'] for call in calls], [1, 2])
+            self.assertEqual(calls[0].args[0]['train/loss'], 1.)
+            self.assertEqual(calls[1].args[0]['val/mAP'], .2)
+            self.assertEqual(calls[1].args[0]['val/best_score'], .8)
             best = torch.load(trainer.check_point_best, weights_only=True)
             self.assertEqual(best['epoch'], 1)
             self.assertEqual(best['best_acc'], .8)
@@ -162,6 +169,55 @@ class RetrievalTests(unittest.TestCase):
             self.assertEqual(len(p.test_images), 2)
             self.assertEqual({r[1] for r in p.test_images}, {'unseen'})
             self.assertTrue(all(Path(r[1]).stem == '0' for r in p.test_pairs))
+
+    def test_early_stop_strict_threshold_and_final_checkpoint(self):
+        class ShortTrainer(SBIRTrainer):
+            def train_epoch(self):
+                return 1.
+
+            def validate_epoch(self):
+                value = [.4, .508, .509, .9][self.current_epoch]
+                self.last_metrics = {'Acc@1': value, 'mAP@200': value,
+                                     'mAP': .9 - self.current_epoch * .1}
+                return [value, value, value]
+
+        for task, metric in (('cl', 'mAP@200'), ('fg', 'Acc@1')):
+            with self.subTest(task=task), tempfile.TemporaryDirectory() as tmp:
+                trainer = ShortTrainer(torch.nn.Linear(2, 2), None, None, 'cpu',
+                                       str(Path(tmp) / 'stop.pth'), None, 'test',
+                                       .001, 0., 4, task, early_stop=(metric, .508))
+                trainer.train()
+                self.assertEqual(len(trainer.train_losses), 3)
+                saved = torch.load(trainer.check_point, weights_only=True)
+                self.assertEqual(saved['epoch'], 3)
+                self.assertEqual(saved['metrics_history'][-1][metric], .509)
+
+    def test_mixed_zero_shot_loaders_preserve_test_gallery(self):
+        from data.retrieval_datasets import create_sketch_image_dataloaders
+        from utils.training_policy import mix_training_split
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for cat in ('a', 'b', 'held'):
+                for i in range(3):
+                    self.make_files(root, cat, str(i))
+            for task in ('cl', 'fg'):
+                preload = DatasetPreload(root / 'sketch', root / 'photo', 'png', 'png',
+                                         is_multi_pair=True, is_zero_shot=True, task=task,
+                                         zs_test_classes=['held'])
+                mixed = mix_training_split(preload, .5, 7)
+                train, test = create_sketch_image_dataloaders(2, 0, mixed, 'fmt: img', False,
+                                                             task, n_neg=2)
+                self.assertEqual(len(train.dataset), len(preload.train_pairs))
+                self.assertEqual(test.dataset.data_pairs, preload.test_pairs)
+                self.assertEqual(list(test.dataset.image_list), [p for p, _ in preload.test_images])
+                batch = next(iter(train))
+                self.assertEqual(batch[0].shape[0], 2)
+
+    def test_model_alias_and_mix_argument(self):
+        args = options.parse_args(['--model=gat', '--test_mix_ratio=.2'])
+        self.assertEqual(args.sketch_model, 'gat')
+        self.assertEqual(args.test_mix_ratio, .2)
+        self.assertEqual(options.parse_args([]).test_mix_ratio, 0.)
 
 
 if __name__ == '__main__':

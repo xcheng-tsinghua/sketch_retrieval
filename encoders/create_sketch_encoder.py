@@ -9,6 +9,8 @@ from encoders import lstm
 from sdgraph import sdgraph_sel, sdgraph_endsnap, sdgraph_endsnap_attn
 from encoders import gru
 from encoders import sketch_transformer
+from encoders.gat import GATSketchEncoder
+from encoders.glcn import GLCNSketchEncoder
 import options
 
 
@@ -313,6 +315,27 @@ def create_sketch_encoder(model_name,
         encoder = models.densenet169()
         in_dim = encoder.classifier.in_features
         encoder.classifier = nn.Linear(in_dim, output_dim)
+
+    elif model_name in ('gcn', 'glcn'):
+        encoder = GLCNSketchEncoder(
+            embed_dim=output_dim, hidden_dim=sketch_format.get('hidden_dim', 64),
+            graph_dim=sketch_format.get('graph_dim', 2), neighbors=sketch_format.get('neighbors', 8),
+            graph_loss_weight=sketch_format.get('graph_loss_weight', 0.01),
+            gamma=sketch_format.get('gamma', 1.), dropout=dropout)
+        if freeze_backbone:
+            for block in (encoder.graph_learning, encoder.conv1, encoder.conv2):
+                for parameter in block.parameters():
+                    parameter.requires_grad = False
+
+    elif model_name == 'gat':
+        encoder = GATSketchEncoder(
+            embed_dim=output_dim, hidden_dim=sketch_format.get('hidden_dim', 32),
+            heads=sketch_format.get('heads', 4), neighbors=sketch_format.get('neighbors', 8),
+            dropout=dropout)
+        if freeze_backbone:
+            for block in (encoder.gat1, encoder.gat2):
+                for parameter in block.parameters():
+                    parameter.requires_grad = False
 
     elif model_name == 'lstm':
         encoder = lstm.BiLSTMEncoder(

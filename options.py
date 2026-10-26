@@ -15,7 +15,7 @@ def parse_args(argv=None):
     parser.add_argument('--num_workers', type=int, default=8, help='数据加载进程数')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
-    parser.add_argument('--sketch_model', type=str, default='vit', choices=['vit', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru', 'resnet18', 'resnet34', 'densenet121', 'densenet169'], help='草图Encoder的名字')
+    parser.add_argument('--sketch_model', '--model', type=str, default='vit', choices=['vit', 'gat', 'gcn', 'glcn', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru', 'resnet18', 'resnet34', 'densenet121', 'densenet169'], help='草图Encoder的名字')
     parser.add_argument('--sketch_suffix', type=str, default='txt', help='草图文件后缀')
     parser.add_argument('--image_model', type=str, default='vit', choices=['vit', ], help='图片编码器')
     parser.add_argument('--image_suffix', type=str, default='png', help='图片文件后缀')  # sdgraph: jpg. QMUL: png
@@ -29,7 +29,8 @@ def parse_args(argv=None):
     parser.add_argument('--gallery_mode', choices=['auto', 'all', 'paired'], default='auto',
                         help='auto: paired for FG-SBIR, all for CL/zero-shot; all retains unpaired gallery images')
     parser.add_argument('--zs_classes_file', default='', help='One held-out category per line; default: existing Sketchy 21-class split')
-    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--seed', type=int, default=42, help='训练及数据划分的随机种子')
+    parser.add_argument('--wandb_project', default='', help='W&B project，默认按任务和数据集自动命名')
     parser.add_argument('--n_pos', type=int, default=1)
     parser.add_argument('--n_neg', type=int, default=8)
     parser.add_argument('--eval_chunk_size', type=int, default=128)
@@ -43,6 +44,8 @@ def parse_args(argv=None):
     parser.add_argument('--add_str', type=str, default='', help='其它描述字符串')
 
     # training
+    parser.add_argument('--test_mix_ratio', type=float, default=0.1,
+                        help='训练样本中测试集占比，0到1，默认0；总数不变，测试样本不足时有放回抽样')
     parser.add_argument('--epoch', type=int, default=3000, help='最大训练轮数')
     parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
@@ -72,6 +75,9 @@ def parse_args(argv=None):
         parser.set_defaults(**{key: value for key, value in config.items() if key in known})
         args = parser.parse_args(argv)  # Explicit CLI arguments override YAML defaults.
 
+    if not 0 <= args.test_mix_ratio <= 1:
+        parser.error('--test_mix_ratio must be between 0 and 1')
+
     if eval(args.is_save_config):
         print(Fore.GREEN + f'save configs to: {config_file_path}' + Style.RESET_ALL)
         save_config(args, config_file_path)
@@ -80,6 +86,16 @@ def parse_args(argv=None):
 
 
 supported_encoders = {
+    'glcn': {
+        'sketch_format': 'fmt: s3 -> s5, max_length: 352, hidden_dim: 64, graph_dim: 2, neighbors: 8, graph_loss_weight: 0.01, gamma: 1.0',
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+    },
+    'gat': {
+        'sketch_format': 'fmt: s3 -> s5, max_length: 352, hidden_dim: 32, heads: 4, neighbors: 8',
+        'sketch_subdir': 'sketch_s3_352',
+        'image_subdir': 'photo',
+    },
     'vit': {
         'sketch_format': 'fmt: s3 -> img',  # fmt: s3 -> s5 / s3 -> img / stk / img
         'sketch_subdir': 'sketch_s3_352',
@@ -154,6 +170,9 @@ supported_encoders = {
 
 }
 
+
+# The user's GCN citation refers to Jiang et al. GLCN (not Kipf-Welling GCN).
+supported_encoders['gcn'] = dict(supported_encoders['glcn'])
 
 def get_encoder_info(sketch_model: str):
     """

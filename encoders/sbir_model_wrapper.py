@@ -147,6 +147,12 @@ class SBIRModelWrapper(nn.Module):
                         if layer.bias is not None:
                             nn.init.constant_(layer.bias, 0)
     
+    def auxiliary_loss(self):
+        """Optional differentiable encoder regularizer from the current sketch forward."""
+        getter = getattr(self.sketch_encoder, 'auxiliary_loss', None)
+        penalty = getter() if getter is not None else None
+        return penalty if penalty is not None else self.logit_scale.new_zeros(())
+
     def encode_sketch(self, sketches):
         """
         编码PNG草图

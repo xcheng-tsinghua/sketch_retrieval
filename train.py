@@ -14,15 +14,16 @@ from colorama import Fore, Back, Style
 from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import trainer, utils
+from utils.wandb_logging import init_wandb
 import options
+from utils.training_policy import mix_training_split, early_stop_policy
 
 
 def main(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
+
     save_str = utils.get_save_str(args)
     print(Fore.BLACK + Back.CYAN + '-> model save name: ' + save_str + ' <-' + Style.RESET_ALL)
     encoder_info = options.get_encoder_info(args.sketch_model)
@@ -34,8 +35,20 @@ def main(args):
     # 设置设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    if eval(args.is_full_train) and not args.eval_only:
+        raise ValueError('Fixed-size training requires --is_full_train=False; use --test_mix_ratio instead')
+
     # 预加载数据集
     pre_load = retrieval_datasets.preload_from_args(args)
+    if not args.eval_only:
+        original_count = len(pre_load.train_pairs)
+        pre_load = mix_training_split(pre_load, args.test_mix_ratio, args.seed)
+        mixed_count = int(original_count * args.test_mix_ratio)
+        logger.info(f'Training samples: {original_count}; test samples: {mixed_count}; '
+                    f'actual test ratio: {mixed_count / original_count:.6f}')
+    root = args.root_local if eval(args.local) else args.root_sever
+    stop_policy = early_stop_policy(root, args.task, eval(args.is_zero_shot), args.sketch_model)
+    logger.info(f'Early stopping policy: {stop_policy}')
     logger.info(json.dumps(vars(args), ensure_ascii=False))
 
     # 创建数据加载器
@@ -44,7 +57,7 @@ def main(args):
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
-        is_full_train=eval(args.is_full_train),
+        is_full_train=False,
         task=args.task, n_pos=args.n_pos, n_neg=args.n_neg
     )
 
@@ -72,7 +85,8 @@ def main(args):
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
-        task=args.task, eval_chunk_size=args.eval_chunk_size
+        task=args.task, eval_chunk_size=args.eval_chunk_size,
+        early_stop=stop_policy
     )
     
     # 恢复训练（如果指定）
@@ -87,7 +101,9 @@ def main(args):
         return model_trainer.last_metrics
 
     # 开始训练
-    model_trainer.train()
+    with init_wandb(args, save_str) as run:
+        model_trainer.wandb_run = run
+        model_trainer.train()
 
 
 if __name__ == '__main__':
