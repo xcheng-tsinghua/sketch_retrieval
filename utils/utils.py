@@ -274,7 +274,9 @@ def s3_file_to_s5(root, max_length, pen_up=1, coor_mode='REL', is_shuffle_stroke
 
 
 def load_stk_sketch(s3_file, n_stk, n_stk_pnt):
-    s3_data = np.loadtxt(s3_file, dtype=np.float32)
+    # Normalize commas so spaces, tabs and comma-separated coordinates all work.
+    with open(s3_file, encoding='utf-8-sig') as source:
+        s3_data = np.loadtxt((line.replace(',', ' ') for line in source), dtype=np.float32)
     # n_stk = re.findall(r'stk(\d+)', stk_name)[0]
     # n_stk_pnt = re.findall(r'stkpnt(\d+)', stk_name)[0]
     stk_data = s3_data.reshape(int(n_stk), int(n_stk_pnt), 2)
