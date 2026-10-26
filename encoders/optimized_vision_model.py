@@ -45,7 +45,7 @@ class CachedVisionModel(nn.Module):
         return self.model(x)
 
 
-def create_optimized_vision_model(model_name='vit_base_patch16_224', checkpoint_path=None):
+def create_optimized_vision_model(model_name='vit_base_patch16_224', checkpoint_path=None, pretrained=True):
     """
     创建优化的确定性视觉模型
     
@@ -56,7 +56,9 @@ def create_optimized_vision_model(model_name='vit_base_patch16_224', checkpoint_
     Returns:
         确定性的视觉模型
     """
-    real_model_name = 'vit_base_patch16_224' if model_name == 'vit' else None
+    real_model_name = 'vit_base_patch16_224' if model_name == 'vit' else model_name
+    if not pretrained and not checkpoint_path:
+        return timm.create_model(real_model_name, pretrained=False, num_classes=0)
     
     # 优先从检查点加载
     if checkpoint_path and os.path.exists(checkpoint_path):

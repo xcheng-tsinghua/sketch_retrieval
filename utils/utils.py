@@ -365,7 +365,7 @@ def get_save_str(args):
     """
     is_full_train = '_full' if eval(args.is_full_train) else ''
     pair_mode = '_single_pair' if args.pair_mode == 'single_pair' else ''
-    args.add_str = '_' + args.add_str if args.add_str != '' else args.add_str
+    add_str = '_' + args.add_str if args.add_str != '' else ''
     retrieval_mode = 'zs_sbir' if eval(args.is_zero_shot) else 'sbir'
 
     save_str = (args.sketch_model + '_' +
@@ -374,7 +374,7 @@ def get_save_str(args):
                 retrieval_mode +
                 is_full_train +
                 pair_mode +
-                args.add_str)
+                add_str)
 
     return save_str
 

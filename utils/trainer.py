@@ -13,9 +13,11 @@ from typing import Tuple, Dict
 from colorama import Fore, Back, Style
 
 from utils import loss_func
+from utils.retrieval_metrics import evaluate_retrieval
+from torch.utils.data import DataLoader
 
 
-# TODO: 完善 cl 检索代码
+
 
 
 class SBIRTrainer:
@@ -33,7 +35,8 @@ class SBIRTrainer:
                  max_epochs,
                  task,  # ['fg', 'cl']
                  ckpt_save_interval=20,  # 检查点保存的 epoch 间隔
-                 topk=(1, 5),
+                 topk=(1, 5, 10),
+                 eval_chunk_size=128,
                  is_sel_neg_samples=False,  # 是否将上一轮检索失败的案例作为精选负样本
                  ):
         self.model = model
@@ -43,6 +46,9 @@ class SBIRTrainer:
         self.check_point = check_point
         self.max_epochs = max_epochs
         self.task = task
+        self.eval_chunk_size = eval_chunk_size
+        self.last_metrics = {}
+        self.metrics_history = []
         self.logger = logger
         self.ckpt_save_interval = ckpt_save_interval
         self.save_str = save_str
@@ -58,7 +64,7 @@ class SBIRTrainer:
         self.check_point_best = os.path.splitext(check_point)[0] + '_best.pth'
 
         # 创建输出目录
-        os.makedirs(os.path.dirname(self.check_point), exist_ok=True)
+        os.makedirs(os.path.dirname(self.check_point) or '.', exist_ok=True)
 
         # 初始化优化器和学习率调度器
         self.optimizer = optim.AdamW(
@@ -71,7 +77,7 @@ class SBIRTrainer:
         # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.9)
         # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=10)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=50, T_mult=2, eta_min=1e-6)
-        self.criterion = loss_func.info_nce_multi_neg
+        self.criterion = loss_func.info_nce_multi_positive if task == 'cl' else loss_func.info_nce_multi_neg
 
         # 训练状态
         self.current_epoch = 0
@@ -105,7 +111,12 @@ class SBIRTrainer:
 
             # 前向传播
             sketch_features = self.model.encode_sketch(sketches)
-            pos_features = self.model.encode_image(images_pos)
+            if self.task == 'cl':
+                batch, positives, channels, height, width = images_pos.shape
+                pos_features = self.model.encode_image(images_pos.reshape(-1, channels, height, width))
+                pos_features = pos_features.reshape(batch, positives, -1)
+            else:
+                pos_features = self.model.encode_image(images_pos)
 
             # 整理多个负样本
             c_bs, n_neg, c, h, w = images_neg.size()
@@ -160,46 +171,13 @@ class SBIRTrainer:
         """
         获取测试集准确率以及检索成功的草图样例索引
         """
-        # self.model.eval()
-
-        # # 提取草图特征
-        # self.test_loader.dataset.back_sketch()
-        # sketch_features = self.get_fea(self.model.encode_sketch, self.test_loader, self.device)
-        #
-        # # 提取图片特征
-        # self.test_loader.dataset.back_image()
-        # image_features = self.get_fea(self.model.encode_image, self.test_loader, self.device)
-        #
-        # # 计算准确率及匹配的样例
-        # # 1. similarity matrix [m, n]
-        # sim_matrix = sketch_features @ image_features.t()
-
-        sim_matrix = self.get_similarity_matrix(False)
-
-        max_k = max(self.topk)
-
-        # 2. top-k retrieval
-        _, topk_indices = sim_matrix.topk(k=max_k, dim=1, largest=True, sorted=True)  # [m, max_k]
-
-        # 4. GT index
-        gt_idx = get_gt_index(self.test_loader.dataset.sketch_list_with_id)  # [m, 1]
-
-        accs = []
-        indices = []
-        for k in self.topk:
-            # [m] bool
-            correct_k = (topk_indices[:, :k] == gt_idx).any(dim=1)
-
-            # Acc@k
-            acc_k = correct_k.float().mean().item()
-
-            # 命中的草图索引
-            correct_indices = torch.nonzero(correct_k, as_tuple=False).squeeze(1)
-
-            accs.append(acc_k)
-            indices.append(correct_indices)
-
-        return accs, indices
+        sketch_features, image_features = self.get_retrieval_features(False)
+        dataset = self.test_loader.dataset
+        self.last_metrics, indices = evaluate_retrieval(
+            sketch_features, image_features, self.task,
+            [idx for _, idx in dataset.sketch_list_with_id],
+            dataset.sketch_cat, dataset.image_cat, self.topk, self.eval_chunk_size)
+        return [self.last_metrics[f'Acc@{k}'] for k in self.topk], [indices[k] for k in self.topk]
 
     def save_revl_success_ins(self):
         """
@@ -238,47 +216,30 @@ class SBIRTrainer:
         print(f'file save to: {os.path.abspath(save_path)}')
 
     @torch.no_grad()
-    def get_similarity_matrix(self, is_train):
-        """
-        获取相似度矩阵
-        [n_skh, n_img]
-
-        is_train: True 训练集上的相似度矩阵
-        False 测试集上的相似度矩阵
-        """
-
-        def _get_fea(_encoder):
-            """
-            获取特征
-            """
-            _fea_list = []
-            for _data_tensor in tqdm(target_loader, desc='loading data'):
-                # 由于 shuffle=False，无需担心加载过程中图片顺序被打乱
-                _data_tensor = _data_tensor.to(self.device)
-
-                _fea_tensor = _encoder(_data_tensor)
-                _fea_list.append(_fea_tensor.cpu())
-
-            # 合并特征
-            _fea_list = torch.cat(_fea_list, dim=0)
-            return _fea_list
-
-        target_loader = self.train_loader if is_train else self.test_loader
-
+    def get_retrieval_features(self, is_train):
+        source = self.train_loader if is_train else self.test_loader
+        dataset = source.dataset
+        # A new sequential loader is essential for training-set hard-negative indices.
+        loader = DataLoader(dataset, batch_size=source.batch_size, shuffle=False,
+                            num_workers=source.num_workers, pin_memory=source.pin_memory)
+        old_mode = dataset.back_mode
         self.model.eval()
-        # 提取草图特征
-        target_loader.dataset.back_sketch()
-        sketch_features = _get_fea(self.model.encode_sketch)
+        def extract(encoder):
+            features = [encoder(batch.to(self.device)).cpu() for batch in tqdm(loader, desc='encoding')]
+            return torch.cat(features)
+        try:
+            dataset.back_sketch()
+            sketches = extract(self.model.encode_sketch)
+            dataset.back_image()
+            images = extract(self.model.encode_image)
+        finally:
+            dataset.back_mode = old_mode
+        return sketches, images
 
-        # 提取图片特征
-        target_loader.dataset.back_image()
-        image_features = _get_fea(self.model.encode_image)
-
-        # 计算准确率及匹配的样例
-        # 1. similarity matrix [m, n]
-        sim_matrix = sketch_features @ image_features.t()
-
-        return sim_matrix
+    @torch.no_grad()
+    def get_similarity_matrix(self, is_train):
+        sketches, images = self.get_retrieval_features(is_train)
+        return sketches @ images.T
 
     def validate_epoch(self):
         """
@@ -287,10 +248,12 @@ class SBIRTrainer:
         acc_topk, _ = self.get_acc_revl_success()
 
         # 设置精选负样本
+        if self.is_sel_neg_samples and self.task != 'fg':
+            raise ValueError('Hard-negative mining is currently FG-only')
         if self.is_sel_neg_samples:
             sim_matrix = self.get_similarity_matrix(True)
 
-            max_k = self.train_loader.dataset.n_neg + 1
+            max_k = min(self.train_loader.dataset.n_neg + 1, sim_matrix.shape[1])
 
             # 2. top-k retrieval
             _, topk_indices = sim_matrix.topk(k=max_k, dim=1, largest=True, sorted=True)  # [m, max_k]
@@ -311,7 +274,7 @@ class SBIRTrainer:
                     c_neg_idx = c_revl[:-1]
 
                 c_neg_idx = c_neg_idx.tolist()
-                assert len(c_neg_idx) == self.train_loader.dataset.n_neg, ValueError('error neg instance number')
+                c_neg_idx = self.train_loader.dataset.sample_pool(c_neg_idx, self.train_loader.dataset.n_neg)
                 neg_idxes.append(c_neg_idx)
 
             # 设置负样本
@@ -395,6 +358,9 @@ class SBIRTrainer:
             'best_acc': self.best_acc,
             'train_losses': self.train_losses,
             'test_acc': self.test_acc,
+            'task': self.task,
+            'selection_metric': 'mAP' if self.task == 'cl' else 'Acc@1',
+            'metrics_history': self.metrics_history,
         }
         torch.save(checkpoint, self.check_point)
 
@@ -408,7 +374,9 @@ class SBIRTrainer:
         """加载模型检查点"""
         if is_load:
             try:
-                checkpoint = torch.load(checkpoint_path, map_location=self.device)
+                checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
+                if checkpoint.get('task', self.task) != self.task:
+                    raise ValueError('Checkpoint retrieval task differs from current task')
                 self.model.load_state_dict(checkpoint['model_state_dict'])
                 print(Fore.GREEN + f"checkpoint load finished: {checkpoint_path}, (epoch {checkpoint.get('epoch', 'unknown')})" + Style.RESET_ALL)
 
@@ -418,9 +386,12 @@ class SBIRTrainer:
                         self.test_acc = checkpoint['test_acc']
                         self.best_acc = checkpoint['best_acc']
 
-                        # self.current_epoch = checkpoint['epoch']
-                        # self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                        # self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                        self.metrics_history = checkpoint.get('metrics_history', [])
+                        if self.task == 'cl' and checkpoint.get('selection_metric') != 'mAP':
+                            self.best_acc = -1.
+                        self.current_epoch = checkpoint['epoch']
+                        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
                     except Exception as e:
                         print(Fore.RED + f'load training status failed, error: {e}.' + Style.RESET_ALL)
@@ -449,15 +420,12 @@ class SBIRTrainer:
             acc_topk = self.validate_epoch()
             self.test_acc.append(acc_topk)
 
-            # 保存检查点
-            if (epoch + 1) % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
-                # 检查是否是最佳模型
-                is_best = acc_topk[0] > self.best_acc
-                if is_best:
-                    self.best_acc = acc_topk[0]
-                    print(Fore.CYAN + f'new best retrieval accuracy: {acc_topk[0]:.4f}' + Style.RESET_ALL)
-
-                # 保存检查点
+            self.metrics_history.append(dict(self.last_metrics))
+            score = self.last_metrics['mAP' if self.task == 'cl' else 'Acc@1']
+            is_best = score > self.best_acc
+            if is_best:
+                self.best_acc = score
+            if is_best or (epoch + 1) % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
                 self.save_checkpoint(is_best=is_best)
 
             current_lr = self.optimizer.param_groups[0]['lr']
@@ -465,10 +433,12 @@ class SBIRTrainer:
             for k, acc in zip(self.topk, acc_topk):
                 log_str += f'Acc@{k}: {acc:.4f} '
 
+            log_str += ' '.join(f'{key}: {value:.4f}' for key, value in self.last_metrics.items() if not key.startswith('Acc@'))
             print(self.save_str + ': ' + log_str)
-            log_str = 'epoch {epoch}/{self.max_epochs}: ' + log_str
+            log_str = f'epoch {epoch + 1}/{self.max_epochs}: ' + log_str
             log_str = log_str.replace(' ', '\t')
-            self.logger.info(log_str)
+            if self.logger is not None:
+                self.logger.info(log_str)
 
         print(Fore.BLACK + Back.GREEN + 'training finished!' + Style.RESET_ALL)
 

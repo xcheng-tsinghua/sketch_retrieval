@@ -204,22 +204,14 @@ def main(args, eval_sketches):
     root = args.root_local if eval(args.local) else args.root_sever
     sketch_root = os.path.join(root, encoder_info['sketch_subdir'])
     image_root = os.path.join(root, encoder_info['image_subdir'])
-    pre_load = retrieval_datasets.DatasetPreload(
-        sketch_root=sketch_root,
-        image_root=image_root,
-        sketch_suffix=encoder_info['sketch_suffix'],
-        image_suffix=encoder_info['image_suffix'],
-        is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-        split_mode=args.task,
-        multi_sketch_split=args.multi_sketch_split
-    )
+    pre_load = retrieval_datasets.preload_from_args(args)
 
     train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
         batch_size=args.bs,
         num_workers=args.num_workers,
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
-        is_full_train=eval(args.is_full_train)
+        is_full_train=eval(args.is_full_train), task=args.task
     )
 
     # 创建并加载模型
@@ -244,7 +236,7 @@ def main(args, eval_sketches):
         save_str=save_str,
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
-        max_epochs=args.epoch,
+        max_epochs=args.epoch, task=args.task,
     )
     if not model_trainer.load_checkpoint(check_point, True):
         exit(0)
@@ -262,7 +254,7 @@ def main(args, eval_sketches):
         eval_sketch_path = []
         for c_eval_skh in eval_sketches:
             c_class, c_base_name = c_eval_skh.split('/')
-            c_real_path = os.path.join(sketch_root, 'test', c_class, c_base_name + '.' + encoder_info['sketch_suffix'])
+            c_real_path = os.path.join(sketch_root, 'test', c_class, c_base_name + '.' + args.sketch_suffix)
             eval_sketch_path.append(c_real_path)
 
         # 找到查询草图对应的图片在图片列表中的索引

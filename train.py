@@ -3,6 +3,9 @@ PNG草图-图像对齐模型训练脚本
 使用PNG格式的草图与图像进行对齐训练
 """
 import os
+import random
+import json
+import numpy as np
 import torch
 from datetime import datetime
 from colorama import Fore, Back, Style
@@ -15,6 +18,11 @@ import options
 
 
 def main(args):
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
     save_str = utils.get_save_str(args)
     print(Fore.BLACK + Back.CYAN + '-> model save name: ' + save_str + ' <-' + Style.RESET_ALL)
     encoder_info = options.get_encoder_info(args.sketch_model)
@@ -27,16 +35,8 @@ def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # 预加载数据集
-    root = args.root_local if eval(args.local) else args.root_sever
-    pre_load = retrieval_datasets.DatasetPreload(
-        sketch_root=os.path.join(root, encoder_info['sketch_subdir']),
-        image_root=os.path.join(root, encoder_info['image_subdir']),
-        sketch_suffix=args.sketch_suffix,
-        image_suffix=args.image_suffix,
-        is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-        is_zero_shot=eval(args.is_zero_shot),
-        multi_sketch_split=args.multi_sketch_split
-    )
+    pre_load = retrieval_datasets.preload_from_args(args)
+    logger.info(json.dumps(vars(args), ensure_ascii=False))
 
     # 创建数据加载器
     train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(
@@ -45,7 +45,7 @@ def main(args):
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
         is_full_train=eval(args.is_full_train),
-        task=args.task
+        task=args.task, n_pos=args.n_pos, n_neg=args.n_neg
     )
 
     # 创建模型
@@ -56,10 +56,11 @@ def main(args):
         sketch_model_name=args.sketch_model,
         image_model_name=args.image_model,
         sketch_format=encoder_info['sketch_format'],
+        pretrained=eval(args.pretrained) and not args.eval_only,
     )
 
     # 创建训练器
-    check_point = utils.get_check_point(args.weight_dir, save_str)
+    check_point = args.checkpoint or utils.get_check_point(args.weight_dir, save_str)
     model_trainer = trainer.SBIRTrainer(
         model=model,
         train_loader=train_loader,
@@ -71,11 +72,19 @@ def main(args):
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
         max_epochs=args.epoch,
-        task=args.task
+        task=args.task, eval_chunk_size=args.eval_chunk_size
     )
     
     # 恢复训练（如果指定）
-    model_trainer.load_checkpoint(check_point, eval(args.is_load_ckpt))
+    loaded = model_trainer.load_checkpoint(check_point, args.eval_only or eval(args.is_load_ckpt),
+                                          is_load_training_state=not args.eval_only)
+    if args.eval_only:
+        if not loaded:
+            raise RuntimeError('Evaluation requires a valid checkpoint')
+        model_trainer.validate_epoch()
+        print(json.dumps(model_trainer.last_metrics, indent=2))
+        logger.info(json.dumps(model_trainer.last_metrics))
+        return model_trainer.last_metrics
 
     # 开始训练
     model_trainer.train()

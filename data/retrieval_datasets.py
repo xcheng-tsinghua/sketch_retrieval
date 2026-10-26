@@ -9,6 +9,8 @@ import torchvision.transforms as transforms
 from functools import partial
 import numpy as np
 import random
+import hashlib
+from pathlib import Path
 from torchvision.transforms.functional import to_pil_image
 
 from utils import utils
@@ -19,7 +21,6 @@ import options
 class SketchImageDataset(Dataset):
     """
     PNG草图-图像配对数据集
-    TODO: 未完善 category-level 数据加载
     """
     def __init__(self,
                  is_train: bool,
@@ -45,6 +46,8 @@ class SketchImageDataset(Dataset):
         self.is_train = is_train
         self.n_pos = n_pos
         self.n_neg = n_neg
+        if n_pos < 1 or n_neg < 1:
+            raise ValueError('n_pos and n_neg must be positive')
         self.back_mode = 'train_data'  # ['train_data', 'sketch', 'image']
         self.neg_instance = None  # 负样本
         self.task = task
@@ -111,7 +114,7 @@ class SketchImageDataset(Dataset):
         """
         # 根据模式选择数据
         if self.is_train:
-            self.data_pairs = pre_load.train_pairs
+            self.data_pairs = list(pre_load.train_pairs)
             if is_full_train:
                 self.data_pairs.extend(pre_load.test_pairs)
 
@@ -123,18 +126,21 @@ class SketchImageDataset(Dataset):
         self.category_to_idx = {cat: idx for idx, cat in enumerate(self.categories)}
 
         # 获取草图列表、图片列表、id 映射
-        self.image_list = []
-        self.image_cat = []
-        for skh_path, img_path, class_name in self.data_pairs:
-            if img_path not in self.image_list:
-                self.image_list.append(img_path)
-                self.image_cat.append(self.category_to_idx[class_name])
+        gallery = list(pre_load.train_images if self.is_train else pre_load.test_images)
+        if self.is_train and is_full_train:
+            gallery.extend(pre_load.test_images)
+        gallery = sorted(set(gallery))
+        self.image_list = [path for path, _ in gallery]
+        self.image_cat = [self.category_to_idx[cat] for _, cat in gallery]
+        image_to_idx = {path: i for i, path in enumerate(self.image_list)}
 
         # id: 某张草图实例级匹配的图片，在 image_list 中的索引
         self.sketch_list_with_id = []  # 将 sketch_list 中的每个样本路径加上 id，以表明其匹配的图片
         self.sketch_cat = []
         for skh_path, img_path, class_name in self.data_pairs:
-            c_paired_img_idx = self.image_list.index(img_path)
+            c_paired_img_idx = image_to_idx.get(img_path, -1)
+            if self.task == 'fg' and c_paired_img_idx < 0:
+                raise ValueError(f'Missing FG target for {skh_path}')
 
             self.sketch_list_with_id.append((skh_path, c_paired_img_idx))
             self.sketch_cat.append(self.category_to_idx[class_name])
@@ -152,6 +158,12 @@ class SketchImageDataset(Dataset):
                     self.cat_to_img_list[cat_idx].append(img_path)
                 else:
                     self.cat_to_img_list[cat_idx] = [img_path]
+        if not self.image_list or not self.sketch_list_with_id:
+            raise ValueError('Empty retrieval split: check paths, suffixes and held-out classes')
+        if self.is_train and self.task == 'cl' and len(set(self.image_cat)) < 2:
+            raise ValueError('CL training requires at least two image categories')
+        if self.is_train and self.task == 'fg' and len(self.image_list) < 2:
+            raise ValueError('FG training requires at least two images')
 
     def __len__(self):
         # return len(self.data_pairs)
@@ -190,7 +202,7 @@ class SketchImageDataset(Dataset):
                 pos_img_all = self.cat_to_img_list[pos_cat]
 
                 # 随机选取指定个数正样本
-                pos_imgs = random.sample(pos_img_all, self.n_pos)
+                pos_imgs = self.sample_pool(pos_img_all, self.n_pos)
 
                 pos_img_tensor_list = []
                 for c_pos in pos_imgs:
@@ -203,7 +215,7 @@ class SketchImageDataset(Dataset):
                 for cat_key in self.cat_to_img_list.keys():
                     if cat_key != pos_cat:
                         neg_img_all_list.extend(self.cat_to_img_list[cat_key])
-                neg_img_list = random.sample(neg_img_all_list, self.n_neg)
+                neg_img_list = self.sample_pool(neg_img_all_list, self.n_neg)
 
             elif self.task == 'fg':
                 pos_img = self.image_list[ins_id]
@@ -248,15 +260,17 @@ class SketchImageDataset(Dataset):
             raise ValueError('unsupported back mode')
 
     @staticmethod
+    def sample_pool(pool, k):
+        if not pool:
+            raise ValueError('No eligible samples in the requested pool')
+        return random.sample(pool, k) if len(pool) >= k else random.choices(pool, k=k)
+
+    @staticmethod
     def sample_exclude(lst, k, forbidden_idx) -> list:
         # 把允许抽的索引先列出来
         allowed_idx = [i for i in range(len(lst)) if i not in forbidden_idx]
 
-        if len(allowed_idx) < k:
-            raise ValueError('可选元素不足')
-
-        # 从 allowed_idx 里随机选 k 个索引
-        picked_idx = random.sample(allowed_idx, k)
+        picked_idx = SketchImageDataset.sample_pool(allowed_idx, k)
 
         # 返回对应的元素
         return [lst[i] for i in picked_idx]
@@ -271,330 +285,151 @@ class SketchImageDataset(Dataset):
         self.back_mode = 'train_data'
 
 
-class DatasetPreload(object):
+class DatasetPreload:
+    """Build query records and independent galleries; retain unpaired gallery images.
+
+    FG targets are filename-matched original photos. CL relevance is the category.
+    Predefined train/test folders take precedence, and zero-shot disjointness is checked.
     """
-    读取文件并分割为训练集测试集，如果文件夹内的训练集测试集已划分好，则检索类别由文件夹内划分的训练集测试集决定
-    要求：
-    1. sketch_root 和 image_root 是两个不同的文件夹
-    2. 草图和图片文件夹下的类别文件夹要一致
-    3. 实例级配对的图片和草图文件名一致（扩展名可不一致），若某张图片对应多个草图，草图末尾加 _1 等区分，即下划线加序号
-
-    定位文件夹层级示例如下：
-    -> 不区分训练集测试集，自动划分的情况
-    sketch_root
-    ├─ Class1
-    │   ├─0.png
-    │   ├─1.png
-    │   ...
-    │
-    ├─ Class2
-    │   ├─0.png
-    │   ├─1.png
-    │   ...
-    │
-    ...
-
-    image_root
-    ├─ Class1
-    │   ├─0.jpg
-    │   ├─1.jpg
-    │   ...
-    │
-    ├─ Class2
-    │   ├─0.jpg
-    │   ├─1.jpg
-    │   ...
-    │
-    ...
-
-    -> 训练集测试集已区分好的情况
-    sketch_root
-    ├─ train
-    │   ├─ Class1
-    │   │   ├─0.png
-    │   │   ├─1.png
-    │   │   │   ...
-    │   │
-    │   ├─ Class2
-    │   │   ├─0.png
-    │   │   ├─1.png
-    │   │   ...
-    │   │
-    │   ...
-    │
-    ├─ test
-    │   ├─ Class1
-    │   │   ├─0.png
-    │   │   ├─1.png
-    │   │   ...
-    │   │
-    │   ├─ Class2
-    │   │   ├─0.png
-    │   │   ├─1.png
-    │   │   ...
-    │   │
-    │   ...
-
-    image_root
-    ├─ train
-    │   ├─ Class1
-    │   │   ├─0.jpg
-    │   │   ├─1.jpg
-    │   │   │   ...
-    │   │
-    │   ├─ Class2
-    │   │   ├─0.jpg
-    │   │   ├─1.jpg
-    │   │   ...
-    │   │
-    │   ...
-    │
-    ├─ test
-    │   ├─ Class1
-    │   │   ├─0.jpg
-    │   │   ├─1.jpg
-    │   │   ...
-    │   │
-    │   ├─ Class2
-    │   │   ├─0.jpg
-    │   │   ├─1.jpg
-    │   │   ...
-    │   │
-    │   ...
-
-    """
-    def __init__(self,
-                 sketch_root,
-                 image_root,
-                 sketch_suffix,
-                 image_suffix,
-                 train_split=0.8,
-                 random_seed=42,
-                 is_multi_pair=False,
-                 is_zero_shot=True,  # ['sbir', 'zs-sbir']
-                 multi_sketch_split='_',  # 一张照片对应多个草图，草图命名应为 "图片名(不带后缀)+multi_sketch_split+草图后缀"
-                 zs_test_classes=scfg.sketchy_test_classes
-                 ):
-
-        self.train_pairs = []  # (sketch_root, image_root, class_name)
-        self.test_pairs = []
-        self.category_stats = {}
-        self.train_stats = {}
-        self.test_stats = {}
-        self.train_split = train_split
+    def __init__(self, sketch_root, image_root, sketch_suffix, image_suffix,
+                 train_split=0.8, random_seed=42, is_multi_pair=False,
+                 is_zero_shot=True, multi_sketch_split='_',
+                 zs_test_classes=scfg.sketchy_test_classes, task='fg',
+                 extended_image_root=None, gallery_mode='auto'):
+        if task not in ('cl', 'fg'):
+            raise ValueError('task must be cl or fg')
+        self.task = task
+        if gallery_mode not in ('auto', 'all', 'paired'):
+            raise ValueError('gallery_mode must be auto, all or paired')
+        if gallery_mode == 'auto':
+            gallery_mode = 'paired' if task == 'fg' and not is_zero_shot else 'all'
+        self.is_zero_shot = is_zero_shot
+        self.train_pairs, self.test_pairs = [], []
+        self.train_images, self.test_images = [], []
         self.random_seed = random_seed
-        self.common_categories = []
+        self.train_split = train_split
+        self.category_stats, self.train_stats, self.test_stats = {}, {}, {}
+        roots = [Path(sketch_root), Path(image_root)]
+        if extended_image_root:
+            roots.append(Path(extended_image_root))
+        for root in roots:
+            if not root.is_dir():
+                raise FileNotFoundError(f'Dataset directory not found: {root}')
+        sk_root, im_root = roots[:2]
+        ext_root = roots[2] if len(roots) > 2 else None
+        divided = all((root / split).is_dir() for root in roots[:2] for split in ('train', 'test'))
+        if not divided and any((root / split).is_dir() for root in roots[:2] for split in ('train', 'test')):
+            raise ValueError('Both sketch and photo roots must contain train AND test folders')
+        held_out = set(zs_test_classes)
 
-        self.load_data(sketch_root,
-                       image_root,
-                       sketch_suffix,
-                       image_suffix,
-                       train_split,
-                       random_seed,
-                       is_multi_pair,
-                       is_zero_shot,  # ['sbir', 'zs-sbir']
-                       multi_sketch_split,
-                       zs_test_classes,
-                       )
+        def files(folder, suffix):
+            suffix = '.' + suffix.lstrip('.').lower()
+            return sorted(str(p) for p in folder.iterdir() if p.is_file() and p.suffix.lower() == suffix)
 
-        print(f'-> preload data info: ')
-        print(f'   preload sketch from: {sketch_root}')
-        print(f'   preload image from: {image_root}')
-        print(f'   training set: {len(self.train_pairs)} pairs')
-        print(f'   testing set: {len(self.test_pairs)} pairs')
-
-    def load_data(self,
-                  sketch_root,
-                  image_root,
-                  sketch_suffix,
-                  image_suffix,
-                  train_split,
-                  random_seed,
-                  is_multi_pair,
-                  is_zero_shot,
-                  multi_sketch_split,
-                  zs_test_classes,
-                  ):
-        # assert split_mode in ['sbir', 'zs-sbir'], TypeError(f'error solit mode: {split_mode}')
-
-        # 设置随机种子
-        random.seed(random_seed)
-        np.random.seed(random_seed)
-
-        # 获取所有类别
-        sketch_categories = utils.get_subdirs(sketch_root)
-        image_categories = utils.get_subdirs(image_root)
-
-        # 判断是否存在 'train', 'test' 文件夹
-        is_train_test_divided = self.check_is_divided(sketch_categories, image_categories)
-
-        # 已划分好训练集测试集后需要重新获取类别
-        if is_train_test_divided:
-            print('Training set and testing set are already divided.')
-
-            # 重新获取类别
-            sketch_categories_train = utils.get_subdirs(os.path.join(sketch_root, 'train'))
-            sketch_categories_test = utils.get_subdirs(os.path.join(sketch_root, 'test'))
-
-            image_categories_train = utils.get_subdirs(os.path.join(image_root, 'train'))
-            image_categories_test = utils.get_subdirs(os.path.join(image_root, 'test'))
-
-            common_categories_train = list(set(sketch_categories_train) & set(image_categories_train))
-            common_categories_test = list(set(sketch_categories_test) & set(image_categories_test))
-
-            self.common_categories = list(set(common_categories_train) & set(common_categories_test))
-
-            # 获取训练集下的配对列表
-            for category in common_categories_train:
-                category_pairs = self.get_category_pairs(
-                    os.path.join(sketch_root, 'train', category),
-                    os.path.join(image_root, 'train', category),
-                    sketch_suffix,
-                    image_suffix,
-                    category,
-                    multi_sketch_split,
-                    is_multi_pair,
-                    random_seed
-                )
-                self.train_pairs.extend(category_pairs)
-
-            # 获取测试集下的配对列表
-            for category in common_categories_test:
-                category_pairs = self.get_category_pairs(
-                    os.path.join(sketch_root, 'test', category),
-                    os.path.join(image_root, 'test', category),
-                    sketch_suffix,
-                    image_suffix,
-                    category,
-                    multi_sketch_split,
-                    is_multi_pair,
-                    random_seed
-                )
-                self.test_pairs.extend(category_pairs)
-
-        else:
-            print('Auto divided the training set and testing set.')
-
-            # 找到草图和图片都有的类别
-            common_categories = list(set(sketch_categories) & set(image_categories))
-            common_categories.sort()
-            self.common_categories = common_categories
-
-            # 找到全部草图和图片的配对
-            all_category_pairs = {}  # {'class_name': [skh_path, img_path, 'class_name'], ...}
-
-            for category in common_categories:
-                category_pairs = self.get_category_pairs(
-                    os.path.join(sketch_root, category),
-                    os.path.join(image_root, category),
-                    sketch_suffix,
-                    image_suffix,
-                    category,
-                    multi_sketch_split,
-                    is_multi_pair,
-                    random_seed
-                )
-
-                all_category_pairs[category] = category_pairs
-
-            # 划分训练集和测试集
-            for class_name, class_pair_list in all_category_pairs.items():
-                if is_zero_shot:  # zero-shot 检索直接将类别划分为训练类别和测试类别
-
-                    if class_name in zs_test_classes:
-                        self.test_pairs.extend(class_pair_list)
-
+        def scan(sk_dir, im_dir, ex_dir):
+            categories = sorted({p.name for p in sk_dir.iterdir() if p.is_dir()} &
+                                {p.name for p in im_dir.iterdir() if p.is_dir()})
+            records, gallery = [], []
+            for cat in categories:
+                photos = files(im_dir / cat, image_suffix)
+                if not photos:
+                    raise ValueError(f'No {image_suffix} photos in {im_dir / cat}')
+                by_stem = {Path(p).stem: p for p in photos}
+                if len(by_stem) != len(photos):
+                    raise ValueError(f'Duplicate photo stems in {im_dir / cat}')
+                gallery.extend((p, cat) for p in photos)
+                if ex_dir is not None and (ex_dir / cat).is_dir():
+                    gallery.extend((p, cat) for p in files(ex_dir / cat, image_suffix))
+                matched = {}
+                for sk in files(sk_dir / cat, sketch_suffix):
+                    stem = Path(sk).stem
+                    target = by_stem.get(stem)
+                    if target is None and multi_sketch_split in stem:
+                        target = by_stem.get(stem.rsplit(multi_sketch_split, 1)[0])
+                    if task == 'fg' and target is None:
+                        raise ValueError(f'No paired photo for FG query: {sk}; check suffix/separator')
+                    key = target if target is not None else sk
+                    matched.setdefault(key, []).append((sk, target, cat))
+                for key, rows in sorted(matched.items()):
+                    if is_multi_pair or task == 'cl':
+                        records.extend(rows)
                     else:
-                        self.train_pairs.extend(class_pair_list)
+                        digest = hashlib.sha256(f'{cat}/{Path(key).name}/{random_seed}'.encode()).digest()
+                        records.append(rows[int.from_bytes(digest[:8], 'big') % len(rows)])
+            return records, sorted(set(gallery))
 
-                else:
-                    # 使用固定种子打乱该类别的样本
-                    random.Random(random_seed + hash(class_name)).shuffle(class_pair_list)
+        if divided:
+            if ext_root and not all((ext_root / split).is_dir() for split in ('train', 'test')):
+                raise ValueError('Extended gallery must also have train/test folders for predefined splits')
+            for split in ('train', 'test'):
+                records, gallery = scan(sk_root / split, im_root / split,
+                                        ext_root / split if ext_root else None)
+                setattr(self, split + '_pairs', records)
+                setattr(self, split + '_images', gallery)
+        else:
+            records, gallery = scan(sk_root, im_root, ext_root)
+            if is_zero_shot:
+                for split, test in (('train', False), ('test', True)):
+                    setattr(self, split + '_pairs', [r for r in records if (r[2] in held_out) == test])
+                    setattr(self, split + '_images', [r for r in gallery if (r[1] in held_out) == test])
+            else:
+                if not 0 < train_split < 1:
+                    raise ValueError('train_split must lie between zero and one')
+                # Group all sketches of one photo together to avoid instance leakage.
+                for cat in sorted({r[2] for r in records}):
+                    groups = {}
+                    for row in records:
+                        if row[2] == cat:
+                            groups.setdefault(row[1] or row[0], []).append(row)
+                    keys = sorted(groups)
+                    if len(keys) < 2:
+                        raise ValueError(f'Need at least two instances to split category {cat}')
+                    digest = hashlib.sha256(cat.encode()).digest()
+                    rng = random.Random(random_seed + int.from_bytes(digest[:8], 'big'))
+                    rng.shuffle(keys)
+                    cut = min(len(keys) - 1, max(1, int(len(keys) * train_split)))
+                    train_keys = set(keys[:cut])
+                    for key in keys:
+                        (self.train_pairs if key in train_keys else self.test_pairs).extend(groups[key])
+                    for photo, category in gallery:
+                        if category == cat:
+                            in_train = photo in train_keys if photo in groups else rng.random() < train_split
+                            (self.train_images if in_train else self.test_images).append((photo, category))
+        if gallery_mode == 'paired':
+            for split in ('train', 'test'):
+                targets = {r[1] for r in getattr(self, split + '_pairs')}
+                setattr(self, split + '_images', [r for r in getattr(self, split + '_images') if r[0] in targets])
+        self.common_categories = sorted({c for _, c in self.train_images + self.test_images})
+        train_cats = {r[2] for r in self.train_pairs}
+        test_cats = {r[2] for r in self.test_pairs}
+        if is_zero_shot and train_cats & test_cats:
+            raise ValueError(f'Zero-shot train/test categories overlap: {sorted(train_cats & test_cats)}')
+        for split in ('train', 'test'):
+            rows = getattr(self, split + '_pairs')
+            gallery = getattr(self, split + '_images')
+            if not rows or not gallery:
+                raise ValueError(f'Empty {split} split: check suffixes and zero-shot class list')
+            rows.sort()
+            gallery.sort()
+            print(f'{split}: {len(rows)} sketches, {len(gallery)} gallery images, '
+                  f'{len({r[2] for r in rows})} query categories')
 
-                    split_idx = int(len(class_pair_list) * train_split)
-                    # 确保每个类别在训练集和测试集中都有至少1个样本
-                    if split_idx == 0:
-                        split_idx = 1
-                    if split_idx == len(class_pair_list):
-                        split_idx = len(class_pair_list) - 1
 
-                    category_train = class_pair_list[:split_idx]
-                    category_test = class_pair_list[split_idx:]
-
-                    self.train_pairs.extend(category_train)
-                    self.test_pairs.extend(category_test)
-
-        # 最终打乱
-        random.Random(random_seed).shuffle(self.train_pairs)
-        random.Random(random_seed + 1).shuffle(self.test_pairs)
-
-    @staticmethod
-    def check_is_divided(sketch_categories: list, image_categories: list):
-        is_train_in = 'train' in sketch_categories and 'train' in image_categories
-        is_test_in = 'test' in sketch_categories and 'test' in image_categories
-        is_len_2 = len(sketch_categories) == 2 and len(image_categories) == 2
-
-        return is_train_in and is_test_in and is_len_2
-
-    @staticmethod
-    def get_category_pairs(skh_root, img_root, skh_suffix, img_suffix, class_name, multi_sketch_split, is_multi_pair, random_seed):
-        """
-        将对应文件夹下的草图和图片文件进行配对
-        配对依据为文件名 skh_file_name = img_file_name + multi_sketch_split + num
-        """
-        # 获取该类别下的所有草图文件和图片文件
-        sketch_files = utils.get_allfiles(skh_root, skh_suffix)
-        image_files = utils.get_allfiles(img_root, img_suffix)
-
-        # 构建图片实例字典和对应的草图列表
-        # id 即不带路径也后缀的图片文件名，每个id和一个具体图片文件一一对应
-        # 每个 id 可能对应多个草图，因为一张图片可能画了多张草图
-        # 在 sketchy 数据集中，图片文件名和草图文件名的对应关系为 photo: aaa.jpg, sketch: [aaa_1.jpg, aaa_2.jpg, ...]
-        #    即用下划线加序号表示同一张图片绘制的多个草图
-        skhid_path = {}  # 草图 id 和文件路径的对应字典, {实例id: [草图文件路径列表]}
-        imgid_path = {}  # 图片 id 和文件路径的对应字典, {实例id: 图片路径},
-
-        # 构建图片实例字典
-        for image_file in image_files:
-            # 获取图片文件名，不带路径与后缀
-            instance_id = utils.basename_without_ext(image_file)
-
-            skhid_path[instance_id] = []
-            imgid_path[instance_id] = image_file
-
-        # 收集每个实例对应的所有草图
-        for sketch_file in sketch_files:
-            # 去掉扩展名获取基础名称
-            sketch_base_name = utils.basename_without_ext(sketch_file)
-
-            # 尝试匹配实例ID（处理可能的草图变体）
-            # 首先尝试直接匹配
-            if sketch_base_name in imgid_path.keys():
-                skhid_path[sketch_base_name].append(sketch_file)
-
-            elif multi_sketch_split in sketch_base_name:
-                # 如果有'-'分隔符，尝试取前面部分作为实例ID
-                instance_id = sketch_base_name.rsplit(multi_sketch_split, 1)[0]
-                if instance_id in imgid_path.keys():
-                    skhid_path[instance_id].append(sketch_file)
-
-        # 为每个草图选择一张图片配对
-        category_pairs = []
-        for instance_id, skh_path_list in skhid_path.items():
-            if len(skh_path_list) > 0 and instance_id in imgid_path.keys():
-                img_path = imgid_path[instance_id]
-
-                if is_multi_pair:  # 一张图片对应多张草图
-                    for skh_path in skh_path_list:
-                        category_pairs.append((skh_path, img_path, class_name))
-
-                else:  # 一张图片对应一张草图
-                    # 使用确定性的选择方式（基于instance_id hash来选择）
-                    sketch_idx = hash(class_name + instance_id + str(random_seed)) % len(skh_path_list)
-                    skh_path = skh_path_list[sketch_idx]
-                    category_pairs.append((skh_path, img_path, class_name))
-
-        return category_pairs
+def preload_from_args(args):
+    info = options.get_encoder_info(args.sketch_model)
+    root = args.root_local if eval(args.local) else args.root_sever
+    test_classes = scfg.sketchy_test_classes
+    if args.zs_classes_file:
+        test_classes = [line.strip() for line in Path(args.zs_classes_file).read_text(encoding='utf-8').splitlines()
+                        if line.strip() and not line.lstrip().startswith('#')]
+    return DatasetPreload(
+        sketch_root=os.path.join(root, args.sketch_subdir or info['sketch_subdir']),
+        image_root=os.path.join(root, info['image_subdir']),
+        sketch_suffix=args.sketch_suffix, image_suffix=args.image_suffix,
+        is_multi_pair=args.pair_mode == 'multi_pair', is_zero_shot=eval(args.is_zero_shot),
+        multi_sketch_split=args.multi_sketch_split, task=args.task,
+        extended_image_root=args.extended_image_root, zs_test_classes=test_classes,
+        random_seed=args.seed, gallery_mode=args.gallery_mode)
 
 
 def create_sketch_image_dataloaders(batch_size,
@@ -602,7 +437,8 @@ def create_sketch_image_dataloaders(batch_size,
                                     pre_load,
                                     sketch_format,
                                     is_full_train,
-                                    task  # ['cl', 'fg']
+                                    task,  # ['cl', 'fg']
+                                    n_pos=1, n_neg=8,
                                     ):
     """
     创建训练和测试数据加载器
@@ -644,6 +480,9 @@ def create_sketch_image_dataloaders(batch_size,
         # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
+    if is_full_train and pre_load.is_zero_shot:
+        raise ValueError('is_full_train is incompatible with zero-shot evaluation')
+
     # 创建数据集
     train_dataset = SketchImageDataset(
         is_train=True,
@@ -652,7 +491,7 @@ def create_sketch_image_dataloaders(batch_size,
         image_transform=train_image_transform,
         sketch_format=sketch_format,
         is_full_train=is_full_train,
-        task=task
+        task=task, n_pos=n_pos, n_neg=n_neg
     )
 
     test_dataset = SketchImageDataset(
@@ -662,7 +501,7 @@ def create_sketch_image_dataloaders(batch_size,
         image_transform=test_transform,
         sketch_format=sketch_format,
         is_full_train=False,
-        task=task
+        task=task, n_pos=n_pos, n_neg=n_neg
     )
     
     # 创建数据加载器

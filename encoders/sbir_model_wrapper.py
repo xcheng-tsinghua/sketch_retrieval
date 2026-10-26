@@ -35,12 +35,14 @@ class SBIRModelWrapper(nn.Module):
                  dropout_rate=0.1,
                  temperature=0.07,
                  sketch_format=None,
+                 pretrained=True,
                  ):
         super().__init__()
         
         self.embed_dim = embed_dim
         self.freeze_image_encoder = freeze_image_encoder
         self.freeze_sketch_backbone = freeze_sketch_backbone
+        self.pretrained = pretrained
         
         # 可学习的温度参数
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / temperature))
@@ -70,7 +72,7 @@ class SBIRModelWrapper(nn.Module):
         # PNG草图编码器（可训练）
         self.sketch_encoder = se.create_sketch_encoder(
             model_name=sketch_model_name,
-            pretrained=True,
+            pretrained=self.pretrained,
             freeze_backbone=self.freeze_sketch_backbone,
             output_dim=self.embed_dim,
             dropout=dropout_rate,
@@ -82,7 +84,7 @@ class SBIRModelWrapper(nn.Module):
         if self.freeze_image_encoder:
             # 使用优化的确定性图像模型（冻结权重）
             self.image_encoder = create_optimized_vision_model(
-                model_name=image_model_name
+                model_name=image_model_name, pretrained=self.pretrained
             )
             # 冻结图像编码器参数
             for param in self.image_encoder.parameters():
@@ -92,8 +94,8 @@ class SBIRModelWrapper(nn.Module):
             # 可训练的图像编码器
             import timm
             self.image_encoder = timm.create_model(
-                image_model_name,
-                pretrained=True,
+                'vit_base_patch16_224' if image_model_name == 'vit' else image_model_name,
+                pretrained=self.pretrained,
                 num_classes=0,
                 global_pool=''
             )
@@ -164,6 +166,12 @@ class SBIRModelWrapper(nn.Module):
         # L2归一化
         sketch_features = nn.functional.normalize(sketch_features, p=2, dim=1)
         return sketch_features
+
+    def train(self, mode=True):
+        super().train(mode)
+        if self.freeze_image_encoder:
+            self.image_encoder.eval()
+        return self
     
     def encode_image(self, images):
         """
@@ -265,6 +273,7 @@ def create_sbir_model_wrapper(embed_dim,
                               dropout_rate=0.1,
                               temperature=0.07,
                               sketch_format=None,
+                              pretrained=True,
                               ):
     """
     创建PNG草图-图像对齐模型
@@ -291,6 +300,7 @@ def create_sbir_model_wrapper(embed_dim,
         dropout_rate=dropout_rate,
         temperature=temperature,
         sketch_format=sketch_format,
+        pretrained=pretrained,
     )
     
     return model

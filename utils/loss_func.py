@@ -406,3 +406,15 @@ def info_nce_multi_neg(
     return loss
 
 
+def info_nce_multi_positive(sketch_fea, pos_img_fea, neg_img_fea, temperature=0.07):
+    """Average positive-vs-negative InfoNCE; same-class positives never repel.
+
+    Inputs: [B,D], [B,P,D], [B,K,D]. P=1 equals info_nce_multi_neg.
+    Each positive competes against the sampled negative pool independently.
+    """
+    pos = torch.einsum('bd,bpd->bp', sketch_fea, pos_img_fea) / temperature
+    neg = torch.einsum('bd,bkd->bk', sketch_fea, neg_img_fea) / temperature
+    denominator = torch.logaddexp(pos, torch.logsumexp(neg, dim=1, keepdim=True))
+    return (denominator - pos).mean()
+
+

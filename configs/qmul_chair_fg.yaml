@@ -1,0 +1,16 @@
+task: "fg"
+is_zero_shot: "False"
+root_local: "D:/document/DataSet/sketch_retrieval/qmul_v2_fit/chair"
+root_sever: "/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair"
+image_suffix: "png"
+multi_sketch_split: "_"
+local: "True"
+sketch_model: "vit"
+sketch_suffix: "txt"
+pair_mode: "multi_pair"
+is_full_train: "False"
+extended_image_root: ""
+add_str: "qmul_chair_fg"
+seed: 42
+eval_chunk_size: 64
+num_workers: 0

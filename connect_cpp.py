@@ -37,15 +37,7 @@ def prepare_model_and_data():
 
     # 预加载数据集
     root = args.root_local if eval(args.local) else args.root_sever
-    pre_load = retrieval_datasets.DatasetPreload(
-        sketch_root=os.path.join(root, encoder_info['sketch_subdir']),
-        image_root=os.path.join(root, encoder_info['image_subdir']),
-        sketch_suffix=encoder_info['sketch_suffix'],
-        image_suffix=encoder_info['image_suffix'],
-        is_multi_pair=True if args.pair_mode == 'multi_pair' else False,
-        is_zero_shot=eval(args.is_zero_shot),
-        multi_sketch_split=args.multi_sketch_split
-    )
+    pre_load = retrieval_datasets.preload_from_args(args)
 
     # 创建数据加载器
     train_loader, test_loader = retrieval_datasets.create_sketch_image_dataloaders(

@@ -6,7 +6,7 @@ import yaml
 from colorama import Fore, Style
 
 
-def parse_args():
+def parse_args(argv=None):
     parser = ArgumentParser()
 
     # training & visualizing
@@ -24,6 +24,18 @@ def parse_args():
     parser.add_argument('--is_zero_shot', type=str, default='False', choices=['True', 'False'], help='检索任务类型')
     parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
     parser.add_argument('--multi_sketch_split', type=str, default='_', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-', 对于 cad 是 '-'
+    parser.add_argument('--sketch_subdir', default='', help='Override encoder sketch directory')
+    parser.add_argument('--extended_image_root', default='', help='Optional additional gallery root, grouped by category')
+    parser.add_argument('--gallery_mode', choices=['auto', 'all', 'paired'], default='auto',
+                        help='auto: paired for FG-SBIR, all for CL/zero-shot; all retains unpaired gallery images')
+    parser.add_argument('--zs_classes_file', default='', help='One held-out category per line; default: existing Sketchy 21-class split')
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--n_pos', type=int, default=1)
+    parser.add_argument('--n_neg', type=int, default=8)
+    parser.add_argument('--eval_chunk_size', type=int, default=128)
+    parser.add_argument('--eval_only', action='store_true', help='Evaluate a checkpoint without training')
+    parser.add_argument('--checkpoint', default='', help='Explicit checkpoint path')
+    parser.add_argument('--pretrained', choices=['True', 'False'], default='True')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair')  # r'/opt/data/private/data_set/sketch_retrieval/retrieval_cad'
@@ -50,12 +62,15 @@ def parse_args():
     parser.add_argument('--is_load_config', type=str, default='False', choices=['True', 'False'], help='是否使用配置文件中的参数')
     parser.add_argument('--is_save_config', type=str, default='False', choices=['True', 'False'], help='是否将当前参数保存到配置文件')
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     config_file_path = os.path.join(args.configs_dir, args.configs_name)
 
     if eval(args.is_load_config):
         print(Fore.CYAN + f'load configs from: {config_file_path}' + Style.RESET_ALL)
-        args = load_config(config_file_path)
+        config = vars(load_config(config_file_path))
+        known = {action.dest for action in parser._actions}
+        parser.set_defaults(**{key: value for key, value in config.items() if key in known})
+        args = parser.parse_args(argv)  # Explicit CLI arguments override YAML defaults.
 
     if eval(args.is_save_config):
         print(Fore.GREEN + f'save configs to: {config_file_path}' + Style.RESET_ALL)
