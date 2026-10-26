@@ -1,5 +1,4 @@
 .idea/
-.env
 wandb/
 __pycache__/
 data/__pycache__/
