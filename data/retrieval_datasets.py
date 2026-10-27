@@ -441,6 +441,7 @@ def create_sketch_image_dataloaders(batch_size,
                                     is_full_train,
                                     task,  # ['cl', 'fg']
                                     n_pos=1, n_neg=8,
+                                    cache_mode='shared',
                                     ):
     """
     创建训练和测试数据加载器
@@ -506,6 +507,26 @@ def create_sketch_image_dataloaders(batch_size,
         task=task, n_pos=n_pos, n_neg=n_neg
     )
     
+    if cache_mode not in ('shared', 'none'):
+        raise ValueError('cache_mode must be shared or none')
+    if cache_mode == 'shared':
+        from data.shared_cache import SharedTensorCache
+        # Cache the union after split/mixing and gallery selection, once per path.
+        # The factory uses deterministic Resize + ToTensor transforms only.
+        # Future random augmentation must be applied AFTER retrieving cached data.
+        datasets = (train_dataset, test_dataset)
+        image_cache = SharedTensorCache(
+            [path for dataset in datasets for path in dataset.image_list],
+            train_dataset.image_loader, image=True, name='photos')
+        fmt = options.parse_sketch_format(sketch_format)['fmt']
+        sketch_cache = SharedTensorCache(
+            [path for dataset in datasets for path, _ in dataset.sketch_list_with_id],
+            train_dataset.sketch_loader, image=fmt in ('img', 's3 -> img'),
+            grayscale=fmt == 's3 -> img', name='sketches')
+        for dataset in datasets:
+            dataset.image_loader = image_cache
+            dataset.sketch_loader = sketch_cache
+
     # 创建数据加载器
     train_loader = torch.utils.data.DataLoader(
         train_dataset,

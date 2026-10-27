@@ -13,6 +13,8 @@ def parse_args(argv=None):
     parser.add_argument('--bs', type=int, default=20, help='批次大小')  # 200
     parser.add_argument('--embed_dim', type=int, default=512, help='嵌入维度')
     parser.add_argument('--num_workers', type=int, default=8, help='数据加载进程数')
+    parser.add_argument('--cache_mode', choices=['shared', 'none'], default='shared',
+                        help='shared: 全量共享内存缓存当前照片与草图；none: 按需读取文件')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
     parser.add_argument('--sketch_model', '--model', type=str, default='vit', choices=['vit', 'gat', 'gcn', 'glcn', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru', 'resnet18', 'resnet34', 'densenet121', 'densenet169'], help='草图Encoder的名字')
@@ -30,7 +32,7 @@ def parse_args(argv=None):
                         help='auto: paired for FG-SBIR, all for CL/zero-shot; all retains unpaired gallery images')
     parser.add_argument('--zs_classes_file', default='', help='One held-out category per line; default: existing Sketchy 21-class split')
     parser.add_argument('--seed', type=int, default=42, help='训练及数据划分的随机种子')
-    parser.add_argument('--wandb_project', default='', help='W&B project，默认按任务和数据集自动命名')
+    parser.add_argument('--swanlab_project', default='', help='SwanLab project，默认按任务和数据集自动命名')
     parser.add_argument('--n_pos', type=int, default=1)
     parser.add_argument('--n_neg', type=int, default=8)
     parser.add_argument('--eval_chunk_size', type=int, default=128)

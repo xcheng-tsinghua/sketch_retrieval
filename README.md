@@ -5,15 +5,15 @@ sketch retrieval methods
 
 ## 训练与评估
 
-训练默认记录 W&B 日志。先安装 `pip install -r requirements-wandb.txt`，并在项目根目录
-`.env` 中设置 `WANDB_API_KEY=你的密钥`。密钥仅用于登录，不写入实验配置。
+训练默认记录 SwanLab 日志。先安装 `pip install -r requirements-swanlab.txt`，并在项目根目录
+`.env` 中设置 `SwanLab_API_KEY=你的密钥`。密钥仅用于登录，不写入实验配置。
 project 默认是 `{FG或CL}_{ZS_SBIR或SBIR}_{数据集}`，例如
 `FG_ZS_SBIR_sketchy`、`FG_SBIR_qmul_chair`、`CL_SBIR_qmul_shoe`；
 根据 `--local` 选择的根目录识别数据集（不区分大小写，也支持 `qmul_v2_fit/chair` 和 `qmul_v2_fit/shoe`）。
-可用 `--wandb_project` 覆盖。run name 使用 `save_str`，末尾追加 `_{seed}_{test_mix_ratio}`；
+可用 `--swanlab_project` 覆盖。run name 使用 `save_str`，末尾追加 `_{seed}_{test_mix_ratio}`；
 `--seed` 默认 42，同时控制训练与数据划分。旧权重可通过 `--checkpoint` 显式指定。
-每个 epoch 记录训练 loss、学习率、全部验证指标与最佳分数；训练退出时关闭 W&B run。
-`--eval_only` 保持仅本地评估，不创建 W&B run。
+每个 epoch 记录训练 loss、学习率、全部验证指标与最佳分数；训练退出时关闭 SwanLab run。
+`--eval_only` 保持仅本地评估，不创建 SwanLab run。
 
 在项目根目录运行，使用本地 `dp` 环境：
 
@@ -38,6 +38,22 @@ python train.py --is_load_config True --configs_name qmul_chair_fg.yaml --is_loa
 | `qmul_chair_fg.yaml` | FG-SBIR | 952 / 300 | 323 / 100 |
 
 数量来自当前本地目录扫描，并非代码硬编码。
+
+### 全量共享内存缓存
+
+默认 `--cache_mode shared`：启动时预处理当前划分所用的照片与所选草图格式，
+按路径去重后放入共享内存，训练、验证与 DataLoader 子进程复用同一份 Tensor 存储。
+照片和图像草图以 `uint8` 保存；S3 绘制草图只保存单通道，取样时恢复三通道浮点值；
+S5/STK 草图以 `float32` 保存。采样规则和模型输入不变，不缓存模型特征。
+启动显示加载进度及每类缓存大小，完成后数据取样不再读取源文件。
+缓存仅在本次运行有效，重新启动会重建；修改源文件后需要重新启动训练。
+
+原训练命令无需修改。使用 `--cache_mode none` 可恢复逐文件读取。
+缓存已在内存时可比较 `--num_workers 0`、`2`、`4` 的速度，更多进程不一定更快。
+Sketchy 全量照片加 S3 绘制草图的数据本体约 5.28 GiB；此外需给模型、batch、
+worker 和系统预留内存。Linux/容器的 `/dev/shm` 也必须足够容纳缓存，
+仅物理内存充足不代表共享内存容量足够。
+当前缓存依赖确定性的预处理；未来加入随机增强时应在读取缓存之后执行。
 
 ### 固定训练规模的测试集混入与早停
 

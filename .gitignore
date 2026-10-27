@@ -1,5 +1,6 @@
 .idea/
 wandb/
+swanlog/
 __pycache__/
 data/__pycache__/
 encoders/__pycache__/

@@ -1,2 +1,2 @@
-wandb
+swanlab
 python-dotenv

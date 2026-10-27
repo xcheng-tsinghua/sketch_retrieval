@@ -38,7 +38,7 @@ class SBIRTrainer:
                  topk=(1, 5, 10),
                  eval_chunk_size=128,
                  is_sel_neg_samples=False,  # 是否将上一轮检索失败的案例作为精选负样本
-                 wandb_run=None,
+                 swanlab_run=None,
                  early_stop=None,
                  ):
         self.model = model
@@ -55,7 +55,7 @@ class SBIRTrainer:
         self.ckpt_save_interval = ckpt_save_interval
         self.save_str = save_str
         self.is_sel_neg_samples = is_sel_neg_samples
-        self.wandb_run = wandb_run
+        self.swanlab_run = swanlab_run
         self.early_stop = early_stop
 
         self.model.to(self.device)
@@ -438,8 +438,8 @@ class SBIRTrainer:
                 self.save_checkpoint(is_best=is_best)
 
             current_lr = self.optimizer.param_groups[0]['lr']
-            if self.wandb_run is not None:
-                self.wandb_run.log({
+            if self.swanlab_run is not None:
+                self.swanlab_run.log({
                     'epoch': epoch + 1,
                     'train/loss': train_loss,
                     'train/lr': current_lr,

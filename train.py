@@ -14,7 +14,7 @@ from colorama import Fore, Back, Style
 from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import trainer, utils
-from utils.wandb_logging import init_wandb
+from utils.swanlab_logging import init_swanlab
 import options
 from utils.training_policy import mix_training_split, early_stop_policy
 
@@ -58,7 +58,8 @@ def main(args):
         pre_load=pre_load,
         sketch_format=encoder_info['sketch_format'],
         is_full_train=False,
-        task=args.task, n_pos=args.n_pos, n_neg=args.n_neg
+        task=args.task, n_pos=args.n_pos, n_neg=args.n_neg,
+        cache_mode=args.cache_mode
     )
 
     # 创建模型
@@ -101,9 +102,12 @@ def main(args):
         return model_trainer.last_metrics
 
     # 开始训练
-    with init_wandb(args, save_str) as run:
-        model_trainer.wandb_run = run
+    run = init_swanlab(args, save_str)
+    try:
+        model_trainer.swanlab_run = run
         model_trainer.train()
+    finally:
+        run.finish()
 
 
 if __name__ == '__main__':

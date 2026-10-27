@@ -2,14 +2,14 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from utils.wandb_logging import get_project_name, init_wandb
+from utils.swanlab_logging import get_project_name, init_swanlab
 
 
-class WandbLoggingTests(unittest.TestCase):
+class SwanLabLoggingTests(unittest.TestCase):
     def args(self, **kwargs):
         values = dict(task='fg', is_zero_shot='False', local='True',
                       root_local='D:/data/qmul_v2_fit/chair',
-                      root_sever='/data/sketchy', wandb_project='', seed=42)
+                      root_sever='/data/sketchy', swanlab_project='', seed=42)
         values.update(kwargs)
         return SimpleNamespace(**values)
 
@@ -23,28 +23,28 @@ class WandbLoggingTests(unittest.TestCase):
                     mode = 'ZS_SBIR' if zero_shot == 'True' else 'SBIR'
                     self.assertEqual(get_project_name(args), f'{task.upper()}_{mode}_{dataset}')
         self.assertEqual(get_project_name(self.args(local='False')), 'FG_SBIR_sketchy')
-        self.assertEqual(get_project_name(self.args(wandb_project='custom')), 'custom')
+        self.assertEqual(get_project_name(self.args(swanlab_project='custom')), 'custom')
         with self.assertRaises(ValueError):
             get_project_name(self.args(root_local='/data/unknown'))
 
     def test_login_and_config(self):
-        wandb = Mock()
+        swanlab = Mock()
         args = self.args()
-        with patch.dict('sys.modules', {'wandb': wandb}), \
-                patch('dotenv.dotenv_values', return_value={'WANDB_API_KEY': 'test-key'}):
-            self.assertIs(init_wandb(args, 'model_42'), wandb.init.return_value)
-        wandb.login.assert_called_once_with(key='test-key', relogin=True)
-        wandb.init.assert_called_once_with(project='FG_SBIR_qmul_chair',
-                                          name='model_42', config=vars(args))
-        self.assertNotIn('WANDB_API_KEY', wandb.init.call_args.kwargs['config'])
+        with patch.dict('sys.modules', {'swanlab': swanlab}), \
+                patch('dotenv.dotenv_values', return_value={'SwanLab_API_KEY': 'test-key'}):
+            self.assertIs(init_swanlab(args, 'model_42'), swanlab.init.return_value)
+        swanlab.login.assert_called_once_with(api_key='test-key', save=False)
+        swanlab.init.assert_called_once_with(project='FG_SBIR_qmul_chair',
+                                          experiment_name='model_42', config=vars(args))
+        self.assertNotIn('SwanLab_API_KEY', swanlab.init.call_args.kwargs['config'])
 
     def test_missing_key(self):
-        wandb = Mock()
-        with patch.dict('sys.modules', {'wandb': wandb}), \
+        swanlab = Mock()
+        with patch.dict('sys.modules', {'swanlab': swanlab}), \
                 patch('dotenv.dotenv_values', return_value={}):
-            with self.assertRaisesRegex(ValueError, 'WANDB_API_KEY'):
-                init_wandb(self.args(), 'model_42')
-        wandb.login.assert_not_called()
+            with self.assertRaisesRegex(ValueError, 'SwanLab_API_KEY'):
+                init_swanlab(self.args(), 'model_42')
+        swanlab.login.assert_not_called()
 
 
 if __name__ == '__main__':

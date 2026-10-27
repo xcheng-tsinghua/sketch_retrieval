@@ -143,9 +143,9 @@ class RetrievalTests(unittest.TestCase):
             trainer = ShortTrainer(torch.nn.Linear(2, 2), None, None, 'cpu',
                                    str(Path(tmp) / 'test.pth'), None, 'test', .001, 0., 2, 'cl')
             from unittest.mock import Mock
-            trainer.wandb_run = Mock()
+            trainer.swanlab_run = Mock()
             trainer.train()
-            calls = trainer.wandb_run.log.call_args_list
+            calls = trainer.swanlab_run.log.call_args_list
             self.assertEqual([call.kwargs['step'] for call in calls], [1, 2])
             self.assertEqual(calls[0].args[0]['train/loss'], 1.)
             self.assertEqual(calls[1].args[0]['val/mAP'], .2)
