@@ -376,7 +376,7 @@ def get_save_str(args):
                 retrieval_mode +
                 is_full_train +
                 pair_mode +
-                add_str + '_' + str(args.seed))
+                add_str + '_' + str(args.seed) + '_' + str(args.test_mix_ratio))
 
     return save_str
 

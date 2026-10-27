@@ -10,7 +10,7 @@ sketch retrieval methods
 project 默认是 `{FG或CL}_{ZS_SBIR或SBIR}_{数据集}`，例如
 `FG_ZS_SBIR_sketchy`、`FG_SBIR_qmul_chair`、`CL_SBIR_qmul_shoe`；
 根据 `--local` 选择的根目录识别数据集（不区分大小写，也支持 `qmul_v2_fit/chair` 和 `qmul_v2_fit/shoe`）。
-可用 `--wandb_project` 覆盖。run name 使用 `save_str`，末尾追加 `_{seed}`；
+可用 `--wandb_project` 覆盖。run name 使用 `save_str`，末尾追加 `_{seed}_{test_mix_ratio}`；
 `--seed` 默认 42，同时控制训练与数据划分。旧权重可通过 `--checkpoint` 显式指定。
 每个 epoch 记录训练 loss、学习率、全部验证指标与最佳分数；训练退出时关闭 W&B run。
 `--eval_only` 保持仅本地评估，不创建 W&B run。
