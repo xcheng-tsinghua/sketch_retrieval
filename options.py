@@ -44,7 +44,7 @@ def parse_args(argv=None):
     parser.add_argument('--add_str', type=str, default='', help='其它描述字符串')
 
     # training
-    parser.add_argument('--test_mix_ratio', type=float, default=0.1,
+    parser.add_argument('--test_mix_ratio', type=float, default=0.05,
                         help='训练样本中测试集占比，0到1，默认0；总数不变，测试样本不足时有放回抽样')
     parser.add_argument('--epoch', type=int, default=3000, help='最大训练轮数')
     parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
