@@ -9,8 +9,7 @@ image_model: 'vit'
 task: 'fg'
 is_zero_shot: 'False'
 pair_mode: 'multi_pair'
-multi_sketch_split: '-'
-
+multi_sketch_split: ["-"]
 local: 'False'
 root_sever: '/opt/data/private/data_set/sketch_retrieval/sketch_cad_small'
 root_local: 'D:\document\DataSet\sketch_retrieval\sketch_cad'

@@ -110,3 +110,24 @@ tail -f out.log
 
 
 
+
+nohup bash -c '
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=92 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=48 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=69 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=83 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=5 && \
+
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=92 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=48 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=69 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=83 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=5 && \
+
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=92 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=48 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=69 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=83 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=5
+' > out_fg_zs.log 2>&1 &
+tail -f out_fg_zs.log

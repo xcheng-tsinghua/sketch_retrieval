@@ -13,6 +13,26 @@ from utils.trainer import SBIRTrainer
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_multiple_sketch_separators(self):
+        self.assertEqual(options.parse_args([]).multi_sketch_split, ['-', '_'])
+        self.assertEqual(options.parse_args(['--multi_sketch_split', '_', '-']).multi_sketch_split,
+                         ['_', '-'])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for split, cat in (('train', 'seen'), ('test', 'unseen')):
+                for kind in ('sketch', 'photo'):
+                    (root / kind / split / cat).mkdir(parents=True)
+                for name in ('n02691156_10151', 'other-id', 'exact_1'):
+                    (root / 'photo' / split / cat / (name + '.jpg')).touch()
+                for name in ('n02691156_10151-1', 'other-id_2', 'exact_1'):
+                    (root / 'sketch' / split / cat / (name + '.txt')).touch()
+            p = DatasetPreload(root / 'sketch', root / 'photo', 'txt', 'jpg',
+                               is_multi_pair=True, multi_sketch_split=['_', '-'])
+            for rows in (p.train_pairs, p.test_pairs):
+                self.assertEqual({Path(sk).stem: Path(im).stem for sk, im, _ in rows},
+                                 {'n02691156_10151-1': 'n02691156_10151',
+                                  'other-id_2': 'other-id', 'exact_1': 'exact_1'})
+
     def test_category_vs_instance_and_small_gallery(self):
         args = (torch.tensor([[3., 2., 1.]]), torch.eye(3))
         cl, _ = evaluate_retrieval(*args, 'cl', [2], [1], [0, 1, 1], chunk_size=1)

@@ -28,7 +28,8 @@ def parse_args(argv=None):
     parser.add_argument('--task', type=str, default='fg', choices=['cl', 'fg'], help='cl: category-level, fg: fine-grained')
     parser.add_argument('--is_zero_shot', type=str, default='False', choices=['True', 'False'], help='检索任务类型')
     parser.add_argument('--pair_mode', type=str, default='multi_pair', choices=['multi_pair', 'single_pair'], help='图片与草图是一对一还是一对多')
-    parser.add_argument('--multi_sketch_split', type=str, default='_', help='一张图片绘制多个草图时，标号分隔符')  # 对于 QMUL 是 '_‘, 对于 sketchy 是 '-', 对于 cad 是 '-'
+    parser.add_argument('--multi_sketch_split', type=str, nargs='+', default=['-', '_'],
+                        help='支持的草图编号分隔符列表，例如 --multi_sketch_split - _')
     parser.add_argument('--sketch_subdir', default='', help='Override encoder sketch directory')
     parser.add_argument('--extended_image_root', default='', help='Optional additional gallery root, grouped by category')
     parser.add_argument('--gallery_mode', choices=['auto', 'all', 'paired'], default='auto',
@@ -81,6 +82,14 @@ def parse_args(argv=None):
         known = {action.dest for action in parser._actions}
         parser.set_defaults(**{key: value for key, value in config.items() if key in known})
         args = parser.parse_args(argv)  # Explicit CLI arguments override YAML defaults.
+
+    # Keep older YAML files containing a single separator compatible.
+    if isinstance(args.multi_sketch_split, str):
+        args.multi_sketch_split = [args.multi_sketch_split]
+    if (not isinstance(args.multi_sketch_split, (list, tuple)) or
+            not args.multi_sketch_split or
+            any(not isinstance(s, str) or not s for s in args.multi_sketch_split)):
+        parser.error('--multi_sketch_split must contain non-empty separator strings')
 
     if not 0 <= args.test_mix_ratio <= 1:
         parser.error('--test_mix_ratio must be between 0 and 1')

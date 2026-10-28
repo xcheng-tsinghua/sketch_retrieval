@@ -3,7 +3,7 @@ is_zero_shot: "False"
 root_local: "D:/document/DataSet/sketch_retrieval/qmul_v2_fit/chair"
 root_sever: "/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair"
 image_suffix: "png"
-multi_sketch_split: "_"
+multi_sketch_split: ["_"]
 local: "True"
 sketch_model: "vit"
 sketch_suffix: "txt"

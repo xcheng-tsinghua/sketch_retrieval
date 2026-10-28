@@ -293,12 +293,17 @@ class DatasetPreload:
     """
     def __init__(self, sketch_root, image_root, sketch_suffix, image_suffix,
                  train_split=0.8, random_seed=42, is_multi_pair=False,
-                 is_zero_shot=True, multi_sketch_split='_',
+                 is_zero_shot=True, multi_sketch_split=('-', '_'),
                  zs_test_classes=scfg.sketchy_test_classes, task='fg',
                  extended_image_root=None, gallery_mode='auto'):
         if task not in ('cl', 'fg'):
             raise ValueError('task must be cl or fg')
         self.task = task
+        # Accept legacy configurations/checkpoints with a single string.
+        separators = [multi_sketch_split] if isinstance(multi_sketch_split, str) else multi_sketch_split
+        if (not isinstance(separators, (list, tuple)) or not separators or
+                any(not isinstance(s, str) or not s for s in separators)):
+            raise ValueError('multi_sketch_split must contain non-empty separator strings')
         if gallery_mode not in ('auto', 'all', 'paired'):
             raise ValueError('gallery_mode must be auto, all or paired')
         if gallery_mode == 'auto':
@@ -346,8 +351,12 @@ class DatasetPreload:
                 for sk in files(sk_dir / cat, sketch_suffix):
                     stem = Path(sk).stem
                     target = by_stem.get(stem)
-                    if target is None and multi_sketch_split in stem:
-                        target = by_stem.get(stem.rsplit(multi_sketch_split, 1)[0])
+                    if target is None:
+                        for separator in separators:
+                            if separator in stem:
+                                target = by_stem.get(stem.rsplit(separator, 1)[0])
+                                if target is not None:
+                                    break
                     if task == 'fg' and target is None:
                         raise ValueError(f'No paired photo for FG query: {sk}; check suffix/separator')
                     key = target if target is not None else sk

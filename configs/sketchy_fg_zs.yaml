@@ -5,7 +5,7 @@ is_zero_shot: "True"
 root_local: "D:/document/DataSet/sketch_retrieval/sketchy"
 root_sever: "/opt/data/private/data_set/sketch_retrieval/sketchy"
 image_suffix: "jpg"
-multi_sketch_split: "-"
+multi_sketch_split: ["-"]
 local: "True"
 sketch_model: "vit"
 sketch_suffix: "txt"
