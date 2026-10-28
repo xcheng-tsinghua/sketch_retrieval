@@ -361,7 +361,30 @@ class SBIRTrainer:
         plt.show()
 
     def save_checkpoint(self, is_best=False):
-        """保存模型检查点"""
+        """Best-effort saving: a failed checkpoint must not stop training."""
+        try:
+            self._save_checkpoint(is_best=is_best)
+            return True
+        except Exception as exc:
+            message = (f'Checkpoint save failed at epoch {self.current_epoch + 1}; '
+                       f'skipping this save and continuing training. '
+                       f'Path: {self.check_point}; {type(exc).__name__}: {exc}. '
+                       'Any temporary checkpoint is retained for recovery.')
+            # Logging may use the same failing filesystem. Neither reporting
+            # destination should turn a recoverable save error into a crash.
+            try:
+                print(message, flush=True)
+            except Exception:
+                pass
+            try:
+                if self.logger is not None:
+                    self.logger.warning(message)
+            except Exception:
+                pass
+            return False
+
+    def _save_checkpoint(self, is_best=False):
+        """Serialize and publish checkpoints; errors handled by save_checkpoint."""
         checkpoint = {
             'epoch': self.current_epoch + 1,
             'model_state_dict': self.model.state_dict(),
@@ -389,7 +412,9 @@ class SBIRTrainer:
         os.replace(temporary, self.check_point)
 
         if is_best:
-            torch.save(checkpoint, self.check_point_best)
+            best_temporary = self.check_point_best + '.tmp'
+            torch.save(checkpoint, best_temporary)
+            os.replace(best_temporary, self.check_point_best)
             print(Fore.BLUE + Back.GREEN + f'save best checkpoint: {self.check_point_best}' + Style.RESET_ALL)
 
         print(f'save checkpoint: {self.check_point}')
