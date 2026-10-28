@@ -1,4 +1,6 @@
 import os
+import random
+import warnings
 import torch
 import torch.optim as optim
 from tqdm import tqdm
@@ -57,6 +59,10 @@ class SBIRTrainer:
         self.is_sel_neg_samples = is_sel_neg_samples
         self.swanlab_run = swanlab_run
         self.early_stop = early_stop
+        self.stopped_early = False
+        self.swanlab_state = None
+        self.training_args = None
+        self.pending_rng_state = None
 
         self.model.to(self.device)
 
@@ -368,8 +374,19 @@ class SBIRTrainer:
             'selection_metric': 'mAP' if self.task == 'cl' else 'Acc@1',
             'metrics_history': self.metrics_history,
             'early_stop': self.early_stop,
+            'stopped_early': self.stopped_early,
+            'last_metrics': self.last_metrics,
+            'swanlab': self.swanlab_state,
+            'training_args': self.training_args,
+            'save_str': self.save_str,
+            'topk': self.topk,
+            'is_sel_neg_samples': self.is_sel_neg_samples,
+            'neg_instance': getattr(getattr(self.train_loader, 'dataset', None), 'neg_instance', None),
+            'rng_state': self.capture_rng_state(),
         }
-        torch.save(checkpoint, self.check_point)
+        temporary = self.check_point + '.tmp'
+        torch.save(checkpoint, temporary)
+        os.replace(temporary, self.check_point)
 
         if is_best:
             torch.save(checkpoint, self.check_point_best)
@@ -377,44 +394,71 @@ class SBIRTrainer:
 
         print(f'save checkpoint: {self.check_point}')
 
+    @staticmethod
+    def capture_rng_state():
+        numpy_state = np.random.get_state()
+        return {
+            'python': random.getstate(),
+            'numpy': (numpy_state[0], numpy_state[1].tolist(), *numpy_state[2:]),
+            'torch': torch.get_rng_state(),
+            'cuda': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
+        }
+
+    def restore_rng_state(self):
+        state = self.pending_rng_state
+        if state is None:
+            return
+        random.setstate(state['python'])
+        numpy_state = state['numpy']
+        np.random.set_state((numpy_state[0], np.array(numpy_state[1], dtype=np.uint32),
+                             *numpy_state[2:]))
+        torch.set_rng_state(state['torch'].cpu())
+        if state['cuda']:
+            if len(state['cuda']) != torch.cuda.device_count():
+                raise RuntimeError('CUDA device count differs from the saved training state')
+            torch.cuda.set_rng_state_all([value.cpu() for value in state['cuda']])
+        self.pending_rng_state = None
+
     def load_checkpoint(self, checkpoint_path, is_load, is_load_training_state=True):
-        """加载模型检查点"""
-        if is_load:
-            try:
-                checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
-                if checkpoint.get('task', self.task) != self.task:
-                    raise ValueError('Checkpoint retrieval task differs from current task')
-                self.model.load_state_dict(checkpoint['model_state_dict'])
-                print(Fore.GREEN + f"checkpoint load finished: {checkpoint_path}, (epoch {checkpoint.get('epoch', 'unknown')})" + Style.RESET_ALL)
-
-                if is_load_training_state:
-                    try:
-                        self.train_losses = checkpoint['train_losses']
-                        self.test_acc = checkpoint['test_acc']
-                        self.best_acc = checkpoint['best_acc']
-
-                        self.metrics_history = checkpoint.get('metrics_history', [])
-                        if self.task == 'cl' and checkpoint.get('selection_metric') != 'mAP':
-                            self.best_acc = -1.
-                        self.current_epoch = checkpoint['epoch']
-                        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-
-                    except Exception as e:
-                        print(Fore.RED + f'load training status failed, error: {e}.' + Style.RESET_ALL)
-
-                return True
-
-            except Exception as e:
-                print(Fore.RED + f'checkpoint load failed, training from scratch: {checkpoint_path}, error: {e}.' + Style.RESET_ALL)
-                return False
-        else:
-            print('does not load weight, training from scratch.')
+        """Missing checkpoints start fresh; invalid/incomplete state must not silently resume."""
+        if not is_load or not os.path.isfile(checkpoint_path):
             return False
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
+        if checkpoint.get('task', self.task) != self.task:
+            raise ValueError('Checkpoint retrieval task differs from current task')
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        if is_load_training_state:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            self.train_losses = checkpoint['train_losses']
+            self.test_acc = checkpoint['test_acc']
+            self.best_acc = checkpoint['best_acc']
+            self.current_epoch = checkpoint['epoch']
+            self.metrics_history = checkpoint.get('metrics_history', [])
+            self.last_metrics = checkpoint.get('last_metrics', {})
+            self.early_stop = checkpoint.get('early_stop', self.early_stop)
+            self.stopped_early = checkpoint.get('stopped_early', False)
+            self.swanlab_state = checkpoint.get('swanlab')
+            self.training_args = checkpoint.get('training_args')
+            self.save_str = checkpoint.get('save_str', self.save_str)
+            self.topk = checkpoint.get('topk', self.topk)
+            self.is_sel_neg_samples = checkpoint.get('is_sel_neg_samples', self.is_sel_neg_samples)
+            if self.train_loader is not None:
+                self.train_loader.dataset.neg_instance = checkpoint.get('neg_instance')
+            self.pending_rng_state = checkpoint.get('rng_state')
+            if self.pending_rng_state is None:
+                warnings.warn('Legacy checkpoint has no RNG state; exact continuation is unavailable')
+        print(f'Checkpoint restored: {checkpoint_path}, next epoch: {self.current_epoch + 1}')
+        return True
 
     def train(self):
         """开始训练"""
         print(Fore.CYAN + 'start training SBIR model' + Style.RESET_ALL)
+
+        self.restore_rng_state()  # After model/data construction and SwanLab initialization.
+        if self.stopped_early:
+            print('Checkpoint already reached its early stopping threshold.')
+            return
 
         for epoch in range(self.current_epoch, self.max_epochs):
             self.current_epoch = epoch
@@ -434,8 +478,7 @@ class SBIRTrainer:
                 self.best_acc = score
             should_stop = (self.early_stop is not None and
                            self.last_metrics[self.early_stop[0]] > self.early_stop[1])
-            if should_stop or is_best or (epoch + 1) % self.ckpt_save_interval == 0 or epoch == self.max_epochs - 1:
-                self.save_checkpoint(is_best=is_best)
+            self.stopped_early = should_stop
 
             current_lr = self.optimizer.param_groups[0]['lr']
             if self.swanlab_run is not None:
@@ -456,6 +499,8 @@ class SBIRTrainer:
             log_str = log_str.replace(' ', '\t')
             if self.logger is not None:
                 self.logger.info(log_str)
+
+            self.save_checkpoint(is_best=is_best)
 
             if should_stop:
                 metric, threshold = self.early_stop

@@ -33,6 +33,8 @@ def parse_args(argv=None):
     parser.add_argument('--zs_classes_file', default='', help='One held-out category per line; default: existing Sketchy 21-class split')
     parser.add_argument('--seed', type=int, default=42, help='训练及数据划分的随机种子')
     parser.add_argument('--swanlab_project', default='', help='SwanLab project，默认按任务和数据集自动命名')
+    parser.add_argument('--swanlab_run_id', default='', help='旧检查点续写时指定原 SwanLab 实验 ID')
+    parser.add_argument('--swanlab_workspace', default='', help='SwanLab 工作区，默认个人空间')
     parser.add_argument('--n_pos', type=int, default=1)
     parser.add_argument('--n_neg', type=int, default=8)
     parser.add_argument('--eval_chunk_size', type=int, default=128)
@@ -53,7 +55,7 @@ def parse_args(argv=None):
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, default='True', choices=['True', 'False'], help='冻结图像编码器')
     parser.add_argument('--is_freeze_sketch_backbone', type=str, default='False', choices=['True', 'False'], help='冻结草图编码器主干网络')
-    parser.add_argument('--is_load_ckpt', type=str, default='False', choices=['True', 'False'], help='是否加载检查点')
+    parser.add_argument('--is_load_ckpt', type=str, default='True', choices=['True', 'False'], help='是否加载检查点')
     parser.add_argument('--is_full_train', type=str, default='False', choices=['True', 'False'], help='使用全部数据训练')
 
     # visualizing

@@ -5,6 +5,7 @@ PNG草图-图像对齐模型训练脚本
 import os
 import random
 import json
+import warnings
 import numpy as np
 import torch
 from datetime import datetime
@@ -14,12 +15,35 @@ from colorama import Fore, Back, Style
 from data import retrieval_datasets
 from encoders import sbir_model_wrapper
 from utils import trainer, utils
-from utils.swanlab_logging import init_swanlab
+from utils.swanlab_logging import init_swanlab, get_project_name
 import options
 from utils.training_policy import mix_training_split, early_stop_policy
 
 
 def main(args):
+    check_point = args.checkpoint or utils.get_check_point(args.weight_dir, utils.get_save_str(args))
+    resume_requested = not args.eval_only and eval(args.is_load_ckpt)
+    if args.checkpoint and (resume_requested or args.eval_only) and not os.path.isfile(check_point):
+        raise FileNotFoundError(check_point)
+    if resume_requested and os.path.isfile(check_point):
+        checkpoint = torch.load(check_point, map_location='cpu', weights_only=True)
+        saved_args = checkpoint.get('training_args')
+        if saved_args:
+            # Rebuild the same model, split and loaders; allow extending the epoch limit
+            # and relocating the dataset/checkpoint on another machine.
+            runtime_keys = {'epoch', 'checkpoint', 'weight_dir', 'local', 'root_local',
+                            'root_sever', 'eval_only', 'is_load_ckpt', 'cache_mode',
+                            'is_load_config', 'is_save_config', 'configs_dir', 'configs_name'}
+            for key, value in saved_args.items():
+                if key not in runtime_keys and hasattr(args, key):
+                    setattr(args, key, value)
+        if not checkpoint.get('swanlab') and not args.swanlab_run_id:
+            raise RuntimeError('This checkpoint has no SwanLab run ID. It cannot automatically '
+                               'resume the original experiment; specify --swanlab_run_id and '
+                               '--swanlab_project for the original experiment.')
+        if not saved_args:
+            warnings.warn('Legacy checkpoint has no training arguments; use the original training options')
+        del checkpoint
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -74,7 +98,6 @@ def main(args):
     )
 
     # 创建训练器
-    check_point = args.checkpoint or utils.get_check_point(args.weight_dir, save_str)
     model_trainer = trainer.SBIRTrainer(
         model=model,
         train_loader=train_loader,
@@ -102,11 +125,22 @@ def main(args):
         return model_trainer.last_metrics
 
     # 开始训练
-    run = init_swanlab(args, save_str)
+    if loaded and model_trainer.swanlab_state is None:
+        model_trainer.swanlab_state = {'id': args.swanlab_run_id,
+                                      'project': get_project_name(args),
+                                      'workspace': args.swanlab_workspace}
+    run = init_swanlab(args, model_trainer.save_str, model_trainer.swanlab_state)
     try:
         model_trainer.swanlab_run = run
+        if model_trainer.swanlab_state is None:
+            model_trainer.swanlab_state = {'id': run.id, 'project': get_project_name(args),
+                                          'workspace': args.swanlab_workspace}
+        model_trainer.training_args = vars(args).copy()
         model_trainer.train()
-    finally:
+    except BaseException:
+        run.finish(state='crashed')
+        raise
+    else:
         run.finish()
 
 

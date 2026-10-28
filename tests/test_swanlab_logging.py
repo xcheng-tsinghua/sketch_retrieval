@@ -38,6 +38,18 @@ class SwanLabLoggingTests(unittest.TestCase):
                                           experiment_name='model_42', config=vars(args))
         self.assertNotIn('SwanLab_API_KEY', swanlab.init.call_args.kwargs['config'])
 
+    def test_resume_original_experiment(self):
+        swanlab = Mock()
+        state = {'id': 'original-id', 'project': 'original-project', 'workspace': 'team'}
+        with patch.dict('sys.modules', {'swanlab': swanlab}), \
+                patch('dotenv.dotenv_values', return_value={'SwanLab_API_KEY': 'test-key'}):
+            init_swanlab(self.args(), 'model_42', state)
+        kwargs = swanlab.init.call_args.kwargs
+        self.assertEqual(kwargs['id'], 'original-id')
+        self.assertEqual(kwargs['resume'], 'must')
+        self.assertEqual(kwargs['project'], 'original-project')
+        self.assertEqual(kwargs['workspace'], 'team')
+
     def test_missing_key(self):
         swanlab = Mock()
         with patch.dict('sys.modules', {'swanlab': swanlab}), \

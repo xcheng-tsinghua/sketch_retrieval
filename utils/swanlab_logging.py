@@ -17,14 +17,22 @@ def get_project_name(args):
     return f'{args.task.upper()}_{mode}_{matches[0]}'
 
 
-def init_swanlab(args, save_str):
+def init_swanlab(args, save_str, resume_state=None):
     import swanlab
     from dotenv import dotenv_values
 
-    project = get_project_name(args)
+    project = resume_state['project'] if resume_state else get_project_name(args)
     env_path = Path(__file__).resolve().parents[1] / '.env'
     api_key = dotenv_values(env_path).get('SwanLab_API_KEY')
     if not api_key or not api_key.strip():
         raise ValueError('Set SwanLab_API_KEY in the project .env file before training')
     swanlab.login(api_key=api_key.strip(), save=False)
-    return swanlab.init(project=project, experiment_name=save_str, config=vars(args))
+    resume_kwargs = {}
+    if getattr(args, 'swanlab_workspace', ''):
+        resume_kwargs['workspace'] = args.swanlab_workspace
+    if resume_state:
+        resume_kwargs = {'id': resume_state['id'], 'resume': 'must'}
+        if resume_state.get('workspace'):
+            resume_kwargs['workspace'] = resume_state['workspace']
+    return swanlab.init(project=project, experiment_name=save_str, config=vars(args),
+                        **resume_kwargs)
