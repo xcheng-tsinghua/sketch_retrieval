@@ -15,6 +15,9 @@ def parse_args(argv=None):
     parser.add_argument('--num_workers', type=int, default=8, help='数据加载进程数')
     parser.add_argument('--cache_mode', choices=['shared', 'none'], default='shared',
                         help='shared: 全量共享内存缓存当前照片与草图；none: 按需读取文件')
+    parser.add_argument('--cache_dir', default=os.environ.get('SBIR_CACHE_DIR', '.cache/sbir'),
+                        help='持久缓存目录，建议本地SSD；空字符串禁用持久化')
+    parser.add_argument('--cache_rebuild', action='store_true', help='重新生成并覆盖持久缓存')
     parser.add_argument('--weight_dir', type=str, default='model_trained', help='输出目录')
 
     parser.add_argument('--sketch_model', '--model', type=str, default='vit', choices=['vit', 'gat', 'gcn', 'glcn', 'lstm', 'bidir_lstm', 'sdgraph', 'sdgraph_attn', 'sketch_transformer', 'gru', 'bidir_gru', 'resnet18', 'resnet34', 'densenet121', 'densenet169'], help='草图Encoder的名字')

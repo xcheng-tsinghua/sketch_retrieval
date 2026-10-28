@@ -33,6 +33,7 @@ def main(args):
             # and relocating the dataset/checkpoint on another machine.
             runtime_keys = {'epoch', 'checkpoint', 'weight_dir', 'local', 'root_local',
                             'root_sever', 'eval_only', 'is_load_ckpt', 'cache_mode',
+                            'cache_dir', 'cache_rebuild',
                             'is_load_config', 'is_save_config', 'configs_dir', 'configs_name'}
             for key, value in saved_args.items():
                 if key not in runtime_keys and hasattr(args, key):
@@ -64,6 +65,7 @@ def main(args):
 
     # 预加载数据集
     pre_load = retrieval_datasets.preload_from_args(args)
+    cache_preload = pre_load  # Preserve the full union before seed-dependent mixing.
     if not args.eval_only:
         original_count = len(pre_load.train_pairs)
         pre_load = mix_training_split(pre_load, args.test_mix_ratio, args.seed)
@@ -83,7 +85,8 @@ def main(args):
         sketch_format=encoder_info['sketch_format'],
         is_full_train=False,
         task=args.task, n_pos=args.n_pos, n_neg=args.n_neg,
-        cache_mode=args.cache_mode
+        cache_mode=args.cache_mode, cache_dir=args.cache_dir,
+        cache_rebuild=args.cache_rebuild, cache_preload=cache_preload
     )
 
     # 创建模型

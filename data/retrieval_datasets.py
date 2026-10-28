@@ -442,6 +442,7 @@ def create_sketch_image_dataloaders(batch_size,
                                     task,  # ['cl', 'fg']
                                     n_pos=1, n_neg=8,
                                     cache_mode='shared',
+                                    cache_dir='', cache_rebuild=False, cache_preload=None,
                                     ):
     """
     创建训练和测试数据加载器
@@ -515,14 +516,25 @@ def create_sketch_image_dataloaders(batch_size,
         # The factory uses deterministic Resize + ToTensor transforms only.
         # Future random augmentation must be applied AFTER retrieving cached data.
         datasets = (train_dataset, test_dataset)
+        image_paths = [path for dataset in datasets for path in dataset.image_list]
+        sketch_paths = [path for dataset in datasets for path, _ in dataset.sketch_list_with_id]
+        if cache_dir and cache_preload is not None:
+            image_paths.extend(path for path, _ in cache_preload.train_images + cache_preload.test_images)
+            sketch_paths.extend(row[0] for row in cache_preload.train_pairs + cache_preload.test_pairs)
+        cache_options = dict(cache_dir=cache_dir, rebuild=cache_rebuild)
         image_cache = SharedTensorCache(
-            [path for dataset in datasets for path in dataset.image_list],
-            train_dataset.image_loader, image=True, name='photos')
-        fmt = options.parse_sketch_format(sketch_format)['fmt']
+            image_paths, train_dataset.image_loader, image=True, name='photos',
+            signature='rgb-white-alpha-resize224-bilinear-totensor-v1', **cache_options)
+        parsed_format = options.parse_sketch_format(sketch_format)
+        fmt = parsed_format['fmt']
+        # Model hyperparameters (heads, hidden_dim, etc.) do not affect input preprocessing.
+        signature = {'fmt': fmt, 'preprocess_version': 1}
+        for key in {'s3 -> s5': ('max_length',), 'stk': ('n_stk', 'n_stk_pnt')}.get(fmt, ()):
+            signature[key] = parsed_format[key]
         sketch_cache = SharedTensorCache(
-            [path for dataset in datasets for path, _ in dataset.sketch_list_with_id],
+            sketch_paths,
             train_dataset.sketch_loader, image=fmt in ('img', 's3 -> img'),
-            grayscale=fmt == 's3 -> img', name='sketches')
+            grayscale=fmt == 's3 -> img', name='sketches', signature=signature, **cache_options)
         for dataset in datasets:
             dataset.image_loader = image_cache
             dataset.sketch_loader = sketch_cache
