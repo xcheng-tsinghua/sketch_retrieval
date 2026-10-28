@@ -89,6 +89,8 @@ python train.py --sketch_model=vit --root_sever=/opt/data/private/data_set/sketc
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=92 && \
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=48 && \
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=69 && \
+
+nohup bash -c '
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=83 && \
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=5 && \
 
@@ -102,7 +104,9 @@ python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/dat
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=48 && \
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=69 && \
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=83 && \
-python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=5 && \
+python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gcn --seed=5
+' > out.log 2>&1 &
+tail -f out.log
 
 
 
