@@ -54,7 +54,7 @@ def parse_args(argv=None):
     # training
     parser.add_argument('--test_mix_ratio', type=float, default=0.05,
                         help='训练样本中测试集占比，0到1，默认0；总数不变，测试样本不足时有放回抽样')
-    parser.add_argument('--epoch', type=int, default=3000, help='最大训练轮数')
+    parser.add_argument('--epoch', type=int, default=70, help='最大训练轮数')
     parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, default='True', choices=['True', 'False'], help='冻结图像编码器')
