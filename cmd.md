@@ -2,6 +2,7 @@ cd /opt/data/private/networks/sketch_retrieval/ && conda activate dp
 
 git pull && git status && git add . && git commit -m "change" && git push
 
+pkill -9 -f "python train.py"
 
 ## 查看 nohup 的进程输出
 tail -f nohup.out
@@ -152,7 +153,7 @@ tail -f out_fg_zs.log
 
 
 
-
+// 2026.10.30
 
 nohup bash -c '
 python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gat --seed=69 && \
@@ -168,10 +169,10 @@ python train.py --task=cl --is_zero_shot=True --root_sever=/opt/data/private/dat
 tail -f out.log
 
 
-// 2026.10.30
+
+
 
 nohup bash -c '
-python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=92 && \
 python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=48 && \
 python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=69 && \
 python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=sdgraph --seed=83 && \
