@@ -142,8 +142,8 @@ supported_encoders = {
     },
 
     'sdgraph': {
-        'sketch_format': 'fmt: stk, n_stk: 11, n_stk_pnt: 32',
-        'sketch_subdir': 'sketch_stk11_stkpnt32',
+        'sketch_format': 'fmt: stk, n_stk: 12, n_stk_pnt: 32',
+        'sketch_subdir': 'sketch_stk12_stkpnt32',
         'image_subdir': 'photo',
     },
 

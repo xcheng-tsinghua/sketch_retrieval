@@ -209,6 +209,69 @@ python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/da
 python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gat --seed=48
 
 
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=lstm --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=bidir_lstm --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gru --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=bidir_gru --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gcn --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gat --seed=69
 
+
+// 2026.11.8
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=lstm --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_lstm --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gru --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_gru --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gcn --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gat --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=sdgraph --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=lstm --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_lstm --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gru --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_gru --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gcn --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gat --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=sdgraph --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=lstm --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_lstm --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gru --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_gru --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gcn --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gat --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=sdgraph --seed=69
+
+
+
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=lstm --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_lstm --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gru --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_gru --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gcn --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gat --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=lstm --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_lstm --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gru --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_gru --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gcn --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gat --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=lstm --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_lstm --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gru --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=bidir_gru --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gcn --seed=69 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/shoe --sketch_model=gat --seed=69
+
+
+// 2026.11.8
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gru --seed=92 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gru --seed=48 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gru --seed=69 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gru --seed=83 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=gru --seed=5 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=bidir_gru --seed=92 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=bidir_gru --seed=48 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=bidir_gru --seed=69 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=bidir_gru --seed=83 && \
+python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/data_set/sketch_retrieval/sketchy --sketch_model=bidir_gru --seed=5
 
 
