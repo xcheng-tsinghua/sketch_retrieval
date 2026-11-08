@@ -1,4 +1,5 @@
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -32,8 +33,50 @@ class CheckpointFailureTests(unittest.TestCase):
             self.assertEqual(len(trainer.train_losses), 2)
             self.assertTrue(Path(trainer.check_point + '.tmp').exists())
             self.assertTrue(trainer.save_checkpoint())
+            self.assertTrue(trainer.wait_for_checkpoint())
             saved = torch.load(trainer.check_point, weights_only=True)
             self.assertEqual(saved['epoch'], 2)
+
+    def test_busy_skips_and_snapshot_is_independent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trainer = self.make_trainer(Path(tmp))
+            trainer.train_losses = [1.]
+            trainer.model(torch.ones(1, 2)).sum().backward()
+            trainer.optimizer.step()
+            expected = trainer.model.weight.detach().clone()
+            moment = next(iter(trainer.optimizer.state.values()))['exp_avg']
+            expected_moment = moment.clone()
+            entered, release = threading.Event(), threading.Event()
+            original = trainer._save_checkpoint
+
+            def slow_save(checkpoint, is_best):
+                entered.set()
+                if not release.wait(10):
+                    raise RuntimeError('test writer timeout')
+                original(checkpoint, is_best)
+
+            trainer.logger = Mock()
+            with patch.object(trainer, '_save_checkpoint', side_effect=slow_save):
+                try:
+                    self.assertTrue(trainer.save_checkpoint(True))
+                    self.assertTrue(entered.wait(5))
+                    with torch.no_grad():
+                        trainer.model.weight.add_(100)
+                        moment.add_(100)
+                    trainer.train_losses.append(2.)
+                    trainer.current_epoch = 1
+                    with patch.object(trainer, '_build_checkpoint', side_effect=AssertionError('must skip')):
+                        self.assertFalse(trainer.save_checkpoint(True))
+                    trainer.logger.warning.assert_called_once()
+                finally:
+                    release.set()
+                    trainer.wait_for_checkpoint()
+            saved = torch.load(trainer.check_point, weights_only=True)
+            torch.testing.assert_close(saved['model_state_dict']['weight'], expected)
+            actual_moment = next(iter(saved['optimizer_state_dict']['state'].values()))['exp_avg']
+            torch.testing.assert_close(actual_moment, expected_moment)
+            self.assertEqual(saved['train_losses'], [1.])
+            self.assertEqual(saved['epoch'], 1)
 
     def test_write_and_warning_failure_do_not_raise(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -41,13 +84,15 @@ class CheckpointFailureTests(unittest.TestCase):
             trainer.logger = Mock()
             trainer.logger.warning.side_effect = OSError('log filesystem unavailable')
             with patch('utils.trainer.torch.save', side_effect=RuntimeError('write failed')):
-                self.assertFalse(trainer.save_checkpoint(True))
+                self.assertTrue(trainer.save_checkpoint(True))
+                self.assertFalse(trainer.wait_for_checkpoint())
             trainer.logger.warning.assert_called_once()
 
     def test_best_publish_failure_preserves_previous_best(self):
         with tempfile.TemporaryDirectory() as tmp:
             trainer = self.make_trainer(Path(tmp))
             self.assertTrue(trainer.save_checkpoint(True))
+            self.assertTrue(trainer.wait_for_checkpoint())
             previous = Path(trainer.check_point_best).read_bytes()
             trainer.current_epoch = 1
             import os
@@ -59,7 +104,8 @@ class CheckpointFailureTests(unittest.TestCase):
                 return replace(src, dst)
 
             with patch('utils.trainer.os.replace', side_effect=fail_best):
-                self.assertFalse(trainer.save_checkpoint(True))
+                self.assertTrue(trainer.save_checkpoint(True))
+                self.assertFalse(trainer.wait_for_checkpoint())
             self.assertEqual(Path(trainer.check_point_best).read_bytes(), previous)
             self.assertTrue(Path(trainer.check_point_best + '.tmp').exists())
             self.assertEqual(torch.load(trainer.check_point, weights_only=True)['epoch'], 2)

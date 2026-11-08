@@ -1,4 +1,6 @@
 import os
+import copy
+import threading
 import random
 import warnings
 import torch
@@ -63,6 +65,9 @@ class SBIRTrainer:
         self.swanlab_state = None
         self.training_args = None
         self.pending_rng_state = None
+        self._checkpoint_lock = threading.Lock()
+        self._checkpoint_thread = None
+        self._checkpoint_success = None
 
         self.model.to(self.device)
 
@@ -360,31 +365,83 @@ class SBIRTrainer:
         fig.tight_layout()
         plt.show()
 
-    def save_checkpoint(self, is_best=False):
-        """Best-effort saving: a failed checkpoint must not stop training."""
+    def _checkpoint_warning(self, message):
         try:
-            self._save_checkpoint(is_best=is_best)
+            print(message, flush=True)
+        except Exception:
+            pass
+        try:
+            if self.logger is not None:
+                self.logger.warning(message)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _checkpoint_snapshot(checkpoint):
+        # deepcopy preserves OrderedDict metadata and mutable Python state.
+        # Clone every tensor to CPU first so the writer never sees live weights.
+        memo = {}
+
+        def collect(value):
+            if isinstance(value, torch.Tensor):
+                if id(value) not in memo:
+                    memo[id(value)] = value.detach().to('cpu', copy=True)
+            elif isinstance(value, dict):
+                for item in value.values():
+                    collect(item)
+            elif isinstance(value, (list, tuple)):
+                for item in value:
+                    collect(item)
+
+        collect(checkpoint)
+        return copy.deepcopy(checkpoint, memo)
+
+    def save_checkpoint(self, is_best=False):
+        """Return whether a background save was accepted, not whether it succeeded."""
+        epoch = self.current_epoch + 1
+        if not self._checkpoint_lock.acquire(blocking=False):
+            self._checkpoint_warning(
+                f'Checkpoint save skipped at epoch {epoch}: previous save is still '
+                'running; continuing training without queueing another snapshot.')
+            return False
+        try:
+            checkpoint = self._checkpoint_snapshot(self._build_checkpoint())
+            self._checkpoint_success = None
+            thread = threading.Thread(target=self._checkpoint_worker,
+                                      args=(checkpoint, is_best),
+                                      name='checkpoint-writer', daemon=False)
+            self._checkpoint_thread = thread
+            thread.start()
             return True
         except Exception as exc:
-            message = (f'Checkpoint save failed at epoch {self.current_epoch + 1}; '
-                       f'skipping this save and continuing training. '
-                       f'Path: {self.check_point}; {type(exc).__name__}: {exc}. '
-                       'Any temporary checkpoint is retained for recovery.')
-            # Logging may use the same failing filesystem. Neither reporting
-            # destination should turn a recoverable save error into a crash.
-            try:
-                print(message, flush=True)
-            except Exception:
-                pass
-            try:
-                if self.logger is not None:
-                    self.logger.warning(message)
-            except Exception:
-                pass
+            self._checkpoint_success = False
+            self._checkpoint_thread = None
+            self._checkpoint_lock.release()
+            self._checkpoint_warning(f'Checkpoint snapshot failed at epoch {epoch}: '
+                                     f'{type(exc).__name__}: {exc}; continuing training.')
             return False
 
-    def _save_checkpoint(self, is_best=False):
-        """Serialize and publish checkpoints; errors handled by save_checkpoint."""
+    def _checkpoint_worker(self, checkpoint, is_best):
+        try:
+            self._save_checkpoint(checkpoint, is_best)
+            self._checkpoint_success = True
+        except Exception as exc:
+            self._checkpoint_success = False
+            self._checkpoint_warning(
+                f'Checkpoint save failed at epoch {checkpoint["epoch"]}; skipping this '
+                f'save and continuing training. Path: {self.check_point}; '
+                f'{type(exc).__name__}: {exc}. Any temporary checkpoint is retained.')
+        finally:
+            self._checkpoint_lock.release()
+
+    def wait_for_checkpoint(self):
+        """Drain the accepted save on shutdown or before reading its files."""
+        thread = self._checkpoint_thread
+        if thread is not None:
+            thread.join()
+        return self._checkpoint_success
+
+    def _build_checkpoint(self):
         checkpoint = {
             'epoch': self.current_epoch + 1,
             'model_state_dict': self.model.state_dict(),
@@ -407,6 +464,9 @@ class SBIRTrainer:
             'neg_instance': getattr(getattr(self.train_loader, 'dataset', None), 'neg_instance', None),
             'rng_state': self.capture_rng_state(),
         }
+        return checkpoint
+
+    def _save_checkpoint(self, checkpoint, is_best=False):
         temporary = self.check_point + '.tmp'
         torch.save(checkpoint, temporary)
         os.replace(temporary, self.check_point)
@@ -477,6 +537,12 @@ class SBIRTrainer:
         return True
 
     def train(self):
+        try:
+            return self._train_loop()
+        finally:
+            self.wait_for_checkpoint()
+
+    def _train_loop(self):
         """开始训练"""
         print(Fore.CYAN + 'start training SBIR model' + Style.RESET_ALL)
 

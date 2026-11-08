@@ -143,6 +143,7 @@ class RetrievalTests(unittest.TestCase):
             trainer.current_epoch = 2
             trainer.best_acc = .6
             trainer.save_checkpoint(True)
+            trainer.wait_for_checkpoint()
             resumed = SBIRTrainer(model=torch.nn.Linear(2, 2), **kwargs)
             self.assertTrue(resumed.load_checkpoint(kwargs['check_point'], True))
             self.assertEqual(resumed.current_epoch, 3)
