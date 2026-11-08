@@ -191,8 +191,13 @@ python train.py --task=fg --is_zero_shot=True --root_sever=/opt/data/private/dat
 tail -f out_fg_zs.log
 
 
-
-
+// 2026.11.8
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=lstm --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=bidir_lstm --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gru --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=bidir_gru --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gcn --seed=92 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gat --seed=92
 
 
 
