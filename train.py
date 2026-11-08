@@ -6,6 +6,7 @@ import os
 import random
 import json
 import warnings
+import copy
 import numpy as np
 import torch
 from datetime import datetime
@@ -20,18 +21,18 @@ import options
 from utils.training_policy import mix_training_split, early_stop_policy
 
 
-def main(args):
-    check_point = args.checkpoint or utils.get_check_point(args.weight_dir, utils.get_save_str(args))
+def prepare_training(args):
+    check_point = utils.get_check_point(args.weight_dir, utils.get_save_str(args))
     resume_requested = not args.eval_only and eval(args.is_load_ckpt)
-    if args.checkpoint and (resume_requested or args.eval_only) and not os.path.isfile(check_point):
+    if (resume_requested or args.eval_only) and not os.path.isfile(check_point):
         raise FileNotFoundError(check_point)
-    if resume_requested and os.path.isfile(check_point):
+    if resume_requested:
         checkpoint = torch.load(check_point, map_location='cpu', weights_only=True)
         saved_args = checkpoint.get('training_args')
         if saved_args:
             # Rebuild the same model, split and loaders; allow extending the epoch limit
-            # and relocating the dataset/checkpoint on another machine.
-            runtime_keys = {'epoch', 'checkpoint', 'weight_dir', 'local', 'root_local',
+            # and relocating the dataset on another machine.
+            runtime_keys = {'epoch', 'weight_dir', 'local', 'root_local',
                             'root_sever', 'eval_only', 'is_load_ckpt', 'cache_mode',
                             'cache_dir', 'cache_rebuild',
                             'is_load_config', 'is_save_config', 'configs_dir', 'configs_name'}
@@ -42,6 +43,13 @@ def main(args):
             raise RuntimeError('This checkpoint has no SwanLab run ID. It cannot automatically '
                                'resume the original experiment; specify --swanlab_run_id and '
                                '--swanlab_project for the original experiment.')
+        swanlab_state = checkpoint.get('swanlab')
+        if swanlab_state and (not isinstance(swanlab_state, dict) or
+                              not isinstance(swanlab_state.get('id'), str) or
+                              not swanlab_state.get('id') or
+                              not isinstance(swanlab_state.get('project'), str) or
+                              not swanlab_state.get('project')):
+            raise ValueError('Checkpoint contains invalid SwanLab experiment metadata')
         if not saved_args:
             warnings.warn('Legacy checkpoint has no training arguments; use the original training options')
         del checkpoint
@@ -119,6 +127,36 @@ def main(args):
     # 恢复训练（如果指定）
     loaded = model_trainer.load_checkpoint(check_point, args.eval_only or eval(args.is_load_ckpt),
                                           is_load_training_state=not args.eval_only)
+    if resume_requested:
+        if not loaded:
+            raise RuntimeError(f'Checkpoint could not be loaded: {check_point}')
+        # Validate random states before committing to resumption or creating a cloud run.
+        model_trainer.restore_rng_state()
+        model_trainer.pending_rng_state = model_trainer.capture_rng_state()
+    return model_trainer, loaded, logger
+
+
+def main(args):
+    original_args = copy.deepcopy(args)
+    args = copy.deepcopy(original_args)
+    resume_requested = not args.eval_only and eval(args.is_load_ckpt)
+    restart_from_scratch = False
+    try:
+        model_trainer, loaded, logger = prepare_training(args)
+    except Exception as error:
+        if not resume_requested:
+            raise
+        check_point = utils.get_check_point(original_args.weight_dir, utils.get_save_str(original_args))
+        warnings.warn(f'Cannot resume checkpoint {check_point}: {error}. '
+                      'Starting a new training run from scratch.', RuntimeWarning)
+        # Discard the entire partially restored model/optimizer/data and checkpoint arguments.
+        # Rebuilding also resets the random seeds and creates a fresh SwanLab experiment.
+        args = copy.deepcopy(original_args)
+        args.is_load_ckpt = 'False'
+        restart_from_scratch = True
+    # Leave the exception handler first so its traceback releases the failed model.
+    if restart_from_scratch:
+        model_trainer, loaded, logger = prepare_training(args)
     if args.eval_only:
         if not loaded:
             raise RuntimeError('Evaluation requires a valid checkpoint')

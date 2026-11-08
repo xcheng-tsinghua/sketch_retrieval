@@ -43,7 +43,6 @@ def parse_args(argv=None):
     parser.add_argument('--n_neg', type=int, default=8)
     parser.add_argument('--eval_chunk_size', type=int, default=128)
     parser.add_argument('--eval_only', action='store_true', help='Evaluate a checkpoint without training')
-    parser.add_argument('--checkpoint', default='', help='Explicit checkpoint path')
     parser.add_argument('--pretrained', choices=['True', 'False'], default='True')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='是否本地运行')
@@ -54,7 +53,7 @@ def parse_args(argv=None):
     # training
     parser.add_argument('--test_mix_ratio', type=float, default=0.15,
                         help='训练样本中测试集占比，0到1，默认0；总数不变，测试样本不足时有放回抽样')
-    parser.add_argument('--epoch', type=int, default=20, help='最大训练轮数')
+    parser.add_argument('--epoch', type=int, default=50, help='最大训练轮数')
     parser.add_argument('--lr', type=float, default=1e-4, help='学习率')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='权重衰减')
     parser.add_argument('--is_freeze_image_encoder', type=str, default='True', choices=['True', 'False'], help='冻结图像编码器')

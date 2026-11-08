@@ -11,21 +11,22 @@ project 默认是 `{FG或CL}_{ZS_SBIR或SBIR}_{数据集}`，例如
 `FG_ZS_SBIR_sketchy`、`FG_SBIR_qmul_chair`、`CL_SBIR_qmul_shoe`；
 根据 `--local` 选择的根目录识别数据集（不区分大小写，也支持 `qmul_v2_fit/chair` 和 `qmul_v2_fit/shoe`）。
 可用 `--swanlab_project` 覆盖。run name 使用 `save_str`，末尾追加 `_{seed}_{test_mix_ratio}`；
-`--seed` 默认 42，同时控制训练与数据划分。旧权重可通过 `--checkpoint` 显式指定。
+`--seed` 默认 42，同时控制训练与数据划分。检查点统一按 `weight_dir/save_str.pth` 查找和保存。
 每个 epoch 记录训练 loss、学习率、全部验证指标与最佳分数；训练退出时关闭 SwanLab run。
 `--eval_only` 保持仅本地评估，不创建 SwanLab run。
 
 恢复训练时，新检查点会恢复模型、优化器、学习率调度器、下一轮 epoch、指标历史、
 最佳分数、早停状态，以及 Python / NumPy / PyTorch CPU / CUDA 随机数状态。
 保存的训练参数会用于重建模型、数据划分和加载器；可通过 `--epoch` 延长总轮数，
-数据根目录和检查点路径仍可按当前机器指定。数据内容、软件环境和硬件应保持一致；
+数据根目录和 `--weight_dir` 仍可按当前机器指定。数据内容、软件环境和硬件应保持一致；
 不保证非确定性 CUDA 算子的逐位复现。
 每个完整 epoch 都原子替换最新检查点，恢复从该 epoch 的下一轮开始，不恢复轮内 batch 进度。
 达到早停阈值的检查点恢复后不会继续训练。
 
 SwanLab 实验 ID、project 和 workspace 随检查点保存，恢复使用 `resume='must'`
 续写同一实验，step 继续使用 epoch 数；原实验不存在或无法访问时直接报错。
-训练状态损坏也会直接报错，不再悄悄以部分状态继续训练。
+`--is_load_ckpt True` 时，检查点不存在、损坏或无法恢复会发出警告，使用本次参数重新初始化全部训练状态，并创建新的 SwanLab 实验。
+`--eval_only` 加载失败仍会报错，不会转为训练。
 旧检查点没有实验 ID 时，需指定 `--swanlab_run_id 原实验ID --swanlab_project 原项目名`，
 团队实验还需 `--swanlab_workspace 原工作区`，并传入原训练参数。
 旧文件缺失的随机数状态无法补回，因此旧检查点只能尽可能恢复，不能保证完全复现。
@@ -157,7 +158,7 @@ CL 按 mAP、FG 按 Acc@1 保存 `_best.pth`，每轮都检查是否改善。
 仅评估已有 checkpoint（不训练）：
 
 ```powershell
-python train.py --is_load_config True --configs_name sketchy_cl_zs.yaml --eval_only --checkpoint model_trained/your_checkpoint_best.pth
+python train.py --is_load_config True --configs_name sketchy_cl_zs.yaml --eval_only --weight_dir model_trained
 ```
 
 编码器和 `embed_dim` 等结构参数必须与 checkpoint 一致。`--eval_only` 不再加载预训练初始权重。

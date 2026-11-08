@@ -192,12 +192,21 @@ tail -f out_fg_zs.log
 
 
 // 2026.11.8
+随机种子： 92,48,69,83,5s
 python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=lstm --seed=92 && \
 python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=bidir_lstm --seed=92 && \
 python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gru --seed=92 && \
 python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=bidir_gru --seed=92 && \
 python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gcn --seed=92 && \
 python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gat --seed=92
+
+
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=lstm --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=bidir_lstm --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gru --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=bidir_gru --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gcn --seed=48 && \
+python train.py --task=fg --is_zero_shot=False --root_sever=/opt/data/private/data_set/sketch_retrieval/qmul_v2_fit/chair --sketch_model=gat --seed=48
 
 
 
