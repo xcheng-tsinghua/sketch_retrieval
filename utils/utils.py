@@ -369,6 +369,9 @@ def get_save_str(args):
     pair_mode = '_single_pair' if args.pair_mode == 'single_pair' else ''
     add_str = '_' + args.add_str if args.add_str != '' else ''
     retrieval_mode = 'zs_sbir' if eval(args.is_zero_shot) else 'sbir'
+    root = args.root_local if str(args.local).lower() == 'true' else args.root_sever
+    dataset_name = str(root).replace('\\', '/').rstrip('/').rsplit('/', 1)[-1].lower()
+    dataset_name = {'qmul_shoe': 'shoe', 'qmul_chair': 'chair'}.get(dataset_name, dataset_name)
 
     save_str = (args.sketch_model + '_' +
                 args.image_model + '_' +
@@ -376,7 +379,8 @@ def get_save_str(args):
                 retrieval_mode +
                 is_full_train +
                 pair_mode +
-                add_str + '_' + str(args.seed) + '_' + str(args.test_mix_ratio))
+                add_str + '_' + str(args.seed) + '_' + str(args.test_mix_ratio) +
+                '_' + dataset_name)
 
     return save_str
 
